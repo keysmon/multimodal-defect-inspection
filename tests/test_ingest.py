@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from defectlens.ingest import ManifestRow, apply_caps, scan_dataset, write_manifest, read_manifest
 from defectlens.taxonomy import load_mapping
 
@@ -60,3 +62,32 @@ def test_manifest_roundtrip(tmp_path):
     out = tmp_path / "manifest.csv"
     write_manifest(rows, out)
     assert read_manifest(out) == rows
+
+
+def test_apply_caps_stable_when_other_groups_added():
+    base = [ManifestRow(f"data/raw/s/l/{i}.jpg", "s", "l", "crack") for i in range(10)]
+    extra = [ManifestRow(f"data/raw/a/l/{i}.jpg", "a", "l", "crack") for i in range(10)]
+    caps = {"s": {"l": 4}, "a": {"l": 4}}
+    only = apply_caps(base, caps, seed=17)
+    both = apply_caps(base + extra, caps, seed=17)
+    assert [r for r in only if r.source_dataset == "s"] == [
+        r for r in both if r.source_dataset == "s"
+    ]
+
+
+def test_scan_raises_on_broken_symlink(tmp_path):
+    repo = make_raw(tmp_path)
+    d = repo / "data" / "raw" / "bd3" / "algae"
+    (d / "broken.jpg").symlink_to(repo / "nonexistent.jpg")
+    mapping = load_mapping(repo / "configs" / "mapping.yaml")
+    with pytest.raises(FileNotFoundError, match="Broken symlink"):
+        scan_dataset(repo, "bd3", mapping)
+
+
+def test_scan_raises_on_double_labeled(tmp_path):
+    repo = make_raw(tmp_path)
+    real = repo / "data" / "raw" / "bd3" / "algae" / "a1.jpg"
+    (repo / "data" / "raw" / "bd3" / "normal" / "dup.jpg").symlink_to(real)
+    mapping = load_mapping(repo / "configs" / "mapping.yaml")
+    with pytest.raises(ValueError, match="two labels"):
+        scan_dataset(repo, "bd3", mapping)
