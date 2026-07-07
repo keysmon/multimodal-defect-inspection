@@ -1,4 +1,10 @@
-"""Evaluation metrics: per-class / macro top-k accuracy, confusion matrix."""
+"""Evaluation metrics: per-class / macro top-k accuracy, confusion matrix.
+
+Inputs are assumed pre-validated upstream (taxonomy.load_mapping guarantees
+unified labels come from UNIFIED_CLASSES). Labels outside `classes` are
+ignored by per_class_topk_accuracy and raise KeyError in confusion_matrix —
+if taxonomy validation is ever loosened, revisit these functions.
+"""
 from __future__ import annotations
 
 import math
@@ -23,9 +29,14 @@ def per_class_topk_accuracy(
 def macro_topk_accuracy(
     y_true: list[str], ranked_preds: list[list[str]], classes: list[str], k: int
 ) -> float:
-    """Mean of per-class accuracies over classes that appear in y_true."""
+    """Mean of per-class accuracies over classes that appear in y_true.
+
+    Returns NaN when no class in `classes` has any samples.
+    """
     per = per_class_topk_accuracy(y_true, ranked_preds, classes, k)
     vals = [v for v in per.values() if not math.isnan(v)]
+    if not vals:
+        return float("nan")
     return sum(vals) / len(vals)
 
 

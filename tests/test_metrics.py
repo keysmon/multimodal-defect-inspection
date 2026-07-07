@@ -1,5 +1,7 @@
 import math
 
+import pytest
+
 from defectlens.metrics import (
     confusion_matrix,
     macro_topk_accuracy,
@@ -40,3 +42,19 @@ def test_confusion_matrix():
     assert m[0][1] == 1  # a predicted b
     assert m[1][1] == 1  # b predicted b
     assert sum(sum(row) for row in m) == 3
+
+
+def test_macro_empty_inputs_returns_nan():
+    assert math.isnan(macro_topk_accuracy([], [], CLASSES, k=1))
+
+
+def test_mismatched_lengths_raise():
+    with pytest.raises(ValueError):
+        per_class_topk_accuracy(["a", "b"], [["a"]], CLASSES, k=1)
+    with pytest.raises(ValueError):
+        confusion_matrix(["a", "b"], ["a"], CLASSES)
+
+
+def test_confusion_matrix_unknown_label_raises():
+    with pytest.raises(KeyError):
+        confusion_matrix(["z"], ["a"], CLASSES)
