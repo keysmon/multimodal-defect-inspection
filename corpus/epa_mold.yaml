@@ -1,3 +1,5 @@
+# Note: cards cite EPA 402-K-01-001 Chapters 1-3 and EPA's 'Mold Cleanup in Your Home'
+# page (epa.gov/mold/mold-cleanup-your-home); source.url points at the primary chapter.
 source:
   name: "EPA — Mold Remediation Guidance"
   url: "https://www.epa.gov/mold/mold-remediation-schools-and-commercial-buildings-guide-chapter-1"
@@ -358,7 +360,7 @@ cards:
   - id: epa-mold-028
     title: "Deteriorated building envelope allowing water intrusion"
     class_tags: [water_damage]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "cracked caulking and flashing allowing water intrusion at a building joint"
     passage: >
       Gaps in caulking, deteriorated flashing, or other breaches in the building envelope
@@ -374,7 +376,7 @@ cards:
   - id: epa-mold-029
     title: "Healthy indoor humidity maintained in the recommended range"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "indoor hygrometer reading within the healthy 30 to 50 percent humidity range"
     passage: >
       An indoor relative humidity reading in the 30 to 50 percent range, well below the
@@ -387,7 +389,7 @@ cards:
   - id: epa-mold-030
     title: "Clean, dry wall surface with no moisture indicators"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "clean, dry drywall surface with no staining, discoloration, or musty odor"
     passage: >
       A wall or ceiling surface that is dry to the touch, free of staining, and has no
@@ -399,7 +401,7 @@ cards:
   - id: epa-mold-031
     title: "HVAC condensate drip pans clean and draining properly"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "clean HVAC condensate drip pan draining freely with no standing water"
     passage: >
       A condensate drip pan that is clean, unobstructed, and draining properly reflects
@@ -411,7 +413,7 @@ cards:
   - id: epa-mold-032
     title: "Well-ventilated bathroom with no recurring mold"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "well-ventilated bathroom with a dry ceiling and no mold spots around fixtures"
     passage: >
       A bathroom with an exhaust fan or window used regularly during and after showers,
@@ -424,7 +426,7 @@ cards:
   - id: epa-mold-033
     title: "Building air quality consistent with a healthy, mold-free space"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "fresh-smelling interior space with no visible mold and no musty odor"
     passage: >
       A space with no musty odor, no visible mold growth, and no history of unresolved
@@ -437,7 +439,7 @@ cards:
   - id: epa-mold-034
     title: "Foundation with proper grading and no water pooling"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "properly graded ground sloping away from a dry, unstained foundation wall"
     passage: >
       Soil that slopes away from the foundation and gutters that discharge well clear of
@@ -449,7 +451,7 @@ cards:
   - id: epa-mold-035
     title: "Dry wall cavity confirmed during routine inspection"
     class_tags: [no_defect]
-    severity: monitor
+    severity: cosmetic
     index_sentence: "dry wall cavity behind a fixture confirmed clean during a routine inspection"
     passage: >
       Opening or probing a wall cavity behind a fixture or finish and finding it dry, with

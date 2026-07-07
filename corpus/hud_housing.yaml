@@ -1,3 +1,6 @@
+# Note: cards cite individual HUD NSPIRE standard PDFs (Foundation, Wall, Leak,
+# Retaining Wall, Lead-Based Paint, Terms & Definitions) hosted under
+# hud.gov/reac/nspire-standards; source.url points at the REAC landing page.
 source:
   name: "HUD REAC/NSPIRE Inspection Standards"
   url: "https://www.hud.gov/program_offices/public_indian_housing/reac"

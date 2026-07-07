@@ -1,3 +1,6 @@
+# Note: cards cite the SOP plus named nachi.org library articles (efflorescence,
+# moisture intrusion, visual inspection of concrete, exterior inspection PDFs);
+# source.url points at the SOP as the primary document.
 source:
   name: "InterNACHI Standards of Practice & Library"
   url: "https://www.nachi.org/sop.htm"
@@ -848,8 +851,8 @@ cards:
       as ridge and soffit vents or gable vents, and no staining or mold visible on the
       sheathing supports a finding of no deficiency observed for insulation and
       ventilation. The Standards of Practice require inspectors to describe the type and
-      approximate average depth of insulation observed and to report only the general
-      absence of insulation or ventilation as defective, so an attic meeting these
+      approximate average depth of insulation observed, and treat a space as deficient
+      only when insulation or ventilation is broadly missing, so an attic meeting these
       expectations needs no further corrective recommendation. This finding reflects
       visible conditions only and does not quantify insulation R-value.
     citation: "InterNACHI SOP §3.9"

@@ -1,3 +1,5 @@
+# Note: cards cite the FHWA Bridge Inspector's Reference Manual (2023, hosted at
+# source.url) AND NPS Preservation Briefs 1 & 39 (nps.gov); ~23 cards cite the Briefs.
 source:
   name: "Concrete & Masonry Defect Engineering References"
   url: "https://www.dot.state.mn.us/bridge/reference-manual.html"
@@ -24,8 +26,8 @@ cards:
     index_sentence: "diagonal crack angling upward from a beam support toward midspan"
     passage: >
       Shear cracks develop from diagonal tension in the web of a beam or slab near its supports,
-      where shear stress is highest, and typically begin at the bottom of the member and angle
-      upward toward the center. Because they signal a loss of shear capacity rather than ordinary
+      where shear stress is highest; they usually originate low on the member near the bearing
+      and climb diagonally toward midspan. Because they signal a loss of shear capacity rather than ordinary
       bending distress, diagonal cracks near supports warrant careful measurement and engineering
       evaluation rather than routine monitoring alone. Similar diagonal cracking can appear in
       abutment backwalls, pier caps, columns, and footings.
