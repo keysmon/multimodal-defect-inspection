@@ -56,6 +56,10 @@ mappings:
     source_label: normal
     unified_label: no_defect
     rationale: non-defective wall surfaces
+  - source_dataset: bd3
+    source_label: plain
+    unified_label: no_defect
+    rationale: Kaggle BD3_original_dataset names the no-defect class 'plain' (GitHub docs say 'normal')
 
   # ---- Roboflow building-defect-on-walls (OPTIONAL dataset) ----
   - source_dataset: roboflow_walls

@@ -155,6 +155,7 @@ def test_real_mapping_file_is_valid_and_complete():
         ("bd3", "spalling"),
         ("bd3", "stain"),
         ("bd3", "normal"),
+        ("bd3", "plain"),
         ("roboflow_walls", "crack"),
         ("roboflow_walls", "mold"),
         ("roboflow_walls", "peeling_paint"),

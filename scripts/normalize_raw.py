@@ -20,7 +20,7 @@ DATASET_LABELS: dict[str, set[str]] = {
     },
     "bd3": {
         "algae", "major_crack", "minor_crack", "peeling",
-        "spalling", "stain", "normal",
+        "spalling", "stain", "normal", "plain",
     },
     "roboflow_walls": {
         "crack", "mold", "peeling_paint", "stairstep_crack", "water_seepage",
