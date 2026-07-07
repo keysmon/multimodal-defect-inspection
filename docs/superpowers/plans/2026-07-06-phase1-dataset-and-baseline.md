@@ -1478,7 +1478,12 @@ git commit -m "feat: per-class spot-check protocol tooling (manual QA passed)"
 ```python
 import numpy as np
 
-from defectlens.eval.clip_zeroshot import expand_prompts, rank_from_similarity
+from defectlens.eval.clip_zeroshot import _nan_to_none, expand_prompts, rank_from_similarity
+
+
+def test_nan_to_none():
+    assert _nan_to_none(float("nan")) is None
+    assert _nan_to_none(0.5) == 0.5
 
 
 def test_expand_prompts():
@@ -1545,6 +1550,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -1571,6 +1577,11 @@ def rank_from_similarity(sims: np.ndarray, classes: list[str]) -> list[list[str]
     """sims: [n_images, n_classes] -> per-image class ranking, best first."""
     order = np.argsort(-sims, axis=1)
     return [[classes[j] for j in row] for row in order]
+
+
+def _nan_to_none(value: float) -> float | None:
+    """NaN (absent class) -> null in JSON; json.dumps NaN is invalid per RFC 8259."""
+    return None if math.isnan(value) else value
 
 
 def pick_device() -> str:
@@ -1629,20 +1640,22 @@ def main() -> None:
     ranked = rank_from_similarity(sims, UNIFIED_CLASSES)
     top1 = [r[0] for r in ranked]
 
+    per1 = per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1)
+    per3 = per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3)
     results = {
         "model": cfg["model"],
         "manifest": str(args.manifest),
         "n_images": len(rows),
-        "macro_top1": macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1),
-        "macro_top3": macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3),
-        "per_class_top1": per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1),
-        "per_class_top3": per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3),
+        "macro_top1": _nan_to_none(macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1)),
+        "macro_top3": _nan_to_none(macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3)),
+        "per_class_top1": {c: _nan_to_none(v) for c, v in per1.items()},
+        "per_class_top3": {c: _nan_to_none(v) for c, v in per3.items()},
         "confusion_matrix": confusion_matrix(y_true, top1, UNIFIED_CLASSES),
         "classes": UNIFIED_CLASSES,
     }
     args.out_dir.mkdir(exist_ok=True)
     out_json = args.out_dir / "clip_zeroshot_baseline.json"
-    out_json.write_text(json.dumps(results, indent=2))
+    out_json.write_text(json.dumps(results, indent=2, allow_nan=False))
     print(f"macro top-1: {results['macro_top1']:.3f}  macro top-3: {results['macro_top3']:.3f}")
     print(f"Wrote {out_json}")
 
@@ -1674,7 +1687,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_clip_zeroshot.py -v`
-Expected: 2 passed.
+Expected: 3 passed.
 
 - [ ] **Step 5: Run the full test suite**
 
