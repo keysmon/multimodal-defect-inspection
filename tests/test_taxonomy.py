@@ -99,6 +99,46 @@ mappings:
         map_label(mapping, "bd3", "never_seen")
 
 
+def test_missing_mappings_key_rejected(tmp_path):
+    p = write_mapping(tmp_path, "not_mappings: []\n")
+    with pytest.raises(ValueError, match="mappings"):
+        load_mapping(p)
+
+
+def test_empty_file_rejected(tmp_path):
+    p = write_mapping(tmp_path, "")
+    with pytest.raises(ValueError, match="mappings"):
+        load_mapping(p)
+
+
+def test_entry_missing_required_key_rejected(tmp_path):
+    p = write_mapping(
+        tmp_path,
+        """
+mappings:
+  - source_dataset: bd3
+    unified_label: mold_algae
+    rationale: missing source_label
+""",
+    )
+    with pytest.raises(ValueError, match="source_label"):
+        load_mapping(p)
+
+
+def test_entry_missing_rationale_rejected(tmp_path):
+    p = write_mapping(
+        tmp_path,
+        """
+mappings:
+  - source_dataset: bd3
+    source_label: algae
+    unified_label: mold_algae
+""",
+    )
+    with pytest.raises(ValueError, match="rationale"):
+        load_mapping(p)
+
+
 def test_real_mapping_file_is_valid_and_complete():
     mapping = load_mapping(REAL_MAPPING)
     expected_sources = {
