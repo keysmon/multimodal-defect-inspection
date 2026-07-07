@@ -1083,36 +1083,59 @@ def scan_dataset(repo_root: Path, dataset_name: str, mapping: LabelMapping) -> l
     if not dataset_dir.is_dir():
         raise FileNotFoundError(f"{dataset_dir} not found — run scripts/normalize_raw.py")
     rows: list[ManifestRow] = []
+    seen_real: dict[Path, str] = {}  # integrity re-check, independent of verify_raw
     for label_dir in sorted(d for d in dataset_dir.iterdir() if d.is_dir()):
         unified = map_label(mapping, dataset_name, label_dir.name)
         if unified is None:
             continue
         for img in sorted(label_dir.rglob("*")):
-            if img.suffix.lower() in IMAGE_EXTS and img.is_file():
-                rows.append(
-                    ManifestRow(
-                        image_path=img.relative_to(repo_root).as_posix(),
-                        source_dataset=dataset_name,
-                        source_label=label_dir.name,
-                        unified_label=unified,
-                    )
+            if img.suffix.lower() not in IMAGE_EXTS:
+                continue
+            if img.is_symlink() and not img.exists():
+                raise FileNotFoundError(
+                    f"Broken symlink {img} — re-run scripts/normalize_raw.py "
+                    "(scripts/verify_raw.py gives a full report)"
                 )
+            if not img.is_file():
+                continue
+            real = img.resolve()
+            other = seen_real.get(real)
+            if other is not None and other != label_dir.name:
+                raise ValueError(
+                    f"{real} is reachable from two labels ('{other}', "
+                    f"'{label_dir.name}') — raw tree is double-labeled "
+                    "(scripts/verify_raw.py gives a full report)"
+                )
+            seen_real[real] = label_dir.name
+            rows.append(
+                ManifestRow(
+                    image_path=img.relative_to(repo_root).as_posix(),
+                    source_dataset=dataset_name,
+                    source_label=label_dir.name,
+                    unified_label=unified,
+                )
+            )
     return rows
 
 
 def apply_caps(
     rows: list[ManifestRow], caps: dict[str, dict[str, int]], seed: int
 ) -> list[ManifestRow]:
-    """Deterministically subsample groups exceeding their cap."""
+    """Deterministically subsample groups exceeding their cap.
+
+    Each group gets its own RNG seeded from (seed, dataset, label), so a
+    group's sample is stable regardless of which other datasets or groups
+    exist in the manifest — required by the frozen-split contract.
+    """
     grouped: dict[tuple[str, str], list[ManifestRow]] = defaultdict(list)
     for r in rows:
         grouped[(r.source_dataset, r.source_label)].append(r)
-    rng = random.Random(seed)
     out: list[ManifestRow] = []
     for key in sorted(grouped):
         group = sorted(grouped[key], key=lambda r: r.image_path)
         cap = caps.get(key[0], {}).get(key[1])
         if cap is not None and len(group) > cap:
+            rng = random.Random(f"{seed}:{key[0]}:{key[1]}")
             group = rng.sample(group, cap)
         out.extend(group)
     return sorted(out, key=lambda r: r.image_path)
@@ -1233,6 +1256,15 @@ def test_small_groups_get_test_representation():
     rows = make_rows("d1", "efflorescence", 5)
     train, test = stratified_split(rows, test_fraction=0.15, seed=42)
     assert len(test) >= 1
+
+
+def test_split_stable_when_other_datasets_added():
+    """Frozen-split contract: adding a dataset must not reshuffle existing groups."""
+    rows = make_rows("d1", "crack", 100)
+    extra = make_rows("a_new", "spalling", 50)
+    _, test_a = stratified_split(rows, test_fraction=0.2, seed=42)
+    _, test_b = stratified_split(rows + extra, test_fraction=0.2, seed=42)
+    assert test_a == [r for r in test_b if r.source_dataset == "d1"]
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1263,11 +1295,14 @@ def stratified_split(
     grouped: dict[tuple[str, str], list[ManifestRow]] = defaultdict(list)
     for r in rows:
         grouped[(r.source_dataset, r.unified_label)].append(r)
-    rng = random.Random(seed)
     train: list[ManifestRow] = []
     test: list[ManifestRow] = []
     for key in sorted(grouped):
         group = sorted(grouped[key], key=lambda r: r.image_path)
+        # Per-group RNG: split membership must not depend on which other
+        # datasets exist (frozen-split contract; string seeding is
+        # SHA-512-based and PYTHONHASHSEED-immune).
+        rng = random.Random(f"{seed}:{key[0]}:{key[1]}")
         rng.shuffle(group)
         n_test = round(len(group) * test_fraction)
         if len(group) >= 4:
@@ -1310,7 +1345,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_split.py -v`
-Expected: 4 passed.
+Expected: 5 passed.
 
 - [ ] **Step 5: Freeze the real split and commit it**
 
