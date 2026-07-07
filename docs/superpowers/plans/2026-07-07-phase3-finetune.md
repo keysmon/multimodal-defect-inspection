@@ -38,7 +38,7 @@
 ## Task 4: Data packaging + S3
 
 **Files:** `scripts/package_data.py`
-- Tar exactly the manifest-referenced images (resolve symlinks): `train_images.tar` (~3-4GB), `test_images.tar` (~700MB) + manifests + configs → `s3://defectlens-002559670021/phase3/` (create bucket us-east-1, private, `--profile defectlens`).
+- Tar exactly the manifest-referenced images (resolve symlinks): `train_images.tar` (~3-4GB), `test_images.tar` (~700MB) + manifests + configs → `s3://defectlens-phase3-002559670021/phase3/` (create bucket us-east-1, private, `--profile defectlens`).
 
 ## Task 5: Launch runbook + bootstrap
 
