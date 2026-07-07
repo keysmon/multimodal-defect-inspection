@@ -1,0 +1,141 @@
+{
+  "model": "openai/clip-vit-large-patch14",
+  "manifest": "data/manifests/test.csv",
+  "n_images": 2648,
+  "macro_top1": 0.47173726952588524,
+  "macro_top3": 0.7474199762229028,
+  "per_class_top1": {
+    "crack": 0.8471454880294659,
+    "spalling": 0.1487603305785124,
+    "efflorescence": 0.5,
+    "exposed_rebar": 0.25,
+    "corrosion_stain": 0.3333333333333333,
+    "mold_algae": 0.7956989247311828,
+    "water_damage": 0.4358974358974359,
+    "peeling_paint": 0.7692307692307693,
+    "no_defect": 0.16556914393226718
+  },
+  "per_class_top3": {
+    "crack": 0.9631675874769797,
+    "spalling": 0.7768595041322314,
+    "efflorescence": 0.7948717948717948,
+    "exposed_rebar": 0.3333333333333333,
+    "corrosion_stain": 0.5384615384615384,
+    "mold_algae": 0.9139784946236559,
+    "water_damage": 0.8333333333333334,
+    "peeling_paint": 0.9358974358974359,
+    "no_defect": 0.6368767638758231
+  },
+  "confusion_matrix": [
+    [
+      920,
+      22,
+      55,
+      1,
+      6,
+      3,
+      5,
+      51,
+      23
+    ],
+    [
+      51,
+      18,
+      6,
+      10,
+      4,
+      4,
+      5,
+      22,
+      1
+    ],
+    [
+      18,
+      5,
+      39,
+      2,
+      3,
+      1,
+      0,
+      10,
+      0
+    ],
+    [
+      4,
+      0,
+      0,
+      3,
+      4,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      8,
+      1,
+      4,
+      0,
+      13,
+      3,
+      1,
+      8,
+      1
+    ],
+    [
+      4,
+      2,
+      0,
+      0,
+      3,
+      74,
+      8,
+      1,
+      1
+    ],
+    [
+      6,
+      0,
+      0,
+      0,
+      2,
+      7,
+      34,
+      23,
+      6
+    ],
+    [
+      5,
+      1,
+      1,
+      0,
+      0,
+      4,
+      7,
+      60,
+      0
+    ],
+    [
+      461,
+      43,
+      186,
+      14,
+      28,
+      3,
+      10,
+      142,
+      176
+    ]
+  ],
+  "classes": [
+    "crack",
+    "spalling",
+    "efflorescence",
+    "exposed_rebar",
+    "corrosion_stain",
+    "mold_algae",
+    "water_damage",
+    "peeling_paint",
+    "no_defect"
+  ]
+}
