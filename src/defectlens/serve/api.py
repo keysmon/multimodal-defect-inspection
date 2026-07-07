@@ -1,0 +1,181 @@
+"""FastAPI serving app (spec §7). Interim classifier: measured CLIP-fused pipeline."""
+from __future__ import annotations
+
+import os
+from contextlib import asynccontextmanager
+from io import BytesIO
+from typing import Any
+
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
+from pydantic import BaseModel
+
+from defectlens.rag.retrieve import Hit, query_by_text
+
+# ---------------------------------------------------------------------------
+# Config (env-driven; no hardcoded URLs elsewhere in this module)
+# ---------------------------------------------------------------------------
+
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "DEFECTLENS_CORS_ORIGINS", "http://localhost:3000"
+    ).split(",")
+    if origin.strip()
+]
+
+
+class TextSearcher:
+    """Text-vector retrieval that reuses the Recognizer's already-loaded CLIP
+    model/processor/device and DB connection.
+
+    /search needs the same CLIP text-encoding path the Recognizer used to
+    build its prompt features at load() time — rather than loading a second
+    CLIP instance just to serve text queries, TextSearcher wraps the already
+    loaded Recognizer and delegates to rag.retrieve.query_by_text. Production
+    wiring constructs it in the lifespan handler after Recognizer.load();
+    tests bypass it entirely by injecting a stub with a `.search(query, k)`
+    method.
+    """
+
+    def __init__(self, recognizer: Any) -> None:
+        self._recognizer = recognizer
+
+    def search(self, query: str, k: int = 5) -> list[Hit]:
+        r = self._recognizer
+        return query_by_text(r.conn, r.lookup, r.model, r.processor, r.device, query, k=k)
+
+
+class SearchRequest(BaseModel):
+    query: str
+
+
+def _card_to_dict(card: Any) -> dict:
+    return {
+        "id": card.id,
+        "title": card.title,
+        "passage": card.passage,
+        "severity": card.severity,
+        "citation": card.citation,
+        "source_name": card.source_name,
+        "source_url": card.source_url,
+    }
+
+
+def create_app(
+    recognizer: Any = None,
+    describer: Any = None,
+    text_searcher: Any = None,
+) -> FastAPI:
+    """App factory. Pass stubs directly for tests (stored on app.state as-is,
+    no lifespan-triggered loading needed since TestClient without `with` never
+    runs lifespan). Production wiring (module-level `app = create_app()`)
+    leaves all three None; the lifespan handler below loads the real,
+    heavyweight components exactly once on ASGI startup.
+    """
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if app.state.recognizer is None:
+            from defectlens.serve.recognizer import Recognizer
+
+            r = Recognizer()
+            r.load()
+            app.state.recognizer = r
+        if app.state.describer is None:
+            from defectlens.serve.describer import Describer
+
+            d = Describer()
+            d.load()
+            app.state.describer = d
+        if app.state.text_searcher is None:
+            app.state.text_searcher = TextSearcher(app.state.recognizer)
+        yield
+
+    app = FastAPI(lifespan=lifespan)
+    app.state.recognizer = recognizer
+    app.state.describer = describer
+    app.state.text_searcher = text_searcher
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.post("/analyze")
+    async def analyze(request: Request, file: UploadFile = File(...)) -> dict:
+        data = await file.read()
+        try:
+            img = Image.open(BytesIO(data))
+            img.load()  # force full decode; catches truncated/corrupt payloads
+            img = img.convert("RGB")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+            ) from exc
+
+        recognizer = request.app.state.recognizer
+        describer = request.app.state.describer
+
+        result = recognizer.analyze_image_bytes(data, k=5)
+        top_labels = [label for label, _score in result.classes[:3]]
+        description = describer.describe(img, top_labels)
+
+        return {
+            "classes": [{"label": label, "score": score} for label, score in result.classes],
+            "severity": result.severity,
+            "description": description,
+            "cards": [_card_to_dict(hit.card) for hit in result.hits],
+        }
+
+    @app.post("/search")
+    async def search(payload: SearchRequest, request: Request) -> dict:
+        text_searcher = request.app.state.text_searcher
+        hits = text_searcher.search(payload.query, k=5)
+        return {"cards": [_card_to_dict(hit.card) for hit in hits]}
+
+    @app.get("/health")
+    async def health(request: Request) -> dict:
+        recognizer = request.app.state.recognizer
+        describer = request.app.state.describer
+
+        db_ok = False
+        cards_indexed = 0
+        if recognizer is not None:
+            try:
+                row = recognizer.conn.execute(
+                    "SELECT count(*) FROM card_vectors"
+                ).fetchone()
+                cards_indexed = row[0]
+                db_ok = True
+            except Exception:
+                db_ok = False
+                cards_indexed = 0
+
+        vlm_loaded = bool(describer is not None and getattr(describer, "model", None) is not None)
+
+        return {
+            "status": "ok" if db_ok else "degraded",
+            "db": db_ok,
+            "cards_indexed": cards_indexed,
+            "vlm_loaded": vlm_loaded,
+        }
+
+    return app
+
+
+app = create_app()
+
+
+def main() -> None:
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    main()
