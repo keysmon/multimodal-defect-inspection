@@ -48,12 +48,22 @@ def pick_device() -> str:
     return "cpu"
 
 
+def _features(out) -> torch.Tensor:
+    """Unwrap get_text_features/get_image_features across transformers versions.
+
+    v4 returns the projected features tensor directly; v5 returns a
+    BaseModelOutputWithPooling whose pooler_output has been REPLACED with the
+    projected features (verified against transformers 5.13.0 source).
+    """
+    return out if isinstance(out, torch.Tensor) else out.pooler_output
+
+
 def build_text_features(model, processor, prompts: dict[str, list[str]], device: str):
     feats = []
     for cls in UNIFIED_CLASSES:
         inputs = processor(text=prompts[cls], padding=True, return_tensors="pt").to(device)
         with torch.no_grad():
-            emb = model.get_text_features(**inputs)
+            emb = _features(model.get_text_features(**inputs))
         emb = emb / emb.norm(dim=-1, keepdim=True)
         feats.append(emb.mean(dim=0))
     feats = torch.stack(feats)
@@ -89,7 +99,7 @@ def main() -> None:
         images = [Image.open(r.image_path).convert("RGB") for r in batch]
         inputs = processor(images=images, return_tensors="pt").to(device)
         with torch.no_grad():
-            emb = model.get_image_features(**inputs)
+            emb = _features(model.get_image_features(**inputs))
         emb = emb / emb.norm(dim=-1, keepdim=True)
         all_sims.append((emb @ text_feats.T).cpu().numpy())
     sims = np.concatenate(all_sims)

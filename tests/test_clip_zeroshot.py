@@ -23,3 +23,17 @@ def test_rank_from_similarity():
     ranked = rank_from_similarity(sims, classes)
     assert ranked[0] == ["c", "a", "b"]
     assert ranked[1] == ["a", "b", "c"]
+
+
+def test_features_unwraps_v4_tensor_and_v5_output():
+    import torch
+
+    from defectlens.eval.clip_zeroshot import _features
+
+    t = torch.ones(2, 3)
+    assert _features(t) is t
+
+    class FakeV5Output:
+        pooler_output = t
+
+    assert _features(FakeV5Output()) is t
