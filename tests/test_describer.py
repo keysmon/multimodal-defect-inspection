@@ -66,6 +66,18 @@ def test_describe_returns_empty_string_when_not_loaded(monkeypatch):
     assert d.describe(object(), ["crack"]) == ""
 
 
+def test_load_is_a_noop_when_disabled_no_model_download(monkeypatch):
+    """The RAM-saving guarantee: load() must not import torch/transformers or
+    touch the network when DEFECTLENS_NO_VLM=1 — this is the core purpose of
+    the disable switch, not just describe()'s degrade path."""
+    monkeypatch.setenv("DEFECTLENS_NO_VLM", "1")
+    d = Describer()
+    d.load()
+    assert d.model is None
+    assert d.processor is None
+    assert d.device is None
+
+
 # ---------------------------------------------------------------------------
 # _decode_tail — pure trimming/decoding helper, tested with simple fakes
 # ---------------------------------------------------------------------------
