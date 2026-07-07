@@ -9,7 +9,28 @@ Design spec: `docs/superpowers/specs/2026-07-06-defect-lens-design.md`
 
 Phase 1 (dataset unification + CLIP zero-shot baseline) — **complete**.
 Phase 2 (cross-modal RAG over inspection-standards corpus) — **complete**.
-Next: Phase 3 (Qwen2.5-VL-3B LoRA fine-tune on AWS).
+Phase 4 (local serving + React UI) — **complete** (pulled ahead of Phase 3).
+Phase 3 (Qwen2.5-VL-3B LoRA fine-tune on AWS) — on hold pending GPU-quota + go-ahead.
+
+## The Product
+
+![DefectLens analyze view](docs/images/defectlens-analyze.png)
+
+Upload a defect photo → ranked defect classes, severity band, natural-language
+condition description (Qwen2.5-VL-3B on Apple Silicon; optional), and cited
+guidance cards drawn from the 205-card standards corpus. Text search covers the
+same corpus. One-click markdown report export. (~17s/analyze with the VLM on an
+M3 Pro — most of it Qwen generation; ~1s with DEFECTLENS_NO_VLM=1.)
+
+**Run it locally:**
+
+    docker compose up -d db                  # pgvector (indexed corpus)
+    uvicorn defectlens.serve.api:app --port 8000   # DEFECTLENS_NO_VLM=1 to skip the 7GB VLM
+    cd frontend && npm install && npm start  # http://localhost:3000
+
+Interim classifier note: until the Phase 3 fine-tune lands, class ranking uses
+the measured CLIP RRF-fusion pipeline (recall@5 0.863 on the frozen test split)
+— the fine-tuned VLM will replace it behind the same API contract.
 
 ## Phase 2 Results — Cross-Modal RAG
 

@@ -1,4 +1,5 @@
 annotated-doc==0.0.4
+annotated-types==0.7.0
 anyio==4.14.1
 attrs==26.1.0
 bleach==6.4.0
@@ -7,7 +8,8 @@ charset-normalizer==3.4.8
 click==8.4.2
 contourpy==1.3.3
 cycler==0.12.1
--e git+https://github.com/keysmon/defect-lens.git@719885447c9677ab34af70cae1cf94305e472996#egg=defectlens
+-e git+https://github.com/keysmon/defect-lens.git@b200190f8417eb25b86a5b391dd84a2928ffba7d#egg=defectlens
+fastapi==0.139.0
 fastjsonschema==2.21.2
 filelock==3.29.6
 fonttools==4.63.0
@@ -44,11 +46,14 @@ pluggy==1.6.0
 protobuf==7.35.1
 psycopg==3.3.4
 psycopg-binary==3.3.4
+pydantic==2.13.4
+pydantic_core==2.46.4
 Pygments==2.20.0
 pyparsing==3.3.2
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
+python-multipart==0.0.32
 python-slugify==8.0.4
 PyYAML==6.0.3
 referencing==0.37.0
@@ -59,14 +64,18 @@ rpds-py==2026.6.3
 safetensors==0.8.0
 shellingham==1.5.4
 six==1.17.0
+starlette==1.3.1
 sympy==1.14.0
 text-unidecode==1.3
 tokenizers==0.22.2
 torch==2.12.1
+torchvision==0.27.1
 tqdm==4.68.3
 traitlets==5.15.1
 transformers==5.13.0
 typer==0.26.8
+typing-inspection==0.4.2
 typing_extensions==4.16.0
 urllib3==2.7.0
+uvicorn==0.50.2
 webencodings==0.5.1
