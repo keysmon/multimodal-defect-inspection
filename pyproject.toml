@@ -9,7 +9,7 @@ description = "Building-defect inspection assistant — dataset pipeline, eval, 
 requires-python = ">=3.11"
 dependencies = [
     "torch>=2.3",
-    "transformers>=4.49",
+    "transformers>=5.0",  # v5 APIs assumed: output objects (_features), dtype= kwarg
     "pillow>=10.0",
     "pyyaml>=6.0",
     "numpy>=1.26",
