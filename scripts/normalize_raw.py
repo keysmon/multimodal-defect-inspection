@@ -78,6 +78,7 @@ def normalize_generic(source: Path, dest: Path, labels: set[str]) -> int:
     n = 0
     for d in sorted(matched):
         label = match_label(d.name, labels)
+        assert label is not None  # d ∈ matched ⇒ its name matched a label
         n += _link_images(d, dest / label, rel_root=source)
     return n
 
