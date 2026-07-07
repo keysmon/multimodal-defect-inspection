@@ -250,10 +250,16 @@ def load_base_model(quant: str):
         # --quant none local path.
         return prepare_model_for_kbit_training(model)
     if quant == "none":
-        # fp32 (not fp16): fp16 optimizer state is unstable on MPS, and this
-        # path is only ever a 20-step local correctness check.
+        # bf16 base weights: fp32 weights alone are ~15GB (3.75B params) and
+        # OOM an 18GB MPS machine (verified 2026-07-07 — identical OOM at the
+        # loss step regardless of image budget). M3+ supports bf16 natively;
+        # LoRA adapter params stay fp32 via peft's autocast_adapter_dtype, so
+        # optimizer states are fp32 where it matters. CPU stays fp32.
+        import torch as _torch
+
+        dtype = _torch.bfloat16 if _torch.backends.mps.is_available() else _torch.float32
         return Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            QWEN_MODEL, dtype=torch.float32
+            QWEN_MODEL, dtype=dtype
         )
     raise SystemExit(f"--quant must be '4bit' or 'none', got {quant!r}")
 
