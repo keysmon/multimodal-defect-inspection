@@ -1674,14 +1674,20 @@ Append to `README.md`:
 
 Fill in the two numbers from `results/clip_zeroshot_baseline.json` (3 decimal places).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Freeze the environment for reproducibility** (from Task 1 code review: lower-bound pins alone can't reproduce baseline numbers on a fresh machine)
 
 ```bash
-git add results/clip_zeroshot_baseline.json results/clip_zeroshot_confusion.png README.md
+source .venv/bin/activate && pip freeze > requirements-lock.txt
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add results/clip_zeroshot_baseline.json results/clip_zeroshot_confusion.png README.md requirements-lock.txt
 git commit -m "feat: CLIP zero-shot baseline on frozen test split"
 ```
 
-- [ ] **Step 4: Phase 1 exit review**
+- [ ] **Step 5: Phase 1 exit review**
 
 Verify against spec §8 week-1 exit criteria:
 - [ ] `data/manifests/test.csv` frozen and committed
