@@ -1,0 +1,132 @@
+#!/bin/bash
+# DefectLens Phase 3 GPU training bootstrap — runs as EC2 user-data on a
+# Deep Learning AMI (PyTorch, Ubuntu, us-east-1) GPU spot instance.
+#
+# NOT meant to be run directly: scripts/aws/launch_gpu.sh prepends an
+# `export` header (S3_BUCKET, AWS_REGION, TRAIN_ARGS) before this script's
+# contents and passes the concatenation as --user-data.
+#
+# Expected env (set by the header launch_gpu.sh prepends):
+#   S3_BUCKET                required, e.g. defectlens-phase3-002559670021
+#   AWS_REGION                default us-east-1
+#   TRAIN_ARGS                 extra CLI args forwarded to defectlens.train.qlora
+#                               (e.g. "--max-steps 100 --save-steps 25")
+#   IDLE_TIMEOUT_SEC           default 1800 (30 min) - shutdown if no
+#                               checkpoint progress for this long
+#   CHECKPOINT_SYNC_INTERVAL   default 120 - seconds between background
+#                               checkpoint -> S3 syncs
+set -euxo pipefail
+
+: "${S3_BUCKET:?S3_BUCKET must be set by launch_gpu.sh}"
+: "${TRAIN_ARGS:=}"
+: "${AWS_REGION:=us-east-1}"
+: "${IDLE_TIMEOUT_SEC:=1800}"
+: "${CHECKPOINT_SYNC_INTERVAL:=120}"
+
+WORKDIR=/opt/defectlens-phase3
+CKPT_DIR="${WORKDIR}/checkpoints"
+LOG_FILE="${WORKDIR}/train.log"
+S3_PREFIX="s3://${S3_BUCKET}/phase3"
+
+mkdir -p "$WORKDIR" "$CKPT_DIR"
+
+# Safety net: no matter how this script exits (success, training crash,
+# unhandled error under `set -e`), always shut the box down so a bug never
+# leaves a paid GPU instance running unattended.
+shutdown_now() { sudo shutdown -h now || true; }
+trap shutdown_now EXIT
+
+echo "== syncing phase3 package from ${S3_PREFIX} =="
+aws s3 sync "${S3_PREFIX}/" "${WORKDIR}/dist/" --region "$AWS_REGION"
+
+echo "== extracting image tars + manifests/configs into a repo-shaped tree =="
+mkdir -p "${WORKDIR}/repo/data/manifests" "${WORKDIR}/repo/configs"
+tar -xf "${WORKDIR}/dist/train_images.tar" -C "${WORKDIR}/repo"
+tar -xf "${WORKDIR}/dist/test_images.tar" -C "${WORKDIR}/repo"
+cp "${WORKDIR}/dist/manifests/train.csv" "${WORKDIR}/repo/data/manifests/train.csv"
+cp "${WORKDIR}/dist/manifests/test.csv" "${WORKDIR}/repo/data/manifests/test.csv"
+cp "${WORKDIR}/dist/configs/label_mapping.yaml" "${WORKDIR}/repo/configs/label_mapping.yaml"
+
+echo "== activating DLAMI PyTorch environment =="
+# DLAMI ships a conda env named "pytorch" (Ubuntu OSS-driver DLAMI, 2024+).
+# Fall back to whatever python3 is on PATH if conda isn't where expected, so
+# a future AMI naming change fails at pip-install time with a clear error
+# rather than silently no-op-ing this block.
+if [[ -f /opt/conda/etc/profile.d/conda.sh ]]; then
+  # shellcheck source=/dev/null
+  source /opt/conda/etc/profile.d/conda.sh
+  conda activate pytorch
+fi
+python3 --version
+nvidia-smi || echo "WARNING: nvidia-smi not found — GPU may not be attached/ready"
+
+echo "== installing project wheel + GPU-only deps =="
+WHEEL=$(ls "${WORKDIR}/dist/"defectlens-*.whl | head -n1)
+pip install "$WHEEL"
+pip install bitsandbytes  # CUDA-only dep, not in pyproject.toml (lazy-imported)
+
+echo "== starting background checkpoint sync (every ${CHECKPOINT_SYNC_INTERVAL}s) =="
+(
+  while true; do
+    sleep "$CHECKPOINT_SYNC_INTERVAL"
+    aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || true
+  done
+) &
+SYNC_PID=$!
+
+echo "== starting idle-safety watchdog (shutdown after ${IDLE_TIMEOUT_SEC}s with no checkpoint progress) =="
+(
+  last_mtime=0
+  idle_since=$(date +%s)
+  while true; do
+    sleep 60
+    newest=$(find "$CKPT_DIR" -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1)
+    newest="${newest:-0}"
+    now=$(date +%s)
+    if [[ "$newest" != "$last_mtime" ]]; then
+      last_mtime="$newest"
+      idle_since="$now"
+    elif (( now - idle_since > IDLE_TIMEOUT_SEC )); then
+      echo "idle watchdog: no checkpoint progress for ${IDLE_TIMEOUT_SEC}s, shutting down"
+      sudo shutdown -h now
+    fi
+  done
+) &
+WATCHDOG_PID=$!
+
+echo "== training =="
+cd "${WORKDIR}/repo"
+set +e
+python3 -m defectlens.train.qlora \
+  --quant 4bit \
+  --train-manifest data/manifests/train.csv \
+  --output-dir "$CKPT_DIR" \
+  $TRAIN_ARGS \
+  2>&1 | tee "$LOG_FILE"
+TRAIN_EXIT=${PIPESTATUS[0]}
+set -e
+
+kill "$WATCHDOG_PID" 2>/dev/null || true
+
+echo "== final checkpoint sync =="
+aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || true
+
+if [[ "$TRAIN_EXIT" -eq 0 ]]; then
+  echo "== training succeeded — running eval on frozen test split =="
+  python3 -m defectlens.eval.vlm_topk \
+    --test-manifest data/manifests/test.csv \
+    --adapter "${CKPT_DIR}/adapter" \
+    --out-dir "$WORKDIR" \
+    --out-name eval_results.json || echo "WARNING: eval step failed, see train.log for training result"
+  if [[ -f "${WORKDIR}/eval_results.json" ]]; then
+    aws s3 cp "${WORKDIR}/eval_results.json" "${S3_PREFIX}/eval_results.json" --region "$AWS_REGION"
+  fi
+else
+  echo "== training FAILED (exit ${TRAIN_EXIT}) — skipping eval =="
+fi
+
+aws s3 cp "$LOG_FILE" "${S3_PREFIX}/train.log" --region "$AWS_REGION" || true
+kill "$SYNC_PID" 2>/dev/null || true
+
+echo "== bootstrap complete (train_exit=${TRAIN_EXIT}) =="
+# trap EXIT runs shutdown_now from here.
