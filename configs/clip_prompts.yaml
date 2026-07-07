@@ -1,0 +1,17 @@
+# Prompt-ensemble config for the CLIP zero-shot baseline (spec §5).
+model: openai/clip-vit-large-patch14
+templates:
+  - "a photo of {}"
+  - "a close-up photo of {}"
+  - "an inspection photo of {}"
+  - "{}"
+class_phrases:
+  crack: "a crack in a concrete or masonry surface"
+  spalling: "spalling concrete with the surface flaking or broken away"
+  efflorescence: "white efflorescence salt deposits on a concrete or brick wall"
+  exposed_rebar: "exposed steel reinforcement bars in damaged concrete"
+  corrosion_stain: "rust and corrosion stains on a concrete surface"
+  mold_algae: "mold or algae growth on a building wall"
+  water_damage: "water damage stains or moisture seepage on a wall"
+  peeling_paint: "peeling or flaking paint on a wall"
+  no_defect: "a clean undamaged building surface"
