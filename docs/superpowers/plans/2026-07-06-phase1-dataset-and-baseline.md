@@ -1480,10 +1480,10 @@ def sample_per_class(
     grouped: dict[str, list[ManifestRow]] = defaultdict(list)
     for r in rows:
         grouped[r.unified_label].append(r)
-    rng = random.Random(seed)
     picked: list[ManifestRow] = []
     for label in sorted(grouped):
         group = sorted(grouped[label], key=lambda r: r.image_path)
+        rng = random.Random(f"{seed}:{label}")  # per-class RNG (order-independence convention)
         k = min(n_per_class, len(group))
         picked.extend(rng.sample(group, k))
     return sorted(picked, key=lambda r: r.image_path)
