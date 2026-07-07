@@ -51,21 +51,33 @@ def _link_images(label_dir_src: Path, label_dir_dest: Path, rel_root: Path) -> i
             continue
         # Flatten relative path into the filename to avoid collisions.
         flat = "__".join(img.relative_to(rel_root).parts)
-        dest = label_dir_dest / flat
-        if not dest.exists():
-            dest.symlink_to(img.resolve())
+        dest_path = label_dir_dest / flat
+        if dest_path.is_symlink() and not dest_path.exists():
+            dest_path.unlink()  # dangling link from a moved/deleted source — relink
+        if not dest_path.exists():
+            dest_path.symlink_to(img.resolve())
             n += 1
     return n
 
 
 def normalize_generic(source: Path, dest: Path, labels: set[str]) -> int:
     """Find dirs anywhere under `source` whose name matches a known label;
-    symlink their images into dest/<canonical_label>/."""
+    symlink their images into dest/<canonical_label>/.
+
+    Refuses to run if a matched label dir is nested inside another matched
+    label dir — _link_images recurses, so nesting would silently link the
+    same image under two labels.
+    """
+    matched = {d for d in source.rglob("*") if d.is_dir() and match_label(d.name, labels)}
+    nested = sorted(str(d) for d in matched if any(a in matched for a in d.parents))
+    if nested:
+        raise SystemExit(
+            "Refusing to normalize: label directories nested inside other "
+            f"label directories (ambiguous labeling): {nested}"
+        )
     n = 0
-    for d in sorted(p for p in source.rglob("*") if p.is_dir()):
+    for d in sorted(matched):
         label = match_label(d.name, labels)
-        if label is None:
-            continue
         n += _link_images(d, dest / label, rel_root=source)
     return n
 
@@ -74,6 +86,8 @@ def normalize_sdnet(source: Path, dest: Path) -> int:
     """SDNET2018: {D,P,W}/{C*,U*}/*.jpg — C=cracked, U=non_cracked."""
     n = 0
     for sub in sorted(p for p in source.rglob("*") if p.is_dir()):
+        if sub.parent.name not in {"D", "P", "W"}:
+            continue
         if sub.name.upper().startswith("C") and len(sub.name) == 2:
             label = "cracked"
         elif sub.name.upper().startswith("U") and len(sub.name) == 2:
@@ -101,9 +115,12 @@ def main() -> None:
         n = normalize_generic(args.source, dest, DATASET_LABELS[args.dataset])
     print(f"Linked {n} images into {dest}")
     if n == 0:
-        raise SystemExit(
-            "No images linked — check that --source points at the extracted dataset."
-        )
+        existing = sum(1 for p in dest.rglob("*") if p.is_file())
+        if existing == 0:
+            raise SystemExit(
+                "No images linked — check that --source points at the extracted dataset."
+            )
+        print(f"(idempotent re-run: {existing} images already linked)")
 
 
 if __name__ == "__main__":

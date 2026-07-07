@@ -31,7 +31,7 @@ before re-running. Record whatever was needed in this file.
       kaggle datasets download praveenkottari/bd3-dataset-for-building-defect-detection -p ~/datasets/ --unzip
 
   (or download the zip in a logged-in browser and extract to `~/datasets/bd3/`)
-- Classes: algae, major_crack, minor_crack, peeling, spalling, stain, normal
+- Classes: algae, major_crack, minor_crack, peeling, plain (no-defect; GitHub docs call it 'normal'), spalling, stain
 
     python scripts/normalize_raw.py --dataset bd3 --source ~/datasets/bd3
 
