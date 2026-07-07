@@ -1,0 +1,90 @@
+# DefectLens unified label-mapping table (versioned; every change gets a rationale).
+# unified_label must be one of the 9 UNIFIED_CLASSES, or EXCLUDE to drop samples.
+mappings:
+  # ---- CODEBRIM (concrete bridge defects, single-label crops) ----
+  - source_dataset: codebrim
+    source_label: background
+    unified_label: no_defect
+    rationale: non-defective concrete background crops
+  - source_dataset: codebrim
+    source_label: crack
+    unified_label: crack
+    rationale: direct match
+  - source_dataset: codebrim
+    source_label: spallation
+    unified_label: spalling
+    rationale: same phenomenon, naming variant
+  - source_dataset: codebrim
+    source_label: efflorescence
+    unified_label: efflorescence
+    rationale: direct match
+  - source_dataset: codebrim
+    source_label: exposed_bars
+    unified_label: exposed_rebar
+    rationale: exposed reinforcement bars
+  - source_dataset: codebrim
+    source_label: corrosion_stain
+    unified_label: corrosion_stain
+    rationale: direct match
+
+  # ---- BD3 (building facade defects) ----
+  - source_dataset: bd3
+    source_label: algae
+    unified_label: mold_algae
+    rationale: biological growth; merged class per spec taxonomy
+  - source_dataset: bd3
+    source_label: major_crack
+    unified_label: crack
+    rationale: crack severity handled downstream, not as separate class
+  - source_dataset: bd3
+    source_label: minor_crack
+    unified_label: crack
+    rationale: crack severity handled downstream, not as separate class
+  - source_dataset: bd3
+    source_label: peeling
+    unified_label: peeling_paint
+    rationale: peeling paint/plaster on walls
+  - source_dataset: bd3
+    source_label: spalling
+    unified_label: spalling
+    rationale: direct match
+  - source_dataset: bd3
+    source_label: stain
+    unified_label: water_damage
+    rationale: BD3 stains are predominantly moisture/water staining; spot-check validates
+  - source_dataset: bd3
+    source_label: normal
+    unified_label: no_defect
+    rationale: non-defective wall surfaces
+
+  # ---- Roboflow building-defect-on-walls (OPTIONAL dataset) ----
+  - source_dataset: roboflow_walls
+    source_label: crack
+    unified_label: crack
+    rationale: direct match
+  - source_dataset: roboflow_walls
+    source_label: mold
+    unified_label: mold_algae
+    rationale: merged class per spec taxonomy
+  - source_dataset: roboflow_walls
+    source_label: peeling_paint
+    unified_label: peeling_paint
+    rationale: direct match
+  - source_dataset: roboflow_walls
+    source_label: stairstep_crack
+    unified_label: crack
+    rationale: stair-step masonry crack is a crack subtype
+  - source_dataset: roboflow_walls
+    source_label: water_seepage
+    unified_label: water_damage
+    rationale: direct match
+
+  # ---- SDNET2018 (concrete crack patches; C*=cracked, U*=uncracked) ----
+  - source_dataset: sdnet2018
+    source_label: cracked
+    unified_label: crack
+    rationale: binary crack dataset, crack side
+  - source_dataset: sdnet2018
+    source_label: non_cracked
+    unified_label: no_defect
+    rationale: abundant clean-concrete negatives; capped at ingest (configs/sampling.yaml)
