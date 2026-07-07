@@ -1,0 +1,48 @@
+"""Tests for stratified train/test split."""
+from defectlens.ingest import ManifestRow
+from defectlens.split import stratified_split
+
+
+def make_rows(dataset: str, label: str, n: int) -> list[ManifestRow]:
+    return [
+        ManifestRow(f"data/raw/{dataset}/{label}/{i}.jpg", dataset, label, label)
+        for i in range(n)
+    ]
+
+
+def test_split_is_disjoint_and_complete():
+    rows = make_rows("d1", "crack", 100) + make_rows("d2", "spalling", 50)
+    train, test = stratified_split(rows, test_fraction=0.2, seed=42)
+    assert len(train) + len(test) == 150
+    assert set(r.image_path for r in train).isdisjoint(r.image_path for r in test)
+
+
+def test_split_is_stratified():
+    rows = make_rows("d1", "crack", 100) + make_rows("d2", "spalling", 50)
+    train, test = stratified_split(rows, test_fraction=0.2, seed=42)
+    test_crack = sum(1 for r in test if r.unified_label == "crack")
+    test_spall = sum(1 for r in test if r.unified_label == "spalling")
+    assert test_crack == 20
+    assert test_spall == 10
+
+
+def test_split_is_deterministic():
+    rows = make_rows("d1", "crack", 100)
+    a = stratified_split(rows, test_fraction=0.2, seed=42)
+    b = stratified_split(rows, test_fraction=0.2, seed=42)
+    assert a == b
+
+
+def test_small_groups_get_test_representation():
+    rows = make_rows("d1", "efflorescence", 5)
+    train, test = stratified_split(rows, test_fraction=0.15, seed=42)
+    assert len(test) >= 1
+
+
+def test_split_stable_when_other_datasets_added():
+    """Frozen-split contract: adding a dataset must not reshuffle existing groups."""
+    rows = make_rows("d1", "crack", 100)
+    extra = make_rows("a_new", "spalling", 50)
+    _, test_a = stratified_split(rows, test_fraction=0.2, seed=42)
+    _, test_b = stratified_split(rows + extra, test_fraction=0.2, seed=42)
+    assert test_a == [r for r in test_b if r.source_dataset == "d1"]
