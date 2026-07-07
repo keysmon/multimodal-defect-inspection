@@ -5,3 +5,5 @@ __pycache__/
 .DS_Store
 data/raw/
 review_grid/
+frontend/node_modules/
+frontend/build/
