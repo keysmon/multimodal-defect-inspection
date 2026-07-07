@@ -27,7 +27,7 @@ REQUIRED_KEYS = ("source_dataset", "source_label", "unified_label", "rationale")
 def load_mapping(path: Path | str) -> LabelMapping:
     """Load and validate configs/label_mapping.yaml."""
     path = Path(path)
-    raw = yaml.safe_load(path.read_text())
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or not isinstance(raw.get("mappings"), list):
         raise ValueError(f"{path}: expected a top-level 'mappings' list")
     mapping: LabelMapping = {}
