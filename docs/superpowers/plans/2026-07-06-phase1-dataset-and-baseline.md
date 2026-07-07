@@ -1266,6 +1266,24 @@ def test_split_stable_when_other_datasets_added():
     _, test_a = stratified_split(rows, test_fraction=0.2, seed=42)
     _, test_b = stratified_split(rows + extra, test_fraction=0.2, seed=42)
     assert test_a == [r for r in test_b if r.source_dataset == "d1"]
+
+
+def test_frozen_split_artifacts_unchanged():
+    """Regression lock on the FROZEN split: 15,004/2,648 rows, 9 classes each.
+    (Requires read_manifest + UNIFIED_CLASSES imports and REPO_ROOT constant.)"""
+    train = read_manifest(REPO_ROOT / "data" / "manifests" / "train.csv")
+    test = read_manifest(REPO_ROOT / "data" / "manifests" / "test.csv")
+    assert len(train) == 15004
+    assert len(test) == 2648
+    assert {r.unified_label for r in test} == set(UNIFIED_CLASSES)
+    assert {r.unified_label for r in train} == set(UNIFIED_CLASSES)
+
+
+def test_tiny_groups_stay_in_train():
+    rows = make_rows("d1", "corrosion_stain", 3)
+    train, test = stratified_split(rows, test_fraction=0.15, seed=42)
+    assert len(train) == 3
+    assert len(test) == 0
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1308,10 +1326,15 @@ def stratified_split(
         n_test = round(len(group) * test_fraction)
         if len(group) >= 4:
             n_test = max(1, n_test)
+        # Groups of size <= 3 may get zero test rows by design: too small to
+        # split meaningfully, they stay train-only. A future rare-class dataset
+        # addition should raise the group above this threshold or accept it.
         test.extend(group[:n_test])
         train.extend(group[n_test:])
-    key = lambda r: r.image_path  # noqa: E731
-    return sorted(train, key=key), sorted(test, key=key)
+    return (
+        sorted(train, key=lambda r: r.image_path),
+        sorted(test, key=lambda r: r.image_path),
+    )
 
 
 def main() -> None:
@@ -1319,11 +1342,28 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, default=Path("data/manifests/manifest.csv"))
     parser.add_argument("--test-fraction", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="allow overwriting an existing frozen split (requires explicit sign-off)",
+    )
     args = parser.parse_args()
+
+    if not args.manifest.is_file():
+        raise SystemExit(
+            f"{args.manifest} not found — run `python -m defectlens.ingest` first"
+        )
+    out_dir = args.manifest.parent
+    existing = [p for p in (out_dir / "train.csv", out_dir / "test.csv") if p.exists()]
+    if existing and not args.force:
+        raise SystemExit(
+            "Refusing to overwrite the FROZEN split "
+            f"({', '.join(str(p) for p in existing)}) — regenerating invalidates "
+            "all previously reported numbers; rerun with --force only with "
+            "explicit sign-off"
+        )
 
     rows = read_manifest(args.manifest)
     train, test = stratified_split(rows, args.test_fraction, args.seed)
-    out_dir = args.manifest.parent
     write_manifest(train, out_dir / "train.csv")
     write_manifest(test, out_dir / "test.csv")
 
@@ -1346,7 +1386,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_split.py -v`
-Expected: 5 passed.
+Expected: 7 passed.
 
 - [ ] **Step 5: Freeze the real split and commit it**
 
