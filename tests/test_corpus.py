@@ -65,3 +65,15 @@ def test_all_classes_covered_check(tmp_path):
     cards = load_corpus_dir(tmp_path)
     covered = {t for c in cards for t in c.class_tags}
     assert covered == {"crack"}
+
+
+def test_non_string_passage_rejected(tmp_path):
+    bad = VALID.replace('passage: "Watch it."', "passage: 12345")
+    with pytest.raises(ValueError, match="passage"):
+        load_corpus_file(write(tmp_path, bad))
+
+
+def test_string_class_tags_rejected(tmp_path):
+    bad = VALID.replace("class_tags: [crack]", "class_tags: crack")
+    with pytest.raises(ValueError, match="must be a list"):
+        load_corpus_file(write(tmp_path, bad))

@@ -31,25 +31,29 @@ cards:
 - **title**: Short, descriptive title (1-2 phrases)
 - **class_tags**: List of zero or more defect classes from the unified taxonomy (see valid values below)
 - **severity**: One of: `structural`, `urgent`, `monitor`, `cosmetic`
-- **index_sentence**: Short CLIP-text-friendly sentence (≤120 chars) suitable for embedding; describes the defect or guidance in neutral language
+- **index_sentence**: Short CLIP-text-friendly sentence (aim ≤80 chars; CLIP's text tower truncates long inputs) describing what the defect LOOKS like, in neutral visual language
 - **passage**: 2-4 sentences of actionable inspection or remediation guidance **in your own words** (see rules below)
 - **citation**: Full reference to the source section (e.g., section number, page range, standard code)
 
 ### Valid class_tags (Unified Taxonomy)
 
-All nine defect classes are:
+All nine classes (the EXACT `UNIFIED_CLASSES` list from `src/defectlens/taxonomy.py` —
+the loader rejects anything else):
 
 ```
 crack
-corrosion
+spalling
+efflorescence
+exposed_rebar
+corrosion_stain
 mold_algae
 water_damage
-structural_settlement
-asbestos
-lead_paint
-pest_infestation
-efflorescence
+peeling_paint
+no_defect
 ```
+
+Note: `no_defect` cards describe healthy/acceptable conditions and
+"no deficiency observed" guidance — they are required corpus content, not filler.
 
 ## Severity Scale
 
@@ -83,7 +87,7 @@ efflorescence
 ### 4. Index Sentence
 
 - Optimized for CLIP embeddings (semantic similarity search)
-- Keep ≤120 characters
+- Keep short — aim ≤80 characters (CLIP's text tower truncates at 77 tokens)
 - Use clear, neutral language describing the defect or guidance
 - Avoid jargon; aim for general comprehension
 - Examples:

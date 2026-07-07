@@ -33,15 +33,26 @@ def load_corpus_file(path: Path) -> list[Card]:
     if not isinstance(raw, dict) or "source" not in raw or "cards" not in raw:
         raise ValueError(f"{path}: expected top-level 'source' and 'cards'")
     src = raw["source"]
+    if not isinstance(src, dict):
+        raise ValueError(f"{path}: 'source' must be a mapping")
     for k in ("name", "url", "license"):
         if not src.get(k):
             raise ValueError(f"{path}: source missing {k!r}")
+    if not isinstance(raw["cards"], list):
+        raise ValueError(f"{path}: 'cards' must be a list")
     cards: list[Card] = []
     for i, entry in enumerate(raw["cards"]):
+        if not isinstance(entry, dict):
+            raise ValueError(f"{path}: card {i} is not a mapping: {entry!r}")
         missing = [k for k in REQUIRED_CARD_KEYS if not entry.get(k)]
         if missing:
-            raise ValueError(f"{path}: card {i} missing {missing}: {entry.get('id', '?')}")
+            raise ValueError(f"{path}: card {i} missing/empty {missing}: {entry.get('id', '?')}")
+        for k in ("id", "title", "index_sentence", "passage", "citation"):
+            if not isinstance(entry[k], str):
+                raise ValueError(f"{path}: card {i} field {k!r} must be a string")
         tags = entry["class_tags"]
+        if not isinstance(tags, list):
+            raise ValueError(f"{path}: card {entry['id']} class_tags must be a list")
         bad = [t for t in tags if t not in UNIFIED_CLASSES]
         if bad or not tags:
             raise ValueError(f"{path}: card {entry['id']} has invalid class_tags {bad}")
@@ -58,7 +69,7 @@ def load_corpus_file(path: Path) -> list[Card]:
                 index_sentence=entry["index_sentence"],
                 passage=entry["passage"].strip(),
                 citation=entry["citation"],
-                source_name=src["name"],
+    source_name=src["name"],
                 source_url=src["url"],
                 source_license=src["license"],
             )
