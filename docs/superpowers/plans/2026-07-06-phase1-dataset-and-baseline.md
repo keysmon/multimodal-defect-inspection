@@ -270,6 +270,46 @@ def test_real_mapping_file_is_valid_and_complete():
         ("sdnet2018", "non_cracked"),
     }
     assert expected_sources.issubset(mapping.keys())
+
+
+def test_missing_mappings_key_rejected(tmp_path):
+    p = write_mapping(tmp_path, "not_mappings: []\n")
+    with pytest.raises(ValueError, match="mappings"):
+        load_mapping(p)
+
+
+def test_empty_file_rejected(tmp_path):
+    p = write_mapping(tmp_path, "")
+    with pytest.raises(ValueError, match="mappings"):
+        load_mapping(p)
+
+
+def test_entry_missing_required_key_rejected(tmp_path):
+    p = write_mapping(
+        tmp_path,
+        """
+mappings:
+  - source_dataset: bd3
+    unified_label: mold_algae
+    rationale: missing source_label
+""",
+    )
+    with pytest.raises(ValueError, match="source_label"):
+        load_mapping(p)
+
+
+def test_entry_missing_rationale_rejected(tmp_path):
+    p = write_mapping(
+        tmp_path,
+        """
+mappings:
+  - source_dataset: bd3
+    source_label: algae
+    unified_label: mold_algae
+""",
+    )
+    with pytest.raises(ValueError, match="rationale"):
+        load_mapping(p)
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -398,14 +438,24 @@ UNIFIED_CLASSES = [
 
 EXCLUDE = "EXCLUDE"
 
-Mapping = dict[tuple[str, str], str]
+LabelMapping = dict[tuple[str, str], str]
+
+REQUIRED_KEYS = ("source_dataset", "source_label", "unified_label", "rationale")
 
 
-def load_mapping(path: Path) -> Mapping:
+def load_mapping(path: Path | str) -> LabelMapping:
     """Load and validate configs/label_mapping.yaml."""
-    raw = yaml.safe_load(Path(path).read_text())
-    mapping: Mapping = {}
-    for entry in raw["mappings"]:
+    path = Path(path)
+    raw = yaml.safe_load(path.read_text())
+    if not isinstance(raw, dict) or not isinstance(raw.get("mappings"), list):
+        raise ValueError(f"{path}: expected a top-level 'mappings' list")
+    mapping: LabelMapping = {}
+    for i, entry in enumerate(raw["mappings"]):
+        if not isinstance(entry, dict):
+            raise ValueError(f"{path}: entry {i} is not a mapping: {entry!r}")
+        missing = [k for k in REQUIRED_KEYS if not entry.get(k)]
+        if missing:
+            raise ValueError(f"{path}: entry {i} missing required key(s) {missing}: {entry!r}")
         key = (entry["source_dataset"], entry["source_label"])
         if key in mapping:
             raise ValueError(f"Duplicate mapping for {key}")
@@ -416,7 +466,7 @@ def load_mapping(path: Path) -> Mapping:
     return mapping
 
 
-def map_label(mapping: Mapping, source_dataset: str, source_label: str) -> str | None:
+def map_label(mapping: LabelMapping, source_dataset: str, source_label: str) -> str | None:
     """Return the unified label, or None if the sample is excluded.
 
     Raises KeyError for unmapped labels so new upstream labels surface loudly
@@ -434,7 +484,7 @@ def map_label(mapping: Mapping, source_dataset: str, source_label: str) -> str |
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_taxonomy.py -v`
-Expected: 7 passed.
+Expected: 11 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1014,7 +1064,7 @@ from pathlib import Path
 
 import yaml
 
-from defectlens.taxonomy import Mapping, load_mapping, map_label
+from defectlens.taxonomy import LabelMapping, load_mapping, map_label
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 FIELDS = ["image_path", "source_dataset", "source_label", "unified_label"]
@@ -1028,7 +1078,7 @@ class ManifestRow:
     unified_label: str
 
 
-def scan_dataset(repo_root: Path, dataset_name: str, mapping: Mapping) -> list[ManifestRow]:
+def scan_dataset(repo_root: Path, dataset_name: str, mapping: LabelMapping) -> list[ManifestRow]:
     dataset_dir = repo_root / "data" / "raw" / dataset_name
     if not dataset_dir.is_dir():
         raise FileNotFoundError(f"{dataset_dir} not found — run scripts/normalize_raw.py")
