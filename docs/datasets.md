@@ -11,14 +11,25 @@ via `scripts/normalize_raw.py`. Downloads live outside the repo (in `~/datasets/
 - Direct URL: https://zenodo.org/api/records/2620293/files/CODEBRIM_classification_dataset.zip/content
 - License: **non-commercial / educational use only** (fine for this portfolio project)
 - Classes: background, crack, spallation, efflorescence, exposed_bars, corrosion_stain
+- **Extraction gotcha (verified 2026-07-06):** the Zenodo zip is a malformed
+  zip64 (offsets past 4 GiB truncated) — macOS `unzip`, `tar`, and Python
+  `zipfile` all fail or partially extract, and `zip -FF` repair also fails.
+  **`ditto -xk <zip> <dest>` extracts it fully** (7,729 pngs).
+- **Real structure (NOT per-class folders):**
+  `classification_dataset/{train,val,test}/{background,defects}/*.png` plus
+  `metadata/{defects.xml,background.xml}` carrying per-crop multi-label binary
+  flags (Background/Crack/Spallation/Efflorescence/ExposedBars/CorrosionStain).
+- **Prep step (before normalize_raw):** CODEBRIM is multi-label; our v1
+  taxonomy is single-label (spec §11), so `scripts/prepare_codebrim.py` keeps
+  only crops with exactly one flag set (multi-label crops are counted and
+  skipped) and stages them into per-class dirs:
 
-    python scripts/normalize_raw.py --dataset codebrim --source ~/datasets/codebrim
+      python scripts/prepare_codebrim.py --source ~/datasets/codebrim/classification_dataset --out ~/datasets/codebrim_by_class
+      python scripts/normalize_raw.py --dataset codebrim --source ~/datasets/codebrim_by_class
 
-Note: if the extracted structure does not contain per-class directories
-(normalize prints "No images linked"), inspect with
-`find ~/datasets/codebrim -maxdepth 3 -type d | head -30` and, if labels are
-encoded some other way (e.g. metadata files), reorganize into per-class dirs
-before re-running. Record whatever was needed in this file.
+- Known count reconciliation: metadata has 7,735 entries vs 7,729 files on
+  disk — 6 entries lack files; the script reports this (`metadata_without_file`)
+  rather than crashing.
 
 ## 2. BD3 (required)
 
