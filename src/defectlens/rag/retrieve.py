@@ -23,6 +23,8 @@ def hits_from_rows(
     rows: list[tuple[str, list[str], float]], lookup: dict[str, Card]
 ) -> list[Hit]:
     """Join db.top_k rows to Card metadata; unknown ids raise (index/corpus drift)."""
+    # NOTE: guards missing ids only; edited class_tags without reindexing are
+    # not detected — re-run `python -m defectlens.rag.embed` after corpus edits.
     out = []
     for card_id, _tags, dist in rows:
         if card_id not in lookup:
@@ -76,7 +78,9 @@ def main() -> None:
         raise SystemExit("pgvector DB unreachable — docker compose up -d db")
 
     device = pick_device()
-    model_name = "openai/clip-vit-large-patch14"
+    from defectlens.rag.embed import CLIP_MODEL
+
+    model_name = CLIP_MODEL
     print(f"Device: {device}; model: {model_name}")
     model = CLIPModel.from_pretrained(model_name).to(device).eval()
     processor = CLIPProcessor.from_pretrained(model_name)

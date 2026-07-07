@@ -16,6 +16,8 @@ from defectlens.eval.clip_zeroshot import _features, pick_device
 from defectlens.ingest import ManifestRow, read_manifest
 from defectlens.rag import db
 
+CLIP_MODEL = "openai/clip-vit-large-patch14"  # single source for RAG modules
+
 
 def normalize(v: np.ndarray) -> np.ndarray:
     """L2-normalize rows of a 1D or 2D array; guards zero vectors."""
@@ -50,10 +52,11 @@ def tag_centroid(centroids: dict[str, np.ndarray], tags: list[str]) -> np.ndarra
     return normalize(stacked.mean(axis=0))
 
 
-def embed_texts(model, processor, texts: list[str], device: str) -> np.ndarray:
-    """Embed a list of strings in batches of 32; returns [N, 768] float32."""
+def embed_texts(
+    model, processor, texts: list[str], device: str, batch_size: int = 32
+) -> np.ndarray:
+    """Embed a list of strings in batches; returns [N, 768] float32."""
     feats: list[np.ndarray] = []
-    batch_size = 32
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
         inputs = processor(text=batch, padding=True, truncation=True, return_tensors="pt").to(
@@ -136,7 +139,7 @@ def main() -> None:
     db.init_schema(conn)
 
     device = pick_device()
-    model_name = "openai/clip-vit-large-patch14"
+    model_name = CLIP_MODEL
     print(f"Device: {device}; model: {model_name}")
     model = CLIPModel.from_pretrained(model_name).to(device).eval()
     processor = CLIPProcessor.from_pretrained(model_name)

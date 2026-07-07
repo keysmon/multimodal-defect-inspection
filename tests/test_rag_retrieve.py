@@ -18,6 +18,7 @@ def make_card(cid, tags):
 def test_hits_from_rows_joins_and_raises_on_drift():
     lookup = card_lookup([make_card("a", ["crack"])])
     hits = hits_from_rows([("a", ["crack"], 0.1)], lookup)
+    assert isinstance(hits[0], Hit)
     assert hits[0].card.id == "a" and hits[0].distance == 0.1
     with pytest.raises(KeyError, match="re-run indexing"):
         hits_from_rows([("ghost", [], 0.2)], lookup)

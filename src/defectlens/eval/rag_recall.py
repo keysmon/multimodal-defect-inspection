@@ -77,7 +77,9 @@ def main() -> None:
     templates = cfg["templates"]
 
     device = pick_device()
-    model_name = cfg.get("model", "openai/clip-vit-large-patch14")
+    from defectlens.rag.embed import CLIP_MODEL
+
+    model_name = cfg.get("model", CLIP_MODEL)
     print(f"Device: {device}; model: {model_name}")
     model = CLIPModel.from_pretrained(model_name).to(device).eval()
     processor = CLIPProcessor.from_pretrained(model_name)
