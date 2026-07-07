@@ -22,18 +22,28 @@ before re-running. Record whatever was needed in this file.
 
 ## 2. BD3 (required)
 
-- Source: https://github.com/samy101/bd3-building-defects-detection-dataset
-- `git clone --depth 1 https://github.com/samy101/bd3-building-defects-detection-dataset ~/datasets/bd3`
+- Source: https://www.kaggle.com/datasets/praveenkottari/bd3-dataset-for-building-defect-detection
+  (**discovered 2026-07-06:** both GitHub repos — samy101 and Praveenkottari — contain
+  only README/code, NOT the images; the actual dataset is hosted on Kaggle)
+- Requires a Kaggle account + API token (`~/.kaggle/kaggle.json`, from
+  kaggle.com → Settings → API → Create New Token), then:
+
+      kaggle datasets download praveenkottari/bd3-dataset-for-building-defect-detection -p ~/datasets/ --unzip
+
+  (or download the zip in a logged-in browser and extract to `~/datasets/bd3/`)
 - Classes: algae, major_crack, minor_crack, peeling, spalling, stain, normal
 
     python scripts/normalize_raw.py --dataset bd3 --source ~/datasets/bd3
 
 ## 3. SDNET2018 (required)
 
-- Source: https://digitalcommons.usu.edu/all_datasets/48/ (SDNET2018.zip, ~504 MB;
-  ships as `DATA_Maguire_20180517_ALL.zip`)
+- Source: https://digitalcommons.usu.edu/all_datasets/48/ (~504 MB)
+- Direct URL: https://digitalcommons.usu.edu/context/all_datasets/article/1047/type/native/viewcontent
+- **Nested-zip gotcha (verified 2026-07-06):** the download is
+  `DATA_Maguire_20180517_ALL.zip`, which contains a ReadMe and an inner
+  `SDNET2018.zip` — extract BOTH (inner one to `~/datasets/SDNET2018/`).
 - License: CC-BY-4.0
-- Structure: {D,P,W}/{C*,U*}/... where C=cracked, U=uncracked
+- Structure: {D,P,W}/{C*,U*}/... where C=cracked, U=uncracked (56,092 images verified)
 
     python scripts/normalize_raw.py --dataset sdnet2018 --source ~/datasets/SDNET2018
 

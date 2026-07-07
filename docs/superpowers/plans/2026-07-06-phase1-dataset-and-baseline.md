@@ -15,7 +15,7 @@
 | Dataset | Source | License | Required? |
 |---|---|---|---|
 | CODEBRIM | https://zenodo.org/records/2620293 → `CODEBRIM_classification_dataset.zip` | non-commercial/educational | yes |
-| BD3 | https://github.com/samy101/bd3-building-defects-detection-dataset | see repo | yes |
+| BD3 | Kaggle: `praveenkottari/bd3-dataset-for-building-defect-detection` (GitHub repos are README-only shells) | see Kaggle page | yes |
 | SDNET2018 | https://digitalcommons.usu.edu/all_datasets/48/ → `SDNET2018.zip` (~504 MB) | CC-BY-4.0 | yes |
 | Roboflow wall-defects | https://universe.roboflow.com/builddef2/building-defect-on-walls (free account + API key) | check page | **optional** — classes already covered by BD3 |
 
