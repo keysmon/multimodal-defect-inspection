@@ -152,7 +152,7 @@ def score_answers(model, processor, image, device: str) -> dict[str, float]:
     return scores
 
 
-def _load_model_and_processor(adapter: Path | None, device: str):
+def _load_model_and_processor(adapter: Path | None, device: str, max_pixels: int):
     import torch
     from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
@@ -163,7 +163,7 @@ def _load_model_and_processor(adapter: Path | None, device: str):
 
         model = PeftModel.from_pretrained(model, str(adapter))
     model = model.to(device).eval()
-    processor = AutoProcessor.from_pretrained(QWEN_MODEL)
+    processor = AutoProcessor.from_pretrained(QWEN_MODEL, max_pixels=max_pixels)
     return model, processor
 
 
@@ -179,6 +179,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", type=Path, default=Path("results"))
     parser.add_argument("--out-name", type=str, default="vlm_topk.json")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--max-pixels", type=int, default=589824,
+        help="processor pixel budget — MUST match the value used at training",
+    )
     return parser
 
 
@@ -200,7 +204,7 @@ def main(argv: list[str] | None = None) -> None:
 
     device = pick_device()
     print(f"Device: {device}; model: {QWEN_MODEL}")
-    model, processor = _load_model_and_processor(args.adapter, device)
+    model, processor = _load_model_and_processor(args.adapter, device, args.max_pixels)
 
     y_true = [r.unified_label for r in rows]
     ranked: list[list[str]] = []

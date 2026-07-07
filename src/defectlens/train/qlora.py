@@ -327,6 +327,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=Path("checkpoints/qlora"))
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--max-pixels", type=int, default=589824,
+        help="processor image pixel budget (768^2 default; use 262144=512^2 on "
+        "low-memory local runs). Vision tokens dominate sequence length — this "
+        "is the main memory/cost knob. MUST match eval.",
+    )
     return parser
 
 
@@ -341,7 +347,7 @@ def main(argv: list[str] | None = None) -> None:
         rows = subset_rows(rows, args.subset, seed=args.seed)
     print(f"Training on {len(rows)} rows (quant={args.quant})")
 
-    processor = AutoProcessor.from_pretrained(QWEN_MODEL)
+    processor = AutoProcessor.from_pretrained(QWEN_MODEL, max_pixels=args.max_pixels)
     model = load_base_model(args.quant)
     model = apply_lora(model, args.lora_r, args.lora_alpha)
 
