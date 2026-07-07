@@ -1,0 +1,41 @@
+{
+  "k": 5,
+  "test_manifest": "data/manifests/test.csv",
+  "n_image_queries": 2648,
+  "n_text_queries": 36,
+  "image_recall_at_k": 0.773036253776435,
+  "text_recall_at_k": 1.0,
+  "image_per_class_recall_at_k": {
+    "crack": 0.6546961325966851,
+    "spalling": 0.6115702479338843,
+    "efflorescence": 0.8461538461538461,
+    "exposed_rebar": 1.0,
+    "corrosion_stain": 0.6410256410256411,
+    "mold_algae": 0.9354838709677419,
+    "water_damage": 0.8461538461538461,
+    "peeling_paint": 0.8846153846153846,
+    "no_defect": 0.8814675446848542
+  },
+  "text_per_class_recall_at_k": {
+    "crack": 1.0,
+    "spalling": 1.0,
+    "efflorescence": 1.0,
+    "exposed_rebar": 1.0,
+    "corrosion_stain": 1.0,
+    "mold_algae": 1.0,
+    "water_damage": 1.0,
+    "peeling_paint": 1.0,
+    "no_defect": 1.0
+  },
+  "classes": [
+    "crack",
+    "spalling",
+    "efflorescence",
+    "exposed_rebar",
+    "corrosion_stain",
+    "mold_algae",
+    "water_damage",
+    "peeling_paint",
+    "no_defect"
+  ]
+}

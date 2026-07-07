@@ -4,9 +4,14 @@ import pytest
 from defectlens.rag import db
 
 
+TEST_DSN = "postgresql://defectlens:defectlens@localhost:5433/defectlens_test"
+
+
 def get_conn():
+    # Dedicated test database: db.clear() in the fixture must never touch the
+    # production card_vectors table (it wiped the real index once — 2026-07-07).
     try:
-        return db.connect()
+        return db.connect(TEST_DSN)
     except Exception:
         return None
 
@@ -20,6 +25,7 @@ def fresh_schema():
     db.init_schema(conn)
     db.clear(conn)
     yield
+    db.clear(conn)  # don't leave toy vectors in the shared table (real index coexists)
 
 
 def unit(i: int) -> np.ndarray:

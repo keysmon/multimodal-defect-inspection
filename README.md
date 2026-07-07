@@ -8,7 +8,33 @@ Design spec: `docs/superpowers/specs/2026-07-06-defect-lens-design.md`
 ## Status
 
 Phase 1 (dataset unification + CLIP zero-shot baseline) — **complete**.
-Next: Phase 2 (cross-modal RAG over inspection-standards corpus).
+Phase 2 (cross-modal RAG over inspection-standards corpus) — **complete**.
+Next: Phase 3 (Qwen2.5-VL-3B LoRA fine-tune on AWS).
+
+## Phase 2 Results — Cross-Modal RAG
+
+**Corpus:** 205 cited guidance cards (`corpus/`) from EPA, HUD NSPIRE,
+InterNACHI, and FHWA/NPS engineering references — every class ≥15 cards,
+severity-labelled, licensing-clean (own-words passages; ICC/ACI cited by
+reference only). Indexed in pgvector (`docker compose up -d db`) as one shared
+CLIP space with two vectors per card: an index-sentence text embedding and a
+train-split-only exemplar-image centroid.
+
+**Retrieval eval** (frozen `data/manifests/test.csv`, 2,648 image queries +
+36 templated text queries; a card is relevant iff tagged with the query's true
+class):
+
+| Query mode | recall@5 |
+|---|---|
+| Text → text vectors | **1.000** |
+| Image → exemplar centroids | 0.773 |
+| Image → **RRF fusion** (centroid + zero-shot prompt rankings) | **0.863** |
+
+Fusion of the two decorrelated rankings lifts the fine-grained failures
+(crack 0.65→0.92, efflorescence 0.85→0.95); spalling (0.60) remains the
+weakest class in both signal paths — the measured motivation for Phase 3's
+fine-tune. Reproduce: `python -m defectlens.rag.embed` then
+`python -m defectlens.eval.rag_recall --image-mode fused`.
 
 ## Results
 

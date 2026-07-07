@@ -43,3 +43,15 @@ def test_per_class_recall():
     assert per["crack"] == 1.0
     assert per["spalling"] == 0.0
     assert math.isnan(per["no_defect"])
+
+
+def test_rrf_fuse_scale_free_and_ordered():
+    from defectlens.eval.rag_recall import rrf_fuse
+
+    # "a" is rank-1 in both rankings -> must fuse first;
+    # "b" (2nd+3rd) beats "c" (3rd+2nd) ties -> equal, then "d" (absent from one) last
+    fused = rrf_fuse([["a", "b", "c"], ["a", "c", "b"]])
+    assert fused[0] == "a"
+    assert set(fused[1:3]) == {"b", "c"}
+    fused2 = rrf_fuse([["a", "b"], ["b"]])
+    assert fused2[0] == "b"  # present in both beats single strong rank
