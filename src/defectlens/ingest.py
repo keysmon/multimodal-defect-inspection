@@ -97,7 +97,9 @@ def write_manifest(rows: list[ManifestRow], path: Path) -> None:
     """Write manifest rows to a CSV with a fixed header (creates parent dirs)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        # LF endings so on-disk bytes match the LF-normalized committed blobs
+        # (.gitattributes) — keeps fresh-clone re-freeze checks byte-identical.
+        writer = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
         writer.writeheader()
         for r in rows:
             writer.writerow(r.__dict__)
