@@ -28,10 +28,15 @@ def stratified_split(
         n_test = round(len(group) * test_fraction)
         if len(group) >= 4:
             n_test = max(1, n_test)
+        # Groups of size <= 3 may get zero test rows by design: too small to
+        # split meaningfully, they stay train-only. A future rare-class dataset
+        # addition should raise the group above this threshold or accept it.
         test.extend(group[:n_test])
         train.extend(group[n_test:])
-    key = lambda r: r.image_path  # noqa: E731
-    return sorted(train, key=key), sorted(test, key=key)
+    return (
+        sorted(train, key=lambda r: r.image_path),
+        sorted(test, key=lambda r: r.image_path),
+    )
 
 
 def main() -> None:
@@ -39,11 +44,28 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, default=Path("data/manifests/manifest.csv"))
     parser.add_argument("--test-fraction", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="allow overwriting an existing frozen split (requires explicit sign-off)",
+    )
     args = parser.parse_args()
+
+    if not args.manifest.is_file():
+        raise SystemExit(
+            f"{args.manifest} not found — run `python -m defectlens.ingest` first"
+        )
+    out_dir = args.manifest.parent
+    existing = [p for p in (out_dir / "train.csv", out_dir / "test.csv") if p.exists()]
+    if existing and not args.force:
+        raise SystemExit(
+            "Refusing to overwrite the FROZEN split "
+            f"({', '.join(str(p) for p in existing)}) — regenerating invalidates "
+            "all previously reported numbers; rerun with --force only with "
+            "explicit sign-off"
+        )
 
     rows = read_manifest(args.manifest)
     train, test = stratified_split(rows, args.test_fraction, args.seed)
-    out_dir = args.manifest.parent
     write_manifest(train, out_dir / "train.csv")
     write_manifest(test, out_dir / "test.csv")
 
