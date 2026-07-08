@@ -18,7 +18,7 @@ Fine-tuned weights stay off GitHub (S3 only); the repo showcases methodology.
 
 1. **Frame:** evolve DefectLens (one repo, one deepening story) - not a sibling project.
 2. **New modalities:** inspector text notes (committed), equipment audio (committed, full product mode), thermal imagery (stretch: one time-boxed scouting day; enters scope only if a real labeled dataset exists).
-3. **Field photos (user-collected):** photos of the existing 9 classes form a private out-of-distribution eval set (~100+ target). HVAC-visual defect photos (dirty coils, burnt contactors, etc.) are collected from day one as a **seed for a future phase** but do NOT expand the taxonomy now. Framing: tight on defect/equipment, nothing identifying; dataset stays in the private S3 bucket; only metrics are published.
+3. **OOD eval via cross-dataset generalization (amended 2026-07-08: user does not collect photos; all data sourced online).** Build a held-out eval set (~100+ images across the 9 classes) from defect photo sources INDEPENDENT of the three training datasets (candidate sources: Kaggle/Roboflow crack + wall-damage datasets not derived from SDNET/CODEBRIM/BD3, openly licensed web photos). Licensing checked per source; set may stay private (S3) if redistribution is restricted. Cross-dataset generalization is a standard, respected eval framing. The HVAC-visual seed collection is dropped.
 4. **Audio methodology: unsupervised anomaly detection, DCASE-faithful.** Pretrained audio embeddings (CLAP; BEATs as alternate) + simple density scoring (kNN/GMM) fit on NORMAL clips only, per MIMII/DCASE protocol. Supervised training on abnormal clips is explicitly rejected (apples-to-oranges vs the published baseline; reads as methodology error to expert reviewers). Framing in all write-ups: "industrial-equipment audio (MIMII), HVAC-motivated" - user confirmed real HVAC sounds differ from the benchmark; no overclaim.
 5. **Audio integration: Level 2 (full third mode).** Anomaly score + severity framing in the UI, plus audio-to-guidance retrieval (CLAP shared text/audio space, mirroring the CLIP image/text design). Fallback if CLAP retrieval disappoints: class-label card lookup. Requires ~40 new HVAC-maintenance corpus cards (user sanity-checks as domain expert; same citation discipline as the existing 205).
 6. **Fusion: late fusion with a visible combined assessment.** Each modality goes to its expert model (image+note jointly through the fine-tuned VLM - that pair is already true joint fusion; audio through the anomaly scorer). A composition step produces a unified report: per-modality findings, combined severity (worst-of + escalation rules, e.g. moderate visual + abnormal audio on the same unit escalates), and one narrative paragraph composed by the description model from all signals. Deep/joint audio-visual fusion is rejected as research-project scope.
@@ -42,7 +42,7 @@ Fine-tuned weights stay off GitHub (S3 only); the repo showcases methodology.
 | Photo + note | Delta on the crack/no_defect ambiguous subset, reported. **HARD GATE: empty/irrelevant note never reduces accuracy.** |
 | Audio (MIMII fan + pump) | AUC per machine ID vs the published DCASE 2020 Task 2 AE baseline; target beat-it, report honestly either way. |
 | Audio -> guidance retrieval | recall@5 for correct fault-family cards on abnormal clips; ~0.8 aspiration, label-lookup fallback below it. |
-| Field-photo OOD study | Measure the gap on n>=100 (or publish preliminary at lower n); recover >=50% of the gap with one augmentation/fine-tune round; report both numbers. |
+| Cross-dataset OOD study | Measure the gap on n>=100 independently sourced images (or publish preliminary at lower n); recover >=50% of the gap with one augmentation/fine-tune round; report both numbers. |
 | Deployment | Live URL; warm CPU-path answer <=10s; cold GPU path <=5min with honest status; **HARD GATE: measured idle bill <=$15/mo**; one-command teardown + redeploy. |
 | Corpus | +40 HVAC-maintenance cards; every audio fault class covered by >=10 cards. |
 
@@ -54,12 +54,11 @@ Fine-tuned weights stay off GitHub (S3 only); the repo showcases methodology.
 
 ## Build order
 
-1. Field-photo collection starts immediately (passive, both kinds: 9-class eval photos + HVAC-visual seed).
-2. Photo + note joint input (days; conditions VLM prompt and RAG query).
-3. Audio mode (MIMII download -> embeddings + density scorer -> DCASE-comparable eval -> corpus cards -> UI panel).
+1. Photo + note joint input (days; conditions VLM prompt and RAG query).
+2. Audio mode (MIMII download -> embeddings + density scorer -> DCASE-comparable eval -> corpus cards -> UI panel).
+3. Cross-dataset OOD eval (source scouting + licensing check + eval + one recovery round).
 4. AWS deployment (deploy last, once the app's final shape is known).
-5. Field-photo OOD eval when ~100 photos accumulate (slots in independently).
-6. Thermal scout: one time-boxed day, opportunistic.
+5. Thermal scout: one time-boxed day, opportunistic.
 
 Seam discipline: every session ends with main in a phase-complete-looking state (tests green, README truthful); in-progress work lives on feature branches.
 
@@ -69,18 +68,18 @@ Seam discipline: every session ends with main in a phase-complete-looking state 
 |---|---|
 | MIMII AUC below baseline after one run + one honest iteration | Report as-is with analysis; move on |
 | CLAP audio->card retrieval below ~0.8 | Label-lookup fallback; note in write-up |
-| Field photos under ~100 at phase end | Publish preliminary OOD study; phase closes anyway |
+| Independent OOD sources yield under ~100 usable images | Publish preliminary OOD study at whatever n exists; phase closes anyway |
 | Thermal scout finds no usable dataset | Drop; mark evaluated-and-deferred |
 | GPU cold start worse than ~10min or flaky | GPU path demoted to demo GIF; live demo ships CPU-only |
 | Recurring bill trends past $15/mo | Cut costliest optional component (GPU path first, then canary frequency) |
 
 ## Out of scope
 
-Video, sensor time-series, production hardening (auth, multi-tenant, SLA), model-weight publishing, SOTA chasing, taxonomy expansion to HVAC-visual classes (seeded for a future phase), external blog writeup (deferred), custom domain.
+Video, sensor time-series, production hardening (auth, multi-tenant, SLA), model-weight publishing, SOTA chasing, taxonomy expansion to HVAC-visual classes, self-collected field data (user opted out), external blog writeup (deferred), custom domain.
 
 ## Known risks
 
-- MIMII is CC BY-SA 4.0 (attribution required); gallery redistribution rights for CODEBRIM/BD3/SDNET images must be checked before the public gallery ships - fallback is self-taken photos.
+- MIMII is CC BY-SA 4.0 (attribution required); gallery redistribution rights for CODEBRIM/BD3/SDNET images must be checked before the public gallery ships - fallback is openly licensed (CC) photos sourced online.
 - Bedrock model availability in ca-central-1 (mitigated by cross-region call).
 - SageMaker async cold-start variance (mitigated by de-scope trigger).
 - Real-world audio differs from MIMII (accepted and framed honestly; decision #4).
