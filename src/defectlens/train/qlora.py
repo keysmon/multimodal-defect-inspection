@@ -75,19 +75,27 @@ def sample_weights(rows: list[ManifestRow]) -> list[float]:
     return [weights[r.unified_label] for r in rows]
 
 
-def build_messages(image_path: str, label: str) -> list[dict]:
+def build_messages(image_path: str, label: str, note: str | None = None) -> list[dict]:
     """Qwen chat-format messages for one (image, label) training example.
 
     `image_path` is embedded as-is into the "image" content field: pass a
     path string (as these tests do) or an already-opened PIL.Image (as the
     training Dataset does) — the processor accepts either.
+
+    `note` (optional inspector free-text) is prefixed before the question.
+    A None/blank note produces the EXACT training-time prompt — the serve
+    layer's empty-note hard gate (spec Phase 5) rests on this equality, so
+    never restructure the no-note branch without retraining.
     """
+    question = QUESTION
+    if note and note.strip():
+        question = f"Inspector note: {note.strip()}\n{QUESTION}"
     return [
         {
             "role": "user",
             "content": [
                 {"type": "image", "image": image_path},
-                {"type": "text", "text": QUESTION},
+                {"type": "text", "text": question},
             ],
         },
         {"role": "assistant", "content": HUMANIZED[label]},
