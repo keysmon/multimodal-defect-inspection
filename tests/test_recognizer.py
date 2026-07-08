@@ -1,8 +1,15 @@
+from io import BytesIO
+
+import numpy as np
 import pytest
+import torch
+from PIL import Image
 
 from defectlens.corpus import Card
 from defectlens.eval.rag_recall import rrf_fuse
+from defectlens.serve import recognizer as recognizer_mod
 from defectlens.serve.recognizer import (
+    Recognizer,
     class_ranking_from_cards,
     fused_card_ranking,
     severity_for,
@@ -132,3 +139,82 @@ def test_severity_for_ignores_cards_not_tagged_with_top_class():
     # "crack" -> must be ignored, leaving the default "monitor" band.
     cards = [make_card("a", ["spalling"], severity="structural")]
     assert severity_for("crack", cards) == "monitor"
+
+
+# ---------------------------------------------------------------------------
+# Recognizer.analyze_image_bytes — inspector note conditions card retrieval
+#
+# test_recognizer.py had no Recognizer / DB / model fixture (only make_card +
+# pure-function tests), so this builds the minimal fakes needed to drive
+# analyze_image_bytes far enough to reach the fusion call, following the
+# module's plain-helper style. embed_texts + db.top_k are monkeypatched (the
+# note-embedding correctness is out of scope); rrf_fuse is a spy that records
+# how many rankings the fusion received.
+# ---------------------------------------------------------------------------
+
+
+def _make_png_bytes() -> bytes:
+    buf = BytesIO()
+    Image.new("RGB", (8, 8)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+class _FakeInputs(dict):
+    def to(self, device):
+        return self
+
+
+class _FakeProcessor:
+    def __call__(self, images=None, return_tensors=None, **kwargs):
+        return _FakeInputs()
+
+
+class _FakeCLIP:
+    def get_image_features(self, **kwargs):
+        return torch.ones(1, 4)
+
+
+def _wire_recognizer(cards):
+    rec = Recognizer()
+    rec.cards = cards
+    rec.lookup = {c.id: c for c in cards}
+    rec.device = "cpu"
+    rec.prompt_feats = np.zeros((len(UNIFIED_CLASSES), 4), dtype=np.float32)
+    rec.processor = _FakeProcessor()
+    rec.model = _FakeCLIP()
+    rec.conn = object()
+    return rec
+
+
+def test_note_adds_third_ranking_to_card_fusion(monkeypatch):
+    cards = [make_card("A", ["crack"]), make_card("B", ["spalling"])]
+    rec = _wire_recognizer(cards)
+    card_ids = [c.id for c in cards]
+
+    # db.top_k backs both the image-centroid and the note-text retrievals;
+    # return the same card rows regardless of embedding/kind.
+    monkeypatch.setattr(
+        recognizer_mod.db,
+        "top_k",
+        lambda conn, emb, k, kinds: [(c.id, c.class_tags, 0.0) for c in cards],
+    )
+    # Note path needs only *some* fixed embedding; correctness is out of scope.
+    monkeypatch.setattr(
+        recognizer_mod,
+        "embed_texts",
+        lambda *a, **k: np.ones((1, 4), dtype=np.float32),
+    )
+
+    captured_ranking_counts = []
+
+    def rrf_spy(rankings, k=60):
+        captured_ranking_counts.append(len(rankings))
+        return card_ids
+
+    monkeypatch.setattr(recognizer_mod, "rrf_fuse", rrf_spy)
+
+    png = _make_png_bytes()
+    rec.analyze_image_bytes(png)  # no note -> centroid + prompt rankings only
+    rec.analyze_image_bytes(png, note="musty smell")  # + note-text ranking
+
+    assert captured_ranking_counts == [2, 3]
