@@ -51,6 +51,30 @@ const mockSearchResponse = {
   },
 };
 
+const mockAudioResponse = {
+  data: {
+    ...mockAnalyzeResponse.data,
+    severity: "urgent",
+    combined_severity: "structural",
+    audio: {
+      score: 0.4213,
+      band: "anomalous",
+      severity: "urgent",
+      cards: [
+        {
+          id: "h1",
+          title: "Bearing wear rumble",
+          passage: "Low-frequency rumble that rises with load.",
+          severity: "urgent",
+          citation: "ASHRAE HVAC Applications",
+          source_name: "ASHRAE",
+          source_url: "https://example.com/ashrae-bearing",
+        },
+      ],
+    },
+  },
+};
+
 beforeAll(() => {
   global.URL.createObjectURL = jest.fn(() => "blob:mock-url");
   global.URL.revokeObjectURL = jest.fn();
@@ -114,6 +138,50 @@ test("analyze posts the inspector note in the form data", async () => {
   await waitFor(() => expect(axios.post).toHaveBeenCalled());
   const formData = axios.post.mock.calls[0][1];
   expect(formData.get("note")).toBe("musty smell near shower");
+});
+
+test("analyze posts the selected audio file in the form data", async () => {
+  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [img] },
+  });
+  const wav = new File(["RIFF"], "fan.wav", { type: "audio/wav" });
+  fireEvent.change(screen.getByTestId("audio-input"), {
+    target: { files: [wav] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() => expect(axios.post).toHaveBeenCalled());
+  const formData = axios.post.mock.calls[0][1];
+  expect(formData.get("audio")).toBe(wav);
+});
+
+test("analyze with audio shows the combined severity banner and audio panel", async () => {
+  axios.post.mockResolvedValueOnce(mockAudioResponse);
+  render(<DefectLens />);
+
+  const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [img] },
+  });
+  const wav = new File(["RIFF"], "fan.wav", { type: "audio/wav" });
+  fireEvent.change(screen.getByTestId("audio-input"), {
+    target: { files: [wav] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() =>
+    expect(
+      screen.getByText(/Combined severity: Structural/i)
+    ).toBeInTheDocument()
+  );
+  expect(screen.getByText("Equipment audio")).toBeInTheDocument();
+  expect(screen.getByText(/score: 0\.421/i)).toBeInTheDocument();
+  expect(screen.getByText("anomalous")).toBeInTheDocument();
+  expect(screen.getByText("Bearing wear rumble")).toBeInTheDocument();
 });
 
 test("selecting a new image resets the inspector note", () => {
