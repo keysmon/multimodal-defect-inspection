@@ -6,8 +6,9 @@ from pathlib import Path
 
 import yaml
 
-from defectlens.taxonomy import UNIFIED_CLASSES
+from defectlens.taxonomy import AUDIO_FAULT_TAGS, UNIFIED_CLASSES
 
+VALID_CLASS_TAGS = frozenset(UNIFIED_CLASSES) | frozenset(AUDIO_FAULT_TAGS)
 SEVERITIES = ("structural", "urgent", "monitor", "cosmetic")
 REQUIRED_CARD_KEYS = (
     "id", "title", "class_tags", "severity", "index_sentence", "passage", "citation",
@@ -53,7 +54,7 @@ def load_corpus_file(path: Path) -> list[Card]:
         tags = entry["class_tags"]
         if not isinstance(tags, list):
             raise ValueError(f"{path}: card {entry['id']} class_tags must be a list")
-        bad = [t for t in tags if t not in UNIFIED_CLASSES]
+        bad = [t for t in tags if t not in VALID_CLASS_TAGS]
         if bad or not tags:
             raise ValueError(f"{path}: card {entry['id']} has invalid class_tags {bad}")
         if entry["severity"] not in SEVERITIES:
@@ -87,3 +88,10 @@ def load_corpus_dir(dir_path: Path) -> list[Card]:
             seen[c.id] = f
             cards.append(c)
     return cards
+
+
+def is_audio_card(card: Card) -> bool:
+    """True for audio guidance cards (id prefix ``hvac-``), whose class_tags come from
+    AUDIO_FAULT_TAGS. These belong in the 512-dim CLAP audio index, not the 768-dim
+    visual card_vectors index, so visual-only paths exclude them."""
+    return card.id.startswith("hvac-")

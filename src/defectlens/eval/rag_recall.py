@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from defectlens.corpus import load_corpus_dir
+from defectlens.corpus import is_audio_card, load_corpus_dir
 from defectlens.eval.clip_zeroshot import _nan_to_none, pick_device
 from defectlens.ingest import read_manifest
 from defectlens.rag import db
@@ -80,7 +80,9 @@ def main() -> None:
 
     from defectlens.rag.embed import embed_images, embed_texts
 
-    cards = load_corpus_dir(args.corpus_dir)
+    # Visual recall eval: exclude audio-only guidance cards (hvac-*) so their audio
+    # fault tags never reach the UNIFIED_CLASSES.index() mapping below.
+    cards = [c for c in load_corpus_dir(args.corpus_dir) if not is_audio_card(c)]
     if not cards:
         raise SystemExit(f"no cards found in {args.corpus_dir}")
     lookup = card_lookup(cards)
