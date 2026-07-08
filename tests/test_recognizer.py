@@ -192,12 +192,15 @@ def test_note_adds_third_ranking_to_card_fusion(monkeypatch):
     card_ids = [c.id for c in cards]
 
     # db.top_k backs both the image-centroid and the note-text retrievals;
-    # return the same card rows regardless of embedding/kind.
-    monkeypatch.setattr(
-        recognizer_mod.db,
-        "top_k",
-        lambda conn, emb, k, kinds: [(c.id, c.class_tags, 0.0) for c in cards],
-    )
+    # return the same card rows regardless of embedding, but record the
+    # `kinds` filter so we can prove the note path queries the text vectors.
+    captured_kinds = []
+
+    def fake_top_k(conn, emb, k, kinds):
+        captured_kinds.append(kinds)
+        return [(c.id, c.class_tags, 0.0) for c in cards]
+
+    monkeypatch.setattr(recognizer_mod.db, "top_k", fake_top_k)
     # Note path needs only *some* fixed embedding; correctness is out of scope.
     monkeypatch.setattr(
         recognizer_mod,
@@ -218,3 +221,5 @@ def test_note_adds_third_ranking_to_card_fusion(monkeypatch):
     rec.analyze_image_bytes(png, note="musty smell")  # + note-text ranking
 
     assert captured_ranking_counts == [2, 3]
+    # the note retrieval must query the text-vector kind, not image centroids
+    assert ("text",) in captured_kinds

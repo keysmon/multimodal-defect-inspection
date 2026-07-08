@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from contextlib import asynccontextmanager
 from io import BytesIO
 from typing import Any
@@ -12,6 +13,7 @@ from PIL import Image
 from pydantic import BaseModel
 
 from defectlens.rag.retrieve import Hit, query_by_text
+from defectlens.train.qlora import MAX_NOTE_CHARS
 
 # ---------------------------------------------------------------------------
 # Config (env-driven; no hardcoded URLs elsewhere in this module)
@@ -112,7 +114,7 @@ def create_app(
         file: UploadFile = File(...),
         note: str = Form(""),
     ) -> dict:
-        note_text = note.strip() or None
+        note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
         data = await file.read()
         try:
             img = Image.open(BytesIO(data))

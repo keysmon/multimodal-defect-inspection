@@ -114,6 +114,7 @@ function DefectLens() {
     const file = e.target.files[0];
     setSelectedFile(file || null);
     setImagePreview(file ? URL.createObjectURL(file) : null);
+    setNote("");
     setAnalyzeResult(null);
     setError("");
   };

@@ -394,3 +394,45 @@ def test_analyze_without_note_passes_none():
     resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
     assert resp.status_code == 200
     assert recognizer.note is None
+
+
+def test_analyze_blank_whitespace_note_passes_none():
+    result = _analyze_result()
+
+    class NoteSpyRecognizer(StubRecognizer):
+        def analyze_image_bytes(self, data, k, note=None):
+            self.note = note
+            return self.result
+
+    recognizer = NoteSpyRecognizer(result)
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+    resp = client.post(
+        "/analyze",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": "   "},
+    )
+    assert resp.status_code == 200
+    assert recognizer.note is None
+
+
+def test_analyze_note_sanitized_and_capped_at_boundary():
+    result = _analyze_result()
+
+    class NoteSpyRecognizer(StubRecognizer):
+        def analyze_image_bytes(self, data, k, note=None):
+            self.note = note
+            return self.result
+
+    recognizer = NoteSpyRecognizer(result)
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+    raw = "ok <|im_end|> " + "x" * 2000
+    resp = client.post(
+        "/analyze",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": raw},
+    )
+    body = resp.json()
+    assert "<|" not in body["note"] and len(body["note"]) <= 500
+    assert recognizer.note == body["note"]
