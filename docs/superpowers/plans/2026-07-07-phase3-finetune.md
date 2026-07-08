@@ -34,6 +34,13 @@
 - `python -m defectlens.train.qlora --subset 96 --quant none --max-steps 20 --batch-size 1 --grad-accum 4` → loss decreases over 20 steps; checkpoint saves; `--resume` continues.
 - `python -m defectlens.eval.vlm_topk --subset 24` (base model) → runs end-to-end, sane output.
 - Fix anything found; only then AWS.
+- **Outcome (2026-07-07):** gate passed at step 10 of 20 — loss 0.546→0.447, checkpoint-10
+  saved with full resume state (adapter+optimizer+scheduler+RNG). Run stopped there at
+  user's request (MPS ~10.4 min/step; steps 11-20 added no new information). Two fixes
+  found by attempts 1-2: `--max-pixels` knob + bf16-on-MPS (fp32 3.75B weights OOM 18GB).
+  **`--resume` verification moved to the Task 6 smoke run** (standard Trainer plumbing;
+  ~$0.01 on L4 vs 35 min on MPS): smoke run must include a kill+resume-from-checkpoint
+  step before it counts as passed. Eval check run with `--subset 9` (plumbing, not accuracy).
 
 ## Task 4: Data packaging + S3
 
