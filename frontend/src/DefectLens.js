@@ -233,9 +233,28 @@ function DefectLens() {
           <div className="rank-chips">
             {topClasses.map((c, i) => (
               <span key={c.label} className="rank-chip">
-                {`${i + 1}. ${c.label}`}
+                {`${i + 1}. ${c.label.replace(/_/g, " ")}`}
+                {typeof c.score === "number" && (
+                  <span className="rank-score">
+                    {`${Math.round(c.score * 100)}%`}
+                  </span>
+                )}
               </span>
             ))}
+            {analyzeResult.classifier && (
+              <span
+                className="classifier-badge"
+                title={
+                  analyzeResult.classifier === "vlm-qlora"
+                    ? "Classified by the fine-tuned Qwen2.5-VL model (macro top-1 0.851 on the frozen test split)"
+                    : "Classified by the CLIP retrieval-fusion baseline"
+                }
+              >
+                {analyzeResult.classifier === "vlm-qlora"
+                  ? "fine-tuned VLM"
+                  : "CLIP baseline"}
+              </span>
+            )}
           </div>
 
           {analyzeResult.description && (
