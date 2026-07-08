@@ -159,6 +159,8 @@ trap cleanup EXIT
   echo "export AWS_REGION=\"${REGION}\""
   echo "export TRAIN_ARGS=\"${TRAIN_ARGS}\""
   echo "export IDLE_TIMEOUT_SEC=\"${IDLE_TIMEOUT_SEC}\""
+  echo "export EVAL_ARGS=\"${EVAL_ARGS:-}\""
+  echo "export SMOKE_RESUME_ARGS=\"${SMOKE_RESUME_ARGS:-}\""
   echo "export CHECKPOINT_SYNC_INTERVAL=\"${CHECKPOINT_SYNC_INTERVAL}\""
   cat "${SCRIPT_DIR}/bootstrap.sh"
 } > "$USER_DATA_FILE"

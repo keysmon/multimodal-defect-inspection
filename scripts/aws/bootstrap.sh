@@ -22,6 +22,8 @@ set -euxo pipefail
 : "${AWS_REGION:=us-east-1}"
 : "${IDLE_TIMEOUT_SEC:=1800}"
 : "${CHECKPOINT_SYNC_INTERVAL:=120}"
+: "${EVAL_ARGS:=}"
+: "${SMOKE_RESUME_ARGS:=}"
 
 WORKDIR=/opt/defectlens-phase3
 CKPT_DIR="${WORKDIR}/checkpoints"
@@ -106,6 +108,23 @@ python3 -m defectlens.train.qlora \
 TRAIN_EXIT=${PIPESTATUS[0]}
 set -e
 
+# Smoke-mode resume test: re-run training with --resume plus SMOKE_RESUME_ARGS
+# (e.g. "--max-steps 110" — appended after TRAIN_ARGS so its --max-steps wins)
+# to prove checkpoint-resume works on this stack before the full run relies
+# on it for spot-interruption recovery.
+if [[ -n "${SMOKE_RESUME_ARGS:-}" && "$TRAIN_EXIT" -eq 0 ]]; then
+  echo "== smoke: resume-from-checkpoint test (${SMOKE_RESUME_ARGS}) =="
+  set +e
+  python3 -m defectlens.train.qlora \
+    --quant 4bit \
+    --train-manifest data/manifests/train.csv \
+    --output-dir "$CKPT_DIR" \
+    $TRAIN_ARGS $SMOKE_RESUME_ARGS --resume \
+    2>&1 | tee -a "$LOG_FILE"
+  TRAIN_EXIT=${PIPESTATUS[0]}
+  set -e
+fi
+
 kill "$WATCHDOG_PID" 2>/dev/null || true
 
 echo "== final checkpoint sync =="
@@ -117,7 +136,8 @@ if [[ "$TRAIN_EXIT" -eq 0 ]]; then
     --test-manifest data/manifests/test.csv \
     --adapter "${CKPT_DIR}/adapter" \
     --out-dir "$WORKDIR" \
-    --out-name eval_results.json || echo "WARNING: eval step failed, see train.log for training result"
+    --out-name eval_results.json \
+    $EVAL_ARGS || echo "WARNING: eval step failed, see train.log for training result"
   if [[ -f "${WORKDIR}/eval_results.json" ]]; then
     aws s3 cp "${WORKDIR}/eval_results.json" "${S3_PREFIX}/eval_results.json" --region "$AWS_REGION"
   fi
