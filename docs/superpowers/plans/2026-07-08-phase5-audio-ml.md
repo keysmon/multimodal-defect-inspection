@@ -41,10 +41,14 @@ DEST="${HOME}/datasets/dcase2020t2"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mkdir -p "$DEST"
 
-declare -A MD5S=(
-  [dev_data_fan.zip]=649bdfc06263ae7a838963f43b6641e6
-  [dev_data_pump.zip]=90e7091ef722b7238a7f1009365779cd
-)
+# macOS ships bash 3.2 (no associative arrays) — use a lookup function.
+md5_for() {
+  case "$1" in
+    dev_data_fan.zip)  echo 649bdfc06263ae7a838963f43b6641e6 ;;
+    dev_data_pump.zip) echo 90e7091ef722b7238a7f1009365779cd ;;
+    *) echo unknown ;;
+  esac
+}
 
 for NAME in dev_data_fan.zip dev_data_pump.zip; do
   ZIP="${DEST}/${NAME}"
@@ -54,7 +58,7 @@ for NAME in dev_data_fan.zip dev_data_pump.zip; do
   fi
   echo "== verifying ${NAME} =="
   GOT=$(md5 -q "$ZIP")
-  [[ "$GOT" == "${MD5S[$NAME]}" ]] || { echo "MD5 MISMATCH for ${NAME}: ${GOT}" >&2; exit 1; }
+  [[ "$GOT" == "$(md5_for "$NAME")" ]] || { echo "MD5 MISMATCH for ${NAME}: ${GOT}" >&2; exit 1; }
   MACHINE="${NAME#dev_data_}"; MACHINE="${MACHINE%.zip}"
   if [[ ! -d "${DEST}/${MACHINE}" ]]; then
     echo "== extracting ${NAME} =="
