@@ -29,13 +29,23 @@ def load_clap(device: str):
 
 
 def load_wav_48k(path: Path) -> np.ndarray:
-    import torchaudio
+    """Load a PCM wav as mono float32 at 48kHz.
 
-    wave, sr = torchaudio.load(str(path))
-    wave = wave.mean(dim=0, keepdim=True)  # mono
+    soundfile + scipy polyphase resampling instead of torchaudio: DCASE wavs
+    are plain 16-bit PCM, and torchaudio >=2.9 delegates load() to torchcodec
+    (an FFmpeg-linked extra dependency) — needless weight for uncompressed wav.
+    """
+    from math import gcd
+
+    import soundfile as sf
+    from scipy.signal import resample_poly
+
+    wave, sr = sf.read(str(path), dtype="float32", always_2d=True)
+    wave = wave.mean(axis=1)  # mono
     if sr != CLAP_SR:
-        wave = torchaudio.functional.resample(wave, sr, CLAP_SR)
-    return wave.squeeze(0).numpy()
+        g = gcd(CLAP_SR, sr)
+        wave = resample_poly(wave, CLAP_SR // g, sr // g).astype(np.float32)
+    return wave
 
 
 def embed_audio_files(model, processor, paths: list[Path], device: str, batch_size: int = 8) -> np.ndarray:
