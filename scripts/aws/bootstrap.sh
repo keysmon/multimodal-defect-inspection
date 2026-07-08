@@ -92,6 +92,15 @@ WHEEL=$(ls "${WORKDIR}/dist/"defectlens-*.whl | head -n1)
 "$PY" -m pip install "$WHEEL"
 "$PY" -m pip install bitsandbytes  # CUDA-only dep, not in pyproject.toml (lazy-imported)
 
+# Spot-interruption self-healing: if a prior run of THIS training already
+# synced checkpoints to S3, pull them down and resume instead of restarting.
+# (Smoke-run artifacts live under a different prefix so they never match.)
+if aws s3 ls "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" 2>/dev/null | grep -q "checkpoint-"; then
+  echo "== prior checkpoints found in S3 — downloading and enabling --resume =="
+  aws s3 sync "${S3_PREFIX}/checkpoints/" "$CKPT_DIR" --region "$AWS_REGION"
+  TRAIN_ARGS="$TRAIN_ARGS --resume"
+fi
+
 echo "== starting background checkpoint sync (every ${CHECKPOINT_SYNC_INTERVAL}s) =="
 (
   while true; do
