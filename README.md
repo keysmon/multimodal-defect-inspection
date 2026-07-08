@@ -84,6 +84,8 @@ phase-3 S3 bucket under `checkpoints/adapter/`); eval =
 length-normalized answer log-likelihood ranking over the 9 class answers
 (`src/defectlens/eval/vlm_topk.py`).
 
+![Fine-tuned confusion matrix](results/vlm_qlora_confusion.png)
+
 ![CLIP zero-shot confusion matrix](results/clip_zeroshot_confusion.png)
 
 Zero-shot CLIP is strong on commodity classes (crack 0.85, mold/algae 0.80,
