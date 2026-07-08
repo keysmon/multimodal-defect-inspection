@@ -62,18 +62,35 @@ echo "== activating DLAMI PyTorch environment =="
 # Fall back to whatever python3 is on PATH if conda isn't where expected, so
 # a future AMI naming change fails at pip-install time with a clear error
 # rather than silently no-op-ing this block.
+# DLAMI python env layout varies by AMI generation (2026 Ubuntu 24.04 image
+# has NO /opt/conda — first smoke attempt died on `pip: command not found`).
+# Don't assume a layout: activate conda if present, then probe candidate
+# pythons for one that can import torch, and use ITS pip for everything.
 if [[ -f /opt/conda/etc/profile.d/conda.sh ]]; then
   # shellcheck source=/dev/null
   source /opt/conda/etc/profile.d/conda.sh
-  conda activate pytorch
+  conda activate pytorch || true
 fi
-python3 --version
+ls /opt || true   # in the -x trace: shows actual env layout for diagnosis
+PY=""
+for CAND in "$(command -v python3 || true)" \
+    /opt/conda/envs/pytorch/bin/python \
+    /opt/pytorch/bin/python /opt/pytorch/bin/python3; do
+  [[ -n "$CAND" && -x "$CAND" ]] || continue
+  if "$CAND" -c 'import torch' 2>/dev/null; then PY="$CAND"; break; fi
+done
+if [[ -z "$PY" ]]; then
+  echo "FATAL: no python with torch found on this AMI — aborting" >&2
+  exit 1
+fi
+echo "using python: $PY"
+"$PY" -c 'import torch; print("torch", torch.__version__, "cuda:", torch.cuda.is_available())'
 nvidia-smi || echo "WARNING: nvidia-smi not found — GPU may not be attached/ready"
 
 echo "== installing project wheel + GPU-only deps =="
 WHEEL=$(ls "${WORKDIR}/dist/"defectlens-*.whl | head -n1)
-pip install "$WHEEL"
-pip install bitsandbytes  # CUDA-only dep, not in pyproject.toml (lazy-imported)
+"$PY" -m pip install "$WHEEL"
+"$PY" -m pip install bitsandbytes  # CUDA-only dep, not in pyproject.toml (lazy-imported)
 
 echo "== starting background checkpoint sync (every ${CHECKPOINT_SYNC_INTERVAL}s) =="
 (
@@ -107,7 +124,7 @@ WATCHDOG_PID=$!
 echo "== training =="
 cd "${WORKDIR}/repo"
 set +e
-python3 -m defectlens.train.qlora \
+"$PY" -m defectlens.train.qlora \
   --quant 4bit \
   --train-manifest data/manifests/train.csv \
   --output-dir "$CKPT_DIR" \
@@ -123,7 +140,7 @@ set -e
 if [[ -n "${SMOKE_RESUME_ARGS:-}" && "$TRAIN_EXIT" -eq 0 ]]; then
   echo "== smoke: resume-from-checkpoint test (${SMOKE_RESUME_ARGS}) =="
   set +e
-  python3 -m defectlens.train.qlora \
+  "$PY" -m defectlens.train.qlora \
     --quant 4bit \
     --train-manifest data/manifests/train.csv \
     --output-dir "$CKPT_DIR" \
@@ -140,7 +157,7 @@ aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || tr
 
 if [[ "$TRAIN_EXIT" -eq 0 ]]; then
   echo "== training succeeded — running eval on frozen test split =="
-  python3 -m defectlens.eval.vlm_topk \
+  "$PY" -m defectlens.eval.vlm_topk \
     --test-manifest data/manifests/test.csv \
     --adapter "${CKPT_DIR}/adapter" \
     --out-dir "$WORKDIR" \
