@@ -58,6 +58,18 @@
 - bootstrap.sh (user-data): pull repo tarball + data from S3, pip install project, run training with `--quant 4bit`, sync checkpoints to S3 every save, auto-shutdown on completion or 30min idle GPU (safety).
 - **ASK USER before every launch. No exceptions.**
 
+**REGION MOVE (2026-07-07 evening, user decision):** us-east-1 g6 spot went
+capacity-dry region-wide at smoke-launch time; user chose to wait for
+**ca-central-1** (home region, spot currently ~9% cheaper at $0.409/hr) over
+us-east-1 on-demand (~$0.55). Migrated ($0): quota requests submitted (spot +
+on-demand, 8 vCPUs, PENDING + watcher), bucket
+`defectlens-phase3-ca-002559670021` created + data cross-region synced, IAM
+role policy extended to both buckets, SG `defectlens-gpu-sg`
+(sg-09a1739429d0636e5) created in ca-central-1 default VPC. Launch scripts are
+region-parameterized (AWS_REGION + BUCKET env). Smoke launch in CA at ~$0.25
+is user-approved; full run still needs its own OK. us-east-1 infra kept as
+fallback.
+
 ## Task 6: Smoke run (~$0.30, NEEDS USER OK)
 - 100 steps 4bit on g6.xlarge spot; verify loss/throughput/checkpoint-to-S3; terminate; project full-run cost from measured steps/sec; report.
 
