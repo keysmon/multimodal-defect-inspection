@@ -40,7 +40,11 @@
   found by attempts 1-2: `--max-pixels` knob + bf16-on-MPS (fp32 3.75B weights OOM 18GB).
   **`--resume` verification moved to the Task 6 smoke run** (standard Trainer plumbing;
   ~$0.01 on L4 vs 35 min on MPS): smoke run must include a kill+resume-from-checkpoint
-  step before it counts as passed. Eval check run with `--subset 9` (plumbing, not accuracy).
+  step before it counts as passed. Local eval check ABANDONED after two macOS jetsam
+  kills (kernel memory-pressure storm, ~1.5GB free, verified in system log 18:26:44) —
+  the `vlm_topk --subset` plumbing check moves to the smoke run too (~$0.02 on L4).
+  Lesson: check free-memory headroom before any local multi-GB run; `/usr/bin/log`
+  (zsh shadows `log` with a builtin) shows jetsam kills.
 
 ## Task 4: Data packaging + S3
 
