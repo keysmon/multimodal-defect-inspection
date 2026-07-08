@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -36,6 +37,7 @@ QUESTION = (
     "crack, spalling, efflorescence, exposed rebar, corrosion stain, "
     "mold or algae, water damage, peeling paint, no defect."
 )
+MAX_NOTE_CHARS = 500
 
 assert set(HUMANIZED) == set(UNIFIED_CLASSES), "HUMANIZED must cover all unified classes"
 
@@ -89,7 +91,10 @@ def build_messages(image_path: str, label: str, note: str | None = None) -> list
     """
     question = QUESTION
     if note and note.strip():
-        question = f"Inspector note: {note.strip()}\n{QUESTION}"
+        # Strip chat-template control markers (<|im_end|> etc.) and cap
+        # length: the note is user-supplied text entering the prompt.
+        clean = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS]
+        question = f"Inspector note: {clean}\n{QUESTION}"
     return [
         {
             "role": "user",

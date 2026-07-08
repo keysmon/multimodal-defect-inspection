@@ -133,3 +133,33 @@ def test_score_answers_accepts_note_kwarg():
 
 def test_rank_classes_accepts_note_kwarg():
     assert "note" in inspect.signature(Describer.rank_classes).parameters
+
+
+def test_score_answers_forwards_note_to_build_messages(monkeypatch):
+    seen = []
+
+    def spy(image, label, note=None):
+        seen.append(note)
+        raise RuntimeError("stop before torch")
+
+    monkeypatch.setattr(vlm_topk, "build_messages", spy)
+    with pytest.raises(RuntimeError, match="stop before torch"):
+        vlm_topk.score_answers(None, None, "img", "cpu", note="my note")
+    assert seen == ["my note"]
+
+
+def test_rank_classes_forwards_note_to_score_answers(monkeypatch):
+    seen = {}
+
+    def spy(model, processor, image, device, note=None):
+        seen["note"] = note
+        return {"crack": -0.1}
+
+    monkeypatch.setattr(vlm_topk, "score_answers", spy)
+    d = Describer()
+    d.adapter_loaded = True
+    d.model = d.processor = object()
+    d.device = "cpu"
+    result = d.rank_classes("img", note="musty smell")
+    assert seen["note"] == "musty smell"
+    assert result[0][0] == "crack"

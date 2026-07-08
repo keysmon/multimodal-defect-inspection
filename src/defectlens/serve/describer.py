@@ -96,6 +96,9 @@ class Describer:
         measured 0.851 macro top-1 with; log-liks are softmaxed so the API
         reports probabilities. Returns [] when the adapter isn't loaded —
         callers fall back to the CLIP-fused ranking.
+
+        Args:
+            note: Optional inspector free-text to include in the classification prompt.
         """
         if not self.adapter_loaded:
             return []
