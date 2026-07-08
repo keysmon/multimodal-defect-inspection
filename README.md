@@ -92,6 +92,33 @@ Zero-shot CLIP is strong on commodity classes (crack 0.85, mold/algae 0.80,
 peeling paint 0.77 top-1) but fails on exactly the fine-grained distinctions an
 inspector needs — spalling 0.15, no-defect 0.17, exposed rebar 0.25, corrosion
 stain 0.33 — which is the measured gap the Phase 3 fine-tune exists to close.
+### Audio anomaly detection (Phase 5.2)
+
+Unsupervised equipment-sound anomaly detection on the DCASE 2020 Task 2 dev
+set (MIMII fan + pump): CLAP embeddings (laion/clap-htsat-unfused, no
+training) + k-nearest-neighbor distance to each machine ID's NORMAL training
+clips only, per the DCASE unsupervised protocol. AUC per machine ID vs the
+official autoencoder baseline (Koizumi et al. 2020, arXiv:2006.05822;
+per-ID numbers from the official baseline repo):
+
+| Machine | id_00 | id_02 | id_04 | id_06 | avg | baseline avg |
+|---|---|---|---|---|---|---|
+| pump | **0.868** | **0.869** | 0.826 | 0.642 | **0.801** | 0.726 |
+| fan | 0.538 | 0.632 | 0.479 | **0.761** | 0.602 | 0.652 |
+
+Pump beats the baseline by +7.5 points average with zero trained parameters;
+fan lands 5 below. A k sweep (1-20) moves either machine ~1 point and changes
+no conclusion, so the pre-registered default (k=5) is reported. Our read on
+the asymmetry: pump anomalies are transient events (cavitation, knocking) -
+structure a general-audio embedding represents well - while fan anomalies are
+subtle spectral shifts inside stationary broadband hum that 10-second global
+clip embeddings compress away; fan is likewise the hardest machine for the
+DCASE baseline. Framing per spec: this is an industrial-equipment audio
+benchmark, HVAC-motivated - real HVAC acoustics differ. Reproduce:
+`bash scripts/fetch_dcase_audio.sh` then `python -m defectlens.eval.audio_auc`
+(results/audio_auc.json). Dataset: DCASE 2020 Task 2 dev set (MIMII/ToyADMOS
+consortium), CC BY-NC-SA 4.0, zenodo.org/records/3678171.
+
 ### Inspector notes (Phase 5.1)
 
 `/analyze` accepts an optional free-text inspector note. The note conditions
