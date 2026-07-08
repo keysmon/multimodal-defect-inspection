@@ -92,6 +92,32 @@ Zero-shot CLIP is strong on commodity classes (crack 0.85, mold/algae 0.80,
 peeling paint 0.77 top-1) but fails on exactly the fine-grained distinctions an
 inspector needs — spalling 0.15, no-defect 0.17, exposed rebar 0.25, corrosion
 stain 0.33 — which is the measured gap the Phase 3 fine-tune exists to close.
+### Inspector notes (Phase 5.1)
+
+`/analyze` accepts an optional free-text inspector note. The note conditions
+guidance-card retrieval (a third list in the RRF fusion - e.g. a "north
+foundation wall" note promotes HUD's foundation-specific card to rank 1) and
+is embedded in the exported report; classification stays evidence-based.
+A three-condition sensitivity study (`results/note_sensitivity.json`, 40
+crack/no-defect test images) measured classifier response to note text:
+
+| Condition | Macro top-1 |
+|---|---|
+| Empty note (hard gate: must equal baseline) | 0.900 |
+| Informative scene-context note | 0.900 |
+| Misleading off-topic note | 0.900 |
+
+The fine-tuned classifier is note-invariant: notes never hurt (gate passed
+exactly) and also never swayed a prediction - including deliberately
+misleading ones, which doubles as prompt-injection robustness for the note
+field. Caveats stated plainly: informative notes were hand-authored by the
+project authors while viewing the images (this measures prompt sensitivity,
+not field accuracy gain); the deterministic subset selection drew all-BD3
+images (visible cracks, 0.90 subset accuracy) rather than the hardest SDNET
+hairline tiles; and the measured retrieval recall@5 of 0.863 applies to the
+two-list no-note fusion - note-conditioned retrieval is qualitatively
+verified but not yet quantitatively benchmarked.
+
 Environment for these numbers is pinned in `requirements-lock.txt`
 (transformers 5.13.0, torch — see lockfile).
 
