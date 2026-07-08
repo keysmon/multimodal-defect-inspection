@@ -131,9 +131,14 @@ echo ""
 echo "== resolving network (default VPC + a subnet, existing SG/role) =="
 VPC_ID=$(aws ec2 describe-vpcs --filters "Name=is-default,Values=true" \
   --region "$REGION" --profile "$PROFILE" --query 'Vpcs[0].VpcId' --output text)
-SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" \
-  --region "$REGION" --profile "$PROFILE" \
-  --query 'sort_by(Subnets, &AvailableIpAddressCount)[-1].SubnetId' --output text)
+# SUBNET_ID overridable: on InsufficientInstanceCapacity, retry with a subnet
+# in an AZ the error message names as having capacity (AZ capacity is per-type
+# and shifts hour to hour — us-east-1d had none for g6.xlarge on 2026-07-07).
+if [[ -z "${SUBNET_ID:-}" ]]; then
+  SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" \
+    --region "$REGION" --profile "$PROFILE" \
+    --query 'sort_by(Subnets, &AvailableIpAddressCount)[-1].SubnetId' --output text)
+fi
 SG_ID=$(aws ec2 describe-security-groups \
   --filters "Name=group-name,Values=${SG_NAME}" "Name=vpc-id,Values=${VPC_ID}" \
   --region "$REGION" --profile "$PROFILE" --query 'SecurityGroups[0].GroupId' --output text)
