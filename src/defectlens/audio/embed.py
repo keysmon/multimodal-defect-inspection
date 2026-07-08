@@ -54,7 +54,7 @@ def embed_audio_files(model, processor, paths: list[Path], device: str, batch_si
     out = []
     for batch in batched(list(paths), batch_size):
         audios = [load_wav_48k(p) for p in batch]
-        inputs = processor(audios=audios, sampling_rate=CLAP_SR, return_tensors="pt").to(device)
+        inputs = processor(audio=audios, sampling_rate=CLAP_SR, return_tensors="pt").to(device)
         with torch.no_grad():
             feats = model.get_audio_features(**inputs)
         if not isinstance(feats, torch.Tensor):  # transformers v5 output object
