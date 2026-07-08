@@ -218,3 +218,16 @@
   border: 1px solid #c7d2fe;
   cursor: help;
 }
+
+.note-input {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  margin: 10px auto 0;
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}

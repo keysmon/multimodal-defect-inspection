@@ -69,6 +69,7 @@ function buildReportMarkdown(analyzeResult) {
   lines.push(`- Date: ${date}`);
   lines.push(`- Filename: ${analyzeResult.filename}`);
   lines.push(`- Severity: ${severityStyle(analyzeResult.severity).label}`);
+  if (analyzeResult.note) lines.push(`- Inspector note: ${analyzeResult.note}`);
   lines.push("");
 
   lines.push("## Ranked classes");
@@ -99,6 +100,7 @@ function buildReportMarkdown(analyzeResult) {
 function DefectLens() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [note, setNote] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState(null);
 
@@ -126,6 +128,7 @@ function DefectLens() {
 
     const formData = new FormData();
     formData.append("file", selectedFile);
+    if (note.trim()) formData.append("note", note.trim());
 
     try {
       const response = await axios.post(`${API}/analyze`, formData, {
@@ -209,6 +212,14 @@ function DefectLens() {
             className="preview-image"
           />
         )}
+        <textarea
+          className="note-input"
+          placeholder="Optional inspector note (e.g., 'musty smell, below upstairs bathroom')"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          maxLength={500}
+        />
         <button
           onClick={handleAnalyze}
           disabled={isAnalyzing}
