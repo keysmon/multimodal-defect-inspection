@@ -253,6 +253,7 @@ def test_health_ok_path_reports_db_and_vlm_state():
         "db": True,
         "cards_indexed": 410,
         "vlm_loaded": True,
+        "classifier": "clip-fused",
     }
 
 
@@ -270,6 +271,7 @@ def test_health_degraded_path_when_db_query_raises():
         "db": False,
         "cards_indexed": 0,
         "vlm_loaded": False,
+        "classifier": "clip-fused",
     }
 
 
@@ -308,3 +310,42 @@ def test_module_import_does_not_pull_in_torch_or_transformers():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "OK"
+
+
+def test_analyze_prefers_vlm_ranking_and_rekeys_severity():
+    """A describer exposing non-empty rank_classes switches /analyze to the
+    fine-tuned VLM classes + classifier tag and re-keys severity on the VLM
+    top class; cards still come from the CLIP-RAG recognizer result."""
+    card_rebar = make_card("c9", ["exposed_rebar"], severity="structural")
+    hits = [Hit(card=card_rebar, distance=0.1)]
+    clip_classes = [("crack", 0.9), ("spalling", 0.5)]
+    result = RecognitionResult(classes=clip_classes, severity="urgent", hits=hits)
+
+    describer = StubDescriber(text="Exposed reinforcement bar.")
+    describer.rank_classes = lambda img: [
+        ("exposed_rebar", 0.97), ("spalling", 0.02), ("crack", 0.01)
+    ]
+    app = create_app(recognizer=StubRecognizer(result), describer=describer)
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["classifier"] == "vlm-qlora"
+    assert body["classes"][0] == {"label": "exposed_rebar", "score": 0.97}
+    assert body["severity"] != "urgent"  # re-keyed on exposed_rebar, not CLIP's crack
+    assert body["cards"][0]["id"] == "c9"
+
+
+def test_analyze_falls_back_to_clip_when_no_vlm_ranking():
+    """StubDescriber has no rank_classes -> classifier stays clip-fused with
+    the recognizer's classes and severity untouched."""
+    result = _analyze_result()
+    app = create_app(recognizer=StubRecognizer(result), describer=StubDescriber())
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    body = resp.json()
+    assert body["classifier"] == "clip-fused"
+    assert body["classes"][0] == {"label": "crack", "score": 0.9}
+    assert body["severity"] == "urgent"

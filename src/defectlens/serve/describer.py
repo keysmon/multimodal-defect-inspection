@@ -1,14 +1,27 @@
-"""Natural-language condition description via Qwen2.5-VL-3B (spec §7).
+"""Qwen2.5-VL-3B serving component: fine-tuned classification + description.
+
+One model, two modes (spec §7 + Phase 3 landing):
+- rank_classes(): LoRA adapter ACTIVE — the fine-tuned 9-way classifier
+  (macro top-1 0.851 on the frozen test split).
+- describe(): adapter DISABLED per call — the base model writes the
+  condition description. The adapter was trained only on terse class
+  answers and measurably degrades open-ended narration, so description
+  quality comes from the base weights.
 
 Optional component: set DEFECTLENS_NO_VLM=1 to disable (API returns an empty
-description and the UI hides the panel) — keeps serving usable on low-RAM
-machines and in tests. fp16 on MPS needs ~7GB unified memory.
+description, classification falls back to the CLIP-fused ranking) — keeps
+serving usable on low-RAM machines and in tests. ~7GB unified memory on MPS.
+DEFECTLENS_ADAPTER overrides the adapter dir (default models/qwen25vl-lora-v1;
+missing dir = base model only, classification stays CLIP-fused).
 """
 from __future__ import annotations
 
+import math
 import os
+from pathlib import Path
 
 QWEN_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
+DEFAULT_ADAPTER = "models/qwen25vl-lora-v1"
 
 
 def build_prompt(top_classes: list[str]) -> str:
@@ -47,6 +60,7 @@ class Describer:
         self.model = None
         self.processor = None
         self.device: str | None = None
+        self.adapter_loaded = False
 
     def load(self) -> None:
         if vlm_disabled():
@@ -66,6 +80,38 @@ class Describer:
             .eval()
         )
         self.processor = AutoProcessor.from_pretrained(QWEN_MODEL)
+
+        adapter_dir = Path(os.environ.get("DEFECTLENS_ADAPTER", DEFAULT_ADAPTER))
+        if adapter_dir.is_dir():
+            from peft import PeftModel
+
+            self.model = PeftModel.from_pretrained(self.model, str(adapter_dir))
+            self.model = self.model.to(self.device).eval()
+            self.adapter_loaded = True
+
+    def rank_classes(self, image) -> list[tuple[str, float]]:
+        """Fine-tuned 9-way classification: (label, probability) descending.
+
+        Same length-normalized answer log-likelihood ranking the Phase 3 eval
+        measured 0.851 macro top-1 with; log-liks are softmaxed so the API
+        reports probabilities. Returns [] when the adapter isn't loaded —
+        callers fall back to the CLIP-fused ranking.
+        """
+        if not self.adapter_loaded:
+            return []
+
+        from defectlens.eval.vlm_topk import score_answers
+
+        # score_answers returns {label: loglik} (labels, not answer texts)
+        loglik = score_answers(self.model, self.processor, image, self.device)
+        z = max(loglik.values())
+        weights = {label: math.exp(v - z) for label, v in loglik.items()}
+        total = sum(weights.values())
+        return sorted(
+            ((label, w / total) for label, w in weights.items()),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
 
     def describe(self, image, top_classes: list[str]) -> str:
         if vlm_disabled() or self.model is None or self.processor is None:
@@ -88,7 +134,12 @@ class Describer:
         inputs = self.processor(text=[text], images=[image], return_tensors="pt").to(
             self.device
         )
-        with torch.no_grad():
+        # Adapter OFF for generation: the classification fine-tune measurably
+        # degrades free-text description quality; base weights write it.
+        from contextlib import nullcontext
+
+        ctx = self.model.disable_adapter() if self.adapter_loaded else nullcontext()
+        with ctx, torch.no_grad():
             output_ids = self.model.generate(
                 **inputs, max_new_tokens=120, do_sample=False
             )

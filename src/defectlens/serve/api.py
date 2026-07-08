@@ -122,12 +122,33 @@ def create_app(
         describer = request.app.state.describer
 
         result = recognizer.analyze_image_bytes(data, k=5)
-        top_labels = [label for label, _score in result.classes[:3]]
+
+        # Phase 3 classifier: fine-tuned VLM ranking (macro top-1 0.851)
+        # when the adapter is loaded; CLIP-fused ranking otherwise. Cards
+        # retrieval stays CLIP-RAG either way; severity re-keys on the
+        # final top class.
+        classes = result.classes
+        severity = result.severity
+        classifier = "clip-fused"
+        vlm_classes = getattr(describer, "rank_classes", lambda _img: [])(img)
+        if vlm_classes:
+            from defectlens.serve.recognizer import severity_for
+
+            classes = vlm_classes
+            classifier = "vlm-qlora"
+            top_class = classes[0][0]
+            top_cards = [
+                hit.card for hit in result.hits if top_class in hit.card.class_tags
+            ]
+            severity = severity_for(top_class, top_cards)
+
+        top_labels = [label for label, _score in classes[:3]]
         description = describer.describe(img, top_labels)
 
         return {
-            "classes": [{"label": label, "score": score} for label, score in result.classes],
-            "severity": result.severity,
+            "classes": [{"label": label, "score": score} for label, score in classes],
+            "severity": severity,
+            "classifier": classifier,
             "description": description,
             "cards": [_card_to_dict(hit.card) for hit in result.hits],
         }
@@ -157,12 +178,14 @@ def create_app(
                 cards_indexed = 0
 
         vlm_loaded = bool(describer is not None and getattr(describer, "model", None) is not None)
+        adapter_loaded = bool(getattr(describer, "adapter_loaded", False))
 
         return {
             "status": "ok" if db_ok else "degraded",
             "db": db_ok,
             "cards_indexed": cards_indexed,
             "vlm_loaded": vlm_loaded,
+            "classifier": "vlm-qlora" if adapter_loaded else "clip-fused",
         }
 
     return app
