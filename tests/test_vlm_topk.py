@@ -1,10 +1,13 @@
+import inspect
 import json
 import subprocess
 import sys
 
 import pytest
 
+from defectlens.eval import vlm_topk
 from defectlens.eval.vlm_topk import ANSWER_TO_LABEL, rank_answers, results_payload
+from defectlens.serve.describer import Describer
 from defectlens.taxonomy import UNIFIED_CLASSES
 from defectlens.train.qlora import HUMANIZED
 
@@ -117,3 +120,16 @@ def test_module_import_does_not_pull_in_heavy_ml_deps():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "OK"
+
+
+# ---------------------------------------------------------------------------
+# note-aware signatures
+# ---------------------------------------------------------------------------
+
+
+def test_score_answers_accepts_note_kwarg():
+    assert "note" in inspect.signature(vlm_topk.score_answers).parameters
+
+
+def test_rank_classes_accepts_note_kwarg():
+    assert "note" in inspect.signature(Describer.rank_classes).parameters

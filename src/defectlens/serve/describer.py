@@ -89,7 +89,7 @@ class Describer:
             self.model = self.model.to(self.device).eval()
             self.adapter_loaded = True
 
-    def rank_classes(self, image) -> list[tuple[str, float]]:
+    def rank_classes(self, image, note: str | None = None) -> list[tuple[str, float]]:
         """Fine-tuned 9-way classification: (label, probability) descending.
 
         Same length-normalized answer log-likelihood ranking the Phase 3 eval
@@ -103,7 +103,7 @@ class Describer:
         from defectlens.eval.vlm_topk import score_answers
 
         # score_answers returns {label: loglik} (labels, not answer texts)
-        loglik = score_answers(self.model, self.processor, image, self.device)
+        loglik = score_answers(self.model, self.processor, image, self.device, note=note)
         z = max(loglik.values())
         weights = {label: math.exp(v - z) for label, v in loglik.items()}
         total = sum(weights.values())

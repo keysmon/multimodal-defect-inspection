@@ -96,7 +96,7 @@ def pick_device() -> str:
     return "cpu"
 
 
-def score_answers(model, processor, image, device: str) -> dict[str, float]:
+def score_answers(model, processor, image, device: str, note: str | None = None) -> dict[str, float]:
     """Length-normalized teacher-forced log-likelihood of each of the 9 answers.
 
     For each label, builds the exact same (image, label) chat used in
@@ -115,7 +115,7 @@ def score_answers(model, processor, image, device: str) -> dict[str, float]:
 
     scores: dict[str, float] = {}
     for label in UNIFIED_CLASSES:
-        messages = build_messages(image, label)
+        messages = build_messages(image, label, note=note)
         full_text = processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=False
         )
