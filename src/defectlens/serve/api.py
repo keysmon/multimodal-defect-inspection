@@ -13,6 +13,7 @@ from PIL import Image
 from pydantic import BaseModel
 
 from defectlens.rag.retrieve import Hit, query_by_text
+from defectlens.serve.audio_analyzer import combine_severity
 from defectlens.train.qlora import MAX_NOTE_CHARS
 
 # ---------------------------------------------------------------------------
@@ -69,6 +70,7 @@ def create_app(
     recognizer: Any = None,
     describer: Any = None,
     text_searcher: Any = None,
+    audio_analyzer: Any = None,
 ) -> FastAPI:
     """App factory. Pass stubs directly for tests (stored on app.state as-is,
     no lifespan-triggered loading needed since TestClient without `with` never
@@ -93,12 +95,19 @@ def create_app(
             app.state.describer = d
         if app.state.text_searcher is None:
             app.state.text_searcher = TextSearcher(app.state.recognizer)
+        if app.state.audio_analyzer is None:
+            from defectlens.serve.audio_analyzer import AudioAnalyzer
+
+            a = AudioAnalyzer()
+            a.load()
+            app.state.audio_analyzer = a
         yield
 
     app = FastAPI(lifespan=lifespan)
     app.state.recognizer = recognizer
     app.state.describer = describer
     app.state.text_searcher = text_searcher
+    app.state.audio_analyzer = audio_analyzer
 
     app.add_middleware(
         CORSMiddleware,
@@ -113,6 +122,7 @@ def create_app(
         request: Request,
         file: UploadFile = File(...),
         note: str = Form(""),
+        audio: UploadFile | None = File(None),
     ) -> dict:
         note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
         data = await file.read()
@@ -127,6 +137,7 @@ def create_app(
 
         recognizer = request.app.state.recognizer
         describer = request.app.state.describer
+        analyzer = request.app.state.audio_analyzer
 
         result = recognizer.analyze_image_bytes(data, k=5, note=note_text)
 
@@ -151,16 +162,34 @@ def create_app(
             ]
             severity = severity_for(top_class, top_cards)
 
+        # Phase 5.3 late fusion: an optional equipment-audio clip adds a second
+        # modality. Audio runs before description so the band can enter the prompt.
+        audio_payload = None
+        audio_band = None
+        combined_severity = severity
+        if audio is not None and analyzer is not None and getattr(analyzer, "enabled", False):
+            finding = analyzer.analyze(await audio.read())
+            audio_band = finding.band
+            audio_payload = {
+                "score": finding.score,
+                "band": finding.band,
+                "severity": finding.severity,
+                "cards": [_card_to_dict(hit.card) for hit in finding.hits],
+            }
+            combined_severity = combine_severity(severity, finding.severity)
+
         top_labels = [label for label, _score in classes[:3]]
-        description = describer.describe(img, top_labels)
+        description = describer.describe(img, top_labels, audio_band=audio_band)
 
         return {
             "classes": [{"label": label, "score": score} for label, score in classes],
             "severity": severity,
+            "combined_severity": combined_severity,
             "classifier": classifier,
             "note": note_text,
             "description": description,
             "cards": [_card_to_dict(hit.card) for hit in result.hits],
+            "audio": audio_payload,
         }
 
     @app.post("/search")
