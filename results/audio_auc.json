@@ -1,0 +1,51 @@
+{
+ "method": "CLAP (laion/clap-htsat-unfused) embeddings + kNN(k=5) on train normals",
+ "protocol": "DCASE 2020 Task 2 dev set, per-machine-ID, unsupervised",
+ "baseline": "AE baseline, Koizumi et al. 2020 (arXiv:2006.05822)",
+ "results": {
+  "fan": {
+   "00": {
+    "auc": 0.5375921375921375,
+    "baseline": 0.5396,
+    "beats_baseline": false
+   },
+   "02": {
+    "auc": 0.6323955431754875,
+    "baseline": 0.7219,
+    "beats_baseline": false
+   },
+   "04": {
+    "auc": 0.4789367816091954,
+    "baseline": 0.6221,
+    "beats_baseline": false
+   },
+   "06": {
+    "auc": 0.7606371191135733,
+    "baseline": 0.7228,
+    "beats_baseline": true
+   }
+  },
+  "pump": {
+   "00": {
+    "auc": 0.8681118881118881,
+    "baseline": 0.6708,
+    "beats_baseline": true
+   },
+   "02": {
+    "auc": 0.869009009009009,
+    "baseline": 0.6094,
+    "beats_baseline": true
+   },
+   "04": {
+    "auc": 0.8260000000000001,
+    "baseline": 0.8886,
+    "beats_baseline": false
+   },
+   "06": {
+    "auc": 0.6420588235294118,
+    "baseline": 0.7349,
+    "beats_baseline": false
+   }
+  }
+ }
+}
