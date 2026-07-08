@@ -1,0 +1,623 @@
+# Note: cards cite individual HUD NSPIRE standard PDFs (Foundation, Wall, Leak,
+# Retaining Wall, Lead-Based Paint, Terms & Definitions) hosted under
+# hud.gov/reac/nspire-standards; source.url points at the REAC landing page.
+source:
+  name: "HUD REAC/NSPIRE Inspection Standards"
+  url: "https://www.hud.gov/program_offices/public_indian_housing/reac"
+  license: "US Government public domain"
+
+cards:
+  - id: hud-001
+    title: "Foundation crack meeting the NSPIRE deficiency threshold"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "foundation crack at least 1/4 inch wide and 12 inches long"
+    passage: >
+      A foundation crack becomes a reportable deficiency once it reaches roughly a quarter
+      inch in width and runs twelve inches or longer, regardless of whether it appears on
+      the exterior face, an interior basement wall, or a crawlspace pier. Inspectors should
+      measure both dimensions with a distance-measuring device rather than judging by eye,
+      since cracks below this size are common shrinkage or settlement artifacts. Because a
+      crack of this magnitude can signal a compromised load path, the finding is classified
+      as a structural concern warranting follow-up by a qualified contractor rather than
+      routine maintenance.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 1 (Cracked)"
+
+  - id: hud-002
+    title: "Foundation crack inspection at exterior and common-area locations"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "cracked foundation wall visible from the exterior grade line"
+    passage: >
+      The same crack width-and-length test for foundation deficiencies applies whether the
+      observation point is inside the unit, in a shared basement, or along the exterior
+      foundation wall at grade. Inspectors walking the perimeter should look for cracks that
+      align with secondary symptoms such as sticking doors, unlevel floors, or windows that
+      no longer close properly, since these signs often confirm the crack is active rather
+      than cosmetic. Documenting the location — unit, common area, or exterior — matters for
+      routing the repair to the correct responsible party.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 1 (Cracked), Outside/Inside observation guidance"
+
+  - id: hud-003
+    title: "Structural system showing signs of serious failure"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "visible structural cracking or distortion indicating building failure"
+    passage: >
+      When cracking, racking, or distortion appears across a load-bearing element and
+      cannot be tied to a single named component such as a foundation, wall, or ceiling, it
+      is evaluated under the general structural-system standard rather than a
+      component-specific one. Because this finding implies the building's overall load path
+      may be compromised, it carries the highest correction priority HUD assigns, and the
+      inspector escalates immediately rather than logging it for routine repair. This
+      deficiency exists specifically to catch structural cracking that would otherwise fall
+      through the gaps between individual component standards.
+    citation: "HUD NSPIRE Standards, Structural System — Deficiency 1 (Signs of Serious Failure)"
+
+  - id: hud-004
+    title: "Ceiling cracking and nail-pop patterning"
+    class_tags: [crack]
+    severity: monitor
+    index_sentence: "hairline cracking or small raised circles across a ceiling surface"
+    passage: >
+      Fine cracking, small blistered circles, or dimpled fastener pops on a ceiling are
+      treated as evidence that the ceiling board is separating from its fasteners, which HUD
+      classifies as an unstable-surface deficiency rather than mere cosmetic wear.
+      Inspectors distinguish this pattern from a single hairline crack in an otherwise flat,
+      securely fastened ceiling, which would not qualify. Because the underlying cause
+      tends to progress slowly, the finding is logged for scheduled repair, but recurrence
+      in the same area should prompt closer monitoring.
+    citation: "HUD NSPIRE Standards, Ceiling — Deficiency 1 (Unstable Surface)"
+
+  - id: hud-005
+    title: "Retaining wall cracking preceding lean or collapse"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "cracked or fractured retaining wall leaning away from the slope"
+    passage: >
+      A retaining wall of at least two feet in height that has begun cracking along mortar
+      joints or block faces is often the earliest visible sign that it is leaning away from
+      the soil it retains, which HUD treats as a reportable deficiency once the lean or any
+      partial collapse is confirmed. Inspectors verify the wall stands no more than
+      perpendicular to the slope base and measure its height before citing the condition,
+      since short garden walls under two feet fall outside this standard's scope. A wall
+      that is instead bowing or cracking toward the fill side is not cited, because pressure
+      in that direction does not indicate failure.
+    citation: "HUD NSPIRE Standards, Retaining Wall — Deficiency 1 & 2 (Leaning/Collapsed)"
+
+  - id: hud-006
+    title: "Interior wall buckling referred to the structural-system standard"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "interior wall buckling or bowing with cracked surface material"
+    passage: >
+      An interior wall that is buckling, bowing, or shedding its surface covering is first
+      evaluated as a wall-covering deficiency, but if the underlying cracking or distortion
+      is severe enough to threaten the resident's safety, HUD directs the inspector to
+      reclassify the finding under the structural-system standard instead. This escalation
+      path exists because a wall standard's routine correction window is inappropriate for a
+      finding that may indicate actual structural failure. Ordinary buckling gets routine
+      repair, while cracking tied to load-bearing failure gets the highest priority.
+    citation: "HUD NSPIRE Standards, Wall – Interior, Deficiency 2, cross-referenced to Structural System"
+
+  - id: hud-007
+    title: "Hairline settlement crack below the foundation deficiency threshold"
+    class_tags: [crack, no_defect]
+    severity: cosmetic
+    index_sentence: "thin foundation hairline crack narrower than a quarter inch"
+    passage: >
+      Not every visible crack in a foundation is a citable deficiency. HUD's measurement
+      rule only flags cracks that are roughly a quarter inch wide and at least twelve inches
+      long, so a thin hairline crack that falls short of either dimension is common
+      settlement cracking and passes inspection. Inspectors should still measure rather than
+      assume, since a crack that looks minor from a distance can exceed the width threshold
+      up close, but a genuinely narrow, short crack requires no corrective action or
+      citation.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 1 (Cracked), threshold boundary"
+
+  - id: hud-008
+    title: "Foundation spalling, flaking, or chipping meeting the area and depth threshold"
+    class_tags: [spalling, exposed_rebar]
+    severity: structural
+    index_sentence: "concrete foundation spalling or flaking exposing an area of material loss"
+    passage: >
+      Foundation concrete that is spalling, flaking, or chipping becomes a deficiency once
+      the affected patch reaches roughly a square foot in area and penetrates about
+      three-quarters of an inch deep into the foundation material. Inspectors measure the
+      damaged area after visually confirming flaking or chipping rather than citing based on
+      surface discoloration alone. This threshold exists because shallow surface spalling is
+      largely cosmetic weathering, while deeper, larger-area loss removes protective
+      concrete cover and can expose the reinforcing steel beneath.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3 (Exposed Rebar/Spalling, Flaking, or Chipping)"
+
+  - id: hud-009
+    title: "Any exposed rebar is an automatic foundation deficiency"
+    class_tags: [exposed_rebar]
+    severity: structural
+    index_sentence: "reinforcing steel bar visibly exposed on a concrete foundation"
+    passage: >
+      Unlike the area-and-depth test used for spalling, HUD applies no minimum size to
+      exposed reinforcing steel: a single visible segment of rebar on a foundation is enough
+      to cite the deficiency outright. The rationale is that exposed rebar is both a cut
+      hazard to anyone working near the foundation and a sign that the concrete's protective
+      cover has already failed at that location, inviting accelerated corrosion. Inspectors
+      should treat any bare rebar sighting as a fail condition rather than weighing its size
+      against a threshold.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3 (Exposed Rebar/Spalling, Flaking, or Chipping)"
+
+  - id: hud-010
+    title: "Spalling as a structural and capital-cost indicator"
+    class_tags: [spalling]
+    severity: structural
+    index_sentence: "spalled concrete surface signaling deeper structural deterioration"
+    passage: >
+      HUD's rationale for citing foundation spalling goes beyond appearance: the same
+      finding is flagged both as a potential sign of structural failure and as a defect
+      significant enough, on its own, to require a capital repair rather than a routine
+      touch-up. Inspectors documenting spalling should note that its presence often
+      indicates moisture or freeze-thaw cycling has already compromised the concrete matrix
+      well beyond the visible surface. This dual classification is why spalling repairs are
+      typically referred to a contractor rather than closed out with a cosmetic patch.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3 rationale (Structural, Capital Cost)"
+
+  - id: hud-011
+    title: "Minor surface spalling below the citable threshold"
+    class_tags: [spalling, no_defect]
+    severity: cosmetic
+    index_sentence: "shallow surface spalling smaller than a square foot on foundation"
+    passage: >
+      A small patch of shallow surface spalling that does not reach roughly a square foot in
+      area or three-quarters of an inch in depth does not meet HUD's deficiency criteria and
+      is not cited. This kind of light surface loss is typically weathering or minor
+      form-release blemishing from original construction rather than active deterioration.
+      Inspectors should still document the location for future comparison, since spalling
+      below threshold today can expand into a citable condition at a later inspection cycle.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3, threshold boundary"
+
+  - id: hud-012
+    title: "Spalling as an early monitoring item"
+    class_tags: [spalling]
+    severity: monitor
+    index_sentence: "early-stage concrete flaking not yet meeting the deficiency size"
+    passage: >
+      Concrete that is just beginning to flake or chip, but has not yet accumulated to the
+      area and depth HUD requires for citation, still warrants inclusion in an inspection
+      log as a monitoring item. Left unaddressed, minor flaking tends to accelerate once
+      moisture finds a path into the concrete, so property staff benefit from tracking its
+      progression between inspection cycles rather than waiting for it to cross the
+      deficiency line. This lets maintenance intervene with a simple patch before the damage
+      grows large enough to require capital repair.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3, sub-threshold progression"
+
+  - id: hud-013
+    title: "Foundation deficiency combining exposed rebar and corrosion staining"
+    class_tags: [spalling, corrosion_stain]
+    severity: structural
+    index_sentence: "rust-streaked concrete spalling around exposed foundation rebar"
+    passage: >
+      When foundation spalling exposes reinforcing steel that has already begun to rust,
+      the reddish-brown staining radiating from the exposed bar is a useful visual
+      confirmation that the deficiency is active rather than an old, stabilized patch. HUD
+      cites this condition under the same exposed-rebar/spalling standard regardless of
+      whether staining is present, but the rust bloom is a reliable clue for inspectors
+      distinguishing genuinely deteriorating concrete from cosmetic surface pitting.
+      Corrosion staining around exposed rebar also indicates the steel's cross-section is
+      actively shrinking, which accelerates future spalling.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3 (Exposed Rebar/Spalling)"
+
+  - id: hud-014
+    title: "Progressive spalling exposing structural rebar across an extended area"
+    class_tags: [spalling, exposed_rebar]
+    severity: urgent
+    index_sentence: "large-area concrete spalling with multiple exposed rebar sections"
+    passage: >
+      When spalling and exposed rebar are no longer confined to a single small patch but
+      span an extended run of foundation or a load-bearing wall, the deterioration should be
+      treated as actively worsening rather than a stable, isolated defect. HUD's baseline
+      exposed-rebar rule already requires citation for any single occurrence, but an
+      inspector encountering multiple exposed sections along one structural element should
+      flag the finding for prompt engineering evaluation rather than routine scheduling.
+      Rapidly expanding spalling of this kind is consistent with an ongoing corrosion-driven
+      feedback loop that keeps accelerating without intervention.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 3, extended-area application"
+
+  - id: hud-015
+    title: "Electrical service panel overcurrent device contaminated by rust or corrosion"
+    class_tags: [corrosion_stain]
+    severity: urgent
+    index_sentence: "rust or corrosion contamination on an electrical breaker or fuse"
+    passage: >
+      A circuit breaker or fuse that shows contamination from water, rust, or corrosion is
+      cited as a deficiency because contamination can prevent the device from interrupting
+      an overcurrent condition when needed, raising the risk of an electrical fire. HUD
+      places this finding in its high-severity tier requiring same-day correction,
+      reflecting how quickly a compromised overcurrent device can become a fire-safety
+      failure rather than a slow-developing maintenance issue. Inspectors visually check the
+      panel interior for corrosion residue in addition to physical damage such as burn marks
+      or melted material.
+    citation: "HUD NSPIRE Standards, Electrical – Service Panel — Deficiency 3 (Contaminated)"
+
+  - id: hud-016
+    title: "Water leak caused by a rust or corrosion hole in piping"
+    class_tags: [corrosion_stain, water_damage]
+    severity: urgent
+    index_sentence: "pinhole leak from a corroded or rusted-through pipe"
+    passage: >
+      HUD's definition of a water leak explicitly includes damage from a rust or corrosion
+      hole in a pipe, alongside punctures, gouges, cracks, and failed seals, and treats a
+      tiny pinhole leak the same as a larger breach for citation purposes. A
+      corrosion-driven pinhole leak is often harder to spot than a burst pipe because it may
+      only produce a slow drip or a damp patch, so inspectors are trained to check plumbing
+      runs, water heaters, and fixture connections for corrosion residue as an early warning
+      sign. Because a slow corrosion leak still qualifies as an active plumbing leak, it
+      receives the same rapid-correction treatment as any other leak source.
+    citation: "HUD NSPIRE Standards, Leak — Definition (Water) and Deficiency 7 (Plumbing Leaks)"
+
+  - id: hud-017
+    title: "Fire sprinkler assembly corrosion compromising suppression reliability"
+    class_tags: [corrosion_stain]
+    severity: urgent
+    index_sentence: "corroded fire sprinkler head or assembly component"
+    passage: >
+      Visible corrosion on a fire sprinkler head, valve, or deflector is cited as a
+      life-safety deficiency because corroded components can fail to discharge properly, or
+      discharge inconsistently, when a fire triggers the system. HUD assigns this finding
+      its most urgent severity tier with a same-day correction expectation, on par with an
+      obstructed or physically damaged sprinkler head, since any of these conditions can
+      defeat the fire-suppression system exactly when it is needed most. Inspectors examine
+      the sprinkler assembly and its components specifically for corrosion evidence, apart
+      from checks for clearance obstructions or missing parts.
+    citation: "HUD NSPIRE Standards, Sprinkler Assembly — Deficiency 3 (Evidence of Corrosion)"
+
+  - id: hud-018
+    title: "Foundation infiltrated by water"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "water infiltration and staining evident on foundation walls"
+    passage: >
+      Evidence of water passing through the foundation — dampness, standing water,
+      staining, or mineral deposits — is a citable deficiency in its own right, independent
+      of whether a crack or other opening is visible. HUD's rationale ties this finding to
+      both mold-exposure risk and eventual structural deterioration, since sustained
+      moisture intrusion gradually weakens the concrete and the materials built on top of
+      it. Inspectors look along the entire foundation for pooling water against the exterior
+      grade as well as interior signs of infiltration.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 4 (Infiltrated by Water)"
+
+  - id: hud-019
+    title: "Environmental water intrusion into the unit or common areas"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "water intrusion from outside entering interior living spaces"
+    passage: >
+      Water entering a unit or interior common area from an external source — as opposed to
+      a plumbing fixture failure — is cited under its own environmental-intrusion category
+      because the underlying cause and repair path differ from a leaking pipe. Left
+      unaddressed, this kind of intrusion tends to recur with every rain event or seasonal
+      thaw, so HUD tracks it separately from an isolated plumbing leak. Inspectors document
+      the pattern of staining or dampness to help distinguish an ongoing envelope failure
+      from a one-time incident.
+    citation: "HUD NSPIRE Standards, Leak — Deficiency 6 (Environmental Water Intrusion)"
+
+  - id: hud-020
+    title: "Plumbing leaks distinct from environmental intrusion"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "active plumbing leak dripping from a pipe or fixture connection"
+    passage: >
+      An active leak originating from a supply line, drain, or fixture connection is cited
+      as its own deficiency category, separate from leaks tied to gas, sewage, or exterior
+      water intrusion, because the responsible trade and urgency differ. HUD groups
+      plumbing leaks with the broader leak standard's fast correction expectations, since
+      standing or dripping water inside a unit creates both a slip hazard and a path to
+      secondary damage like mold or rot if it continues unaddressed. Inspectors check under
+      sinks, around water heaters, and along visible supply runs for active dripping or
+      pooling.
+    citation: "HUD NSPIRE Standards, Leak — Deficiency 7 (Plumbing Leaks)"
+
+  - id: hud-021
+    title: "Ceiling staining cross-referenced to the water-leak standard"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "brown or yellow ceiling staining suggesting a past or ongoing leak"
+    passage: >
+      A stained ceiling is not, by itself, evaluated under the ceiling standard's
+      structural-instability deficiency; HUD directs inspectors to instead assess staining
+      under the leak standard to determine whether an active water source is still present.
+      If the stain is dry and the source has already been repaired, the finding may not rise
+      to a citable leak, but the discoloration is still worth logging so maintenance can
+      confirm the repair held. A fresh, damp-edged stain, by contrast, points to an active
+      leak requiring prompt correction rather than routine observation.
+    citation: "HUD NSPIRE Standards, Ceiling — Deficiency 1, cross-referenced to Leak – Water"
+
+  - id: hud-022
+    title: "Elevated moisture level as a precursor to mold growth"
+    class_tags: [water_damage, mold_algae]
+    severity: monitor
+    index_sentence: "elevated surface moisture reading without visible mold yet"
+    passage: >
+      HUD's mold-like-substance standard includes a separate deficiency for elevated
+      moisture levels, recognizing that damp conditions conducive to mold growth can be
+      identified and addressed before visible colonization actually appears. An inspector
+      who measures or observes elevated moisture in a wall, ceiling, or floor cavity should
+      treat it as an early-warning condition worth tracking even in the absence of staining
+      or discoloration. Addressing the moisture source at this stage is far less costly than
+      remediating an established mold colony later.
+    citation: "HUD NSPIRE Standards, Mold-like Substance — Deficiency 4 (Elevated Moisture Level)"
+
+  - id: hud-023
+    title: "Mold-like substance observed at moderate visual levels"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "small patch of mold-like growth visible on a surface"
+    passage: >
+      HUD's mold-like-substance standard tiers findings by visually estimated extent, and a
+      moderate-level observation is the entry point of that scale rather than an automatic
+      high-severity citation. Inspectors record what they can see directly — patchy
+      discoloration or fuzzy growth on a surface — without needing lab confirmation that the
+      substance is biologically mold, since the standard evaluates visual evidence rather
+      than requiring sampling. A moderate finding still warrants correction, but the
+      response timeline is calibrated to the smaller visible extent.
+    citation: "HUD NSPIRE Standards, Mold-like Substance — Deficiency 1 (Moderate Level)"
+
+  - id: hud-024
+    title: "Mold-like substance observed at high or extremely high visual levels"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "extensive mold-like growth covering a large surface area"
+    passage: >
+      When mold-like growth visually covers a large area or appears at multiple locations,
+      HUD's standard escalates the finding to its high or extremely-high tier, reflecting a
+      greater likely health impact on residents with respiratory sensitivities and a larger
+      remediation scope. Because mold growth of this extent tends to expand quickly under
+      the right humidity and temperature conditions, inspectors treat it as an active,
+      worsening condition rather than a stable defect. The tiered scale lets property staff
+      prioritize the largest, most visually severe growth for the fastest response.
+    citation: "HUD NSPIRE Standards, Mold-like Substance — Deficiency 2 & 3 (High/Extremely High Level)"
+
+  - id: hud-025
+    title: "White mineral-deposit staining from water migrating through foundation masonry"
+    class_tags: [efflorescence, water_damage]
+    severity: monitor
+    index_sentence: "white powdery mineral deposits on a foundation or basement wall"
+    passage: >
+      Chalky white mineral deposits on a foundation wall form when water dissolves salts
+      inside masonry and carries them to the surface as it evaporates, and HUD's foundation
+      inspection guidance specifically calls out mineral deposits as one of the visual cues
+      an inspector should look for when assessing water infiltration. On their own, mineral
+      deposits indicate moisture has moved through the wall at some point, though they do not
+      by themselves confirm an active, ongoing leak the way pooling water or fresh dampness
+      would. Inspectors documenting efflorescence should also check for accompanying
+      staining or dampness to determine whether the water source is still active.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 4, inspection observation (mineral deposits)"
+
+  - id: hud-026
+    title: "Efflorescence without accompanying structural cracking or active infiltration"
+    class_tags: [efflorescence]
+    severity: monitor
+    index_sentence: "dry mineral efflorescence residue with no crack or active dampness"
+    passage: >
+      A foundation surface that shows only a light efflorescence residue, with no
+      accompanying crack, spalling, or current dampness, reflects past moisture movement
+      rather than an ongoing structural problem. This distinguishes it from foundation
+      infiltration, which HUD cites specifically when there is present-tense evidence of
+      water passing through the wall. Efflorescence alone is a reasonable item to log for
+      periodic re-inspection rather than escalate, since its presence signals a history
+      worth watching rather than an active deficiency requiring immediate repair.
+    citation: "HUD NSPIRE Standards, Foundation — Deficiency 4, distinguishing residual evidence"
+
+  - id: hud-027
+    title: "Lead-based paint hazard — small-area interior deterioration in pre-1978 housing"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "peeling or chipping paint on an interior wall in older housing"
+    passage: >
+      In housing built before 1978, any peeling, chipping, chalking, or cracking paint on a
+      large interior surface is treated as a potential lead-based paint hazard once
+      deteriorated paint reaches about two square feet per room, or ten percent of a smaller
+      trim component. HUD classifies even this comparatively modest amount as a health-based
+      deficiency requiring correction within a month, because lead dust from deteriorating
+      paint is a recognized hazard for young children regardless of how small the visibly
+      damaged area looks. Inspectors are instructed to assume a property is pre-1978
+      whenever the property profile does not clearly establish a later construction date.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Deficiency 1"
+
+  - id: hud-028
+    title: "Lead-based paint hazard — significant-area interior deterioration in pre-1978 housing"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "extensive peeling paint damage across an interior room in older housing"
+    passage: >
+      Once deteriorated paint in a pre-1978 unit exceeds roughly two square feet per room,
+      or ten percent of a small component, HUD escalates the finding from its standard
+      health tier to its most severe non-life-threatening tier, cutting the correction
+      window down to the same day. The larger threshold reflects a proportionally greater
+      lead-dust exposure risk to residents, particularly children who may contact or ingest
+      paint chips and dust from a larger deteriorated surface. This same-day timeline lines
+      up with federal lead-safe housing rules requiring prompt paint stabilization once a
+      hazard of this size is identified.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Deficiency 2"
+
+  - id: hud-029
+    title: "Lead-based paint hazard — small-area exterior deterioration in pre-1978 housing"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "peeling exterior paint on siding or trim of an older building"
+    passage: >
+      Exterior surfaces get a larger de minimis allowance than interior ones: deteriorated
+      paint on the outside of a pre-1978 building is cited once it reaches roughly twenty
+      square feet, reflecting the greater total painted surface area outdoors compared with
+      interior rooms. Inspectors evaluate siding, fascia, soffits, trim, decks, and fencing
+      cumulatively across the entire exterior rather than room by room, then still apply the
+      pre-1978 presumption unless the property profile establishes later construction. Even
+      at this lower "below-significant" tier, the finding is a genuine lead hazard requiring
+      correction, not a cosmetic note.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Deficiency 3"
+
+  - id: hud-030
+    title: "Lead-based paint hazard — significant-area exterior deterioration in pre-1978 housing"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "widespread peeling paint covering a large exterior wall area"
+    passage: >
+      When cumulative exterior paint deterioration across a pre-1978 property exceeds about
+      twenty square feet, HUD treats the condition as a significant lead hazard requiring
+      same-day stabilization rather than the standard month-long correction window. This
+      large-area threshold is meant to catch buildings where weathering, sun exposure, or
+      long-deferred maintenance has allowed lead-based paint to fail across a substantial
+      portion of the exterior envelope. The same-day requirement exists because a hazard of
+      this scale poses meaningfully greater lead-dust exposure to residents and passersby
+      than an isolated peeling patch.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Deficiency 4"
+
+  - id: hud-031
+    title: "Property-age presumption protocol for lead-based paint applicability"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "determining whether a property predates the 1978 lead-paint ban"
+    passage: >
+      Before citing any peeling-paint finding as a lead hazard, an inspector first checks
+      the property profile to establish the construction date, since the entire
+      lead-based-paint standard only applies to housing built before 1978. Critically, HUD
+      instructs inspectors to presume a property was built before 1978 whenever the profile
+      does not clearly document a later construction date, shifting the default toward
+      caution rather than assuming a newer, exempt building. This presumption protects
+      residents in cases where construction records are incomplete or ambiguous.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Inspection Process (Property Profile)"
+
+  - id: hud-032
+    title: "Friction-surface paint wear aggregated into total deteriorated area"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "worn paint on a window sash or door edge from repeated rubbing"
+    passage: >
+      Painted surfaces subject to regular friction or impact — a window sash that rubs the
+      frame, a door that scrapes the jamb, or a doorknob that repeatedly strikes a wall —
+      often show wear that would otherwise be missed if inspectors only looked for classic
+      peeling or chipping. HUD's protocol has inspectors specifically check these friction
+      points and roll any visible wear into the total deteriorated-paint area for the room
+      or component, rather than scoring them separately. This matters because friction wear
+      can push a borderline finding over the citable threshold even when the rest of the
+      surface looks intact.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Inspection Process (Action)"
+
+  - id: hud-033
+    title: "Non-lead exterior peeling paint deficiency independent of lead-hazard status"
+    class_tags: [peeling_paint]
+    severity: monitor
+    index_sentence: "peeling exterior wall paint on a building not subject to lead-paint rules"
+    passage: >
+      Separate from the lead-based-paint standard, HUD's general exterior-wall standard
+      cites peeling paint once it covers roughly ten square feet or more, regardless of the
+      building's construction date. This general deficiency exists because unmaintained
+      peeling paint still exposes the underlying substrate to weather, accelerating rot or
+      corrosion of the material beneath, even when no lead hazard is present. Inspectors of
+      newer, post-1978 buildings apply this general threshold instead of the lead-hazard
+      rule, since the lead-based-paint standard does not apply to construction from that
+      date forward.
+    citation: "HUD NSPIRE Standards, Wall – Exterior, Deficiency 2 (Peeling Paint)"
+
+  - id: hud-034
+    title: "Paint-surface inspectable scope spans all painted building components"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "painted walls, ceilings, trim, doors, and windows throughout a unit"
+    passage: >
+      HUD's lead-based-paint standard applies to painted surfaces essentially anywhere on
+      the property, including walls, ceilings, trim, doors, windows, and floors, rather than
+      being limited to a handful of commonly-cited components. This broad scope reflects the
+      reality that lead-based paint hazards can originate from any painted surface a
+      resident might contact, not just the most visibly prominent ones. Inspectors covering
+      a pre-1978 unit should treat every painted surface as within scope for the
+      deterioration check, not just walls and trim.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Location and Common Components"
+
+  - id: hud-035
+    title: "Post-1978 construction exemption from the lead-paint deficiency"
+    class_tags: [peeling_paint, no_defect]
+    severity: cosmetic
+    index_sentence: "peeling paint on a building confirmed built after 1978"
+    passage: >
+      If a property's profile clearly documents that it was built in 1978 or later, peeling
+      or otherwise deteriorated paint is not evaluated as a lead-based-paint hazard at all,
+      and the inspector moves on without citing this standard. This exemption exists because
+      lead-based residential paint was banned from sale in the United States that year, so
+      later construction is presumed lead-free for this purpose. A newer building with
+      peeling paint may still be evaluated under a general wall or trim standard, but it
+      passes the lead-hazard check specifically.
+    citation: "HUD NSPIRE Standards, Potential Lead-Based Paint Hazards – Visual Assessment, Inspection Process (Property Profile), post-1978 exemption"
+
+  - id: hud-036
+    title: "Retaining wall leaning toward the fill side is not cited"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "retaining wall sloping slightly inward toward the retained soil"
+    passage: >
+      A retaining wall that leans slightly toward the soil it holds back, rather than away
+      from it, is explicitly excluded from HUD's leaning/collapse deficiency, because
+      pressure in that direction does not indicate the wall is failing. Only a wall leaning
+      away from the fill side, or one that is partially or fully collapsed, meets the
+      citation criteria. Inspectors verifying this condition should stand parallel to the
+      wall to judge its lean direction accurately before recording a finding either way.
+    citation: "HUD NSPIRE Standards, Retaining Wall — Deficiency 1, More Information (non-citable lean direction)"
+
+  - id: hud-037
+    title: "Cosmetic wallpaper looseness excluded from the interior-wall deficiency"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "slightly loose or peeling wallpaper on an otherwise sound interior wall"
+    passage: >
+      HUD's interior-wall standard cites a loose or detached surface covering such as
+      drywall, plaster, or paneling, but explicitly carves out ordinary cosmetic damage like
+      loose wallpaper from that deficiency. This distinction keeps the standard focused on
+      coverings whose detachment could expose residents to what lies behind the wall, rather
+      than penalizing decorative wear that carries no safety implication. A unit with
+      peeling wallpaper but structurally sound wall material underneath passes this
+      particular check.
+    citation: "HUD NSPIRE Standards, Wall – Interior, Deficiency 1, More Information (cosmetic exclusion)"
+
+  - id: hud-038
+    title: "Cosmetic ceiling blemishes excluded from the unstable-surface deficiency"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "minor ceiling surface blemish with no structural instability"
+    passage: >
+      HUD's ceiling standard cites an unstable surface, holes, and cracking or nail-pop
+      patterning, but purely cosmetic ceiling damage that does not indicate instability
+      falls outside this deficiency. A faded or lightly discolored ceiling panel with no
+      bubbling, deflection, or loose material attached is not a citable condition under this
+      standard. This carve-out keeps inspectors focused on genuine signs of ceiling failure
+      rather than routine wear.
+    citation: "HUD NSPIRE Standards, Ceiling — Deficiency 1, More Information (cosmetic exclusion)"
+
+  - id: hud-039
+    title: "A corrected deficiency no longer poses elevated risk"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "repaired building component showing no remaining defect"
+    passage: >
+      HUD's inspection framework defines a corrected deficiency as one the responsible party
+      has resolved such that it no longer presents a severe health or safety risk, marking
+      the endpoint every citation is meant to reach. A component that has been properly
+      repaired — a patched foundation crack, a re-glazed window, a stabilized ceiling — is
+      evaluated the same as any other passing item at the next inspection, with no residual
+      penalty for having once been deficient. This framing underscores that HUD's severity
+      tiers describe present risk, not inspection history.
+    citation: "HUD NSPIRE Terms and Definitions — Corrected Deficiency"
+
+  - id: hud-040
+    title: "HUD's four-tier deficiency severity scale and correction timeframes"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "severity tier assigned to a structural cracking deficiency"
+    passage: >
+      HUD sorts every physical deficiency into one of four severity tiers — Low, Moderate,
+      Severe, and Life-Threatening — each carrying its own correction deadline ranging from
+      sixty days down to twenty-four hours, and structural cracking that signals serious
+      building failure sits at the top of that scale. A foundation crack meeting the basic
+      width-and-length threshold is typically scored at the Moderate tier with a thirty-day
+      window, while cracking severe enough to indicate imminent structural failure escalates
+      to Life-Threatening with a same-day response. This tiered structure lets a single
+      defect type, like cracking, be triaged differently depending on how far the underlying
+      deterioration has actually progressed.
+    citation: "HUD NSPIRE Terms and Definitions — deficiency severity tiers, applied to Structural System"

@@ -1,0 +1,7 @@
+# Deterministic per-(dataset, source_label) caps applied at ingest.
+# Rationale: SDNET2018 would otherwise drown the taxonomy in crack/no_defect.
+seed: 17
+caps:
+  sdnet2018:
+    cracked: 4000
+    non_cracked: 4000

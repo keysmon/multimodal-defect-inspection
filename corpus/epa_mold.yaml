@@ -1,0 +1,462 @@
+# Note: cards cite EPA 402-K-01-001 Chapters 1-3 and EPA's 'Mold Cleanup in Your Home'
+# page (epa.gov/mold/mold-cleanup-your-home); source.url points at the primary chapter.
+source:
+  name: "EPA — Mold Remediation Guidance"
+  url: "https://www.epa.gov/mold/mold-remediation-schools-and-commercial-buildings-guide-chapter-1"
+  license: "US Government public domain"
+
+cards:
+  # ---------------------------------------------------------------------
+  # mold_algae
+  # ---------------------------------------------------------------------
+  - id: epa-mold-001
+    title: "Visible mold colonization on interior surfaces"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "dark or fuzzy mold patches spreading across an interior wall or ceiling"
+    passage: >
+      Mold spores are present in nearly all indoor and outdoor air and will germinate on
+      any surface that combines organic material (drywall paper, wood, wallpaper paste)
+      with sustained dampness. A newly discovered patch on a wall or ceiling should be
+      treated as a signal that a nearby moisture source needs to be found and corrected,
+      not just wiped away. Document the extent of visible growth before starting cleanup.
+    citation: "EPA 402-K-01-001, Chapter 1"
+
+  - id: epa-mold-002
+    title: "Occupant health complaints tied to mold exposure"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "musty odor and visible mold in a room where occupants report allergy symptoms"
+    passage: >
+      Because mold can release allergenic and irritant compounds, occupant reports of new
+      or worsening allergy and asthma symptoms in a specific room are a useful early
+      indicator of a hidden mold problem, especially for people with existing respiratory
+      sensitivities. Inspectors should treat clustered health complaints tied to one space
+      as a prompt to investigate for moisture and mold rather than dismissing them.
+    citation: "EPA 402-K-01-001, Chapter 1"
+
+  - id: epa-mold-003
+    title: "Small mold patch eligible for do-it-yourself cleanup"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "isolated mold spot roughly the size of a 3-by-3 foot patch on drywall"
+    passage: >
+      A mold patch covering less than about 10 square feet, roughly a 3-by-3 foot area, can
+      typically be cleaned by building staff or a homeowner without specialized
+      containment. The affected surface should still be scrubbed with detergent and water
+      and dried completely, since leftover dampness allows the mold to return quickly.
+    citation: "EPA, Mold Cleanup in Your Home"
+
+  - id: epa-mold-004
+    title: "Damp-wipe cleaning for non-porous surfaces"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "mold film coating a hard, non-porous tile, glass, or countertop surface"
+    passage: >
+      Mold growing on non-porous materials such as tile, glass, or sealed countertops can
+      usually be removed by scrubbing with water or a water-and-detergent solution, since
+      the mold sits on the surface rather than inside it. The cleaned surface must then be
+      dried quickly and thoroughly, because residual moisture left on the material invites
+      regrowth within days.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-005
+    title: "Mold embedded in porous materials"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "mold growth soaked into carpet fibers or a porous drywall surface"
+    passage: >
+      Once mold colonizes a porous material like carpet, ceiling tile, or wallboard, its
+      hyphae can grow into internal crevices where scrubbing cannot reach, making complete
+      removal impractical. In most cases the recommended response is to discard and
+      replace the contaminated porous material rather than attempt to clean and salvage it.
+    citation: "EPA, Mold Cleanup in Your Home"
+
+  - id: epa-mold-006
+    title: "Medium-scale mold coverage requiring limited containment"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "mold spreading across a section of wall roughly the size of a small closet"
+    passage: >
+      When contiguous mold growth spans an estimated 10 to 100 square feet, the work area
+      should be isolated with single-layer plastic sheeting, sealed vents and doorways, and
+      a HEPA-filtered exhaust fan run to hold the space under negative pressure before any
+      disturbance of the material begins. This scale of contamination moves past routine
+      spot cleaning and warrants a planned remediation effort.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-007
+    title: "Large-scale mold contamination requiring full containment"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "extensive mold colonization covering most of a room's wall or ceiling surfaces"
+    passage: >
+      Mold contamination exceeding roughly 100 square feet calls for full containment:
+      double layers of polyethylene sheeting, a decontamination airlock for personnel and
+      equipment, and continuous negative-pressure exhaust before removal work starts.
+      Occupants are typically relocated away from the affected area, and a licensed
+      remediation contractor should oversee the project given its scale.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-008
+    title: "Minimum protective equipment for small mold jobs"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "small mold patch cleaned wearing respirator, gloves, and eye protection"
+    passage: >
+      For small remediation jobs under about 10 square feet, an N-95 respirator, gloves,
+      and eye protection are considered sufficient protection for the person doing the
+      cleaning. Bare-hand contact with mold or moldy materials should be avoided even at
+      this scale, since incidental skin contact and spore inhalation are the main exposure
+      routes during cleanup.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-009
+    title: "Full protective gear for large-scale mold remediation"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "worker in full protective suit and respirator cleaning large mold contamination"
+    passage: >
+      Large remediation projects call for a powered, full-face air-purifying respirator
+      with HEPA filtration, a disposable full-body suit, and head and foot coverings, with
+      gaps at the wrists and ankles taped shut to prevent spore infiltration. Anyone using
+      this level of respiratory protection needs prior training, medical clearance, and a
+      fit test, reflecting the higher exposure risk of large-area work.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-010
+    title: "Mold or debris contamination inside HVAC components"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "mold or dust buildup visible inside HVAC ductwork, insulation, or drip pans"
+    passage: >
+      Fibrous insulation inside air handlers, diffusers, ductwork, and condensate drain
+      pans should be inspected for mold growth, since a contaminated HVAC system can
+      distribute spores throughout an entire building. If contamination is suspected, the
+      system should be shut down rather than run until it is inspected and remediated, and
+      filters should be replaced once cleanup is complete.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-011
+    title: "Mold growth following a flood or major water intrusion"
+    class_tags: [mold_algae, water_damage]
+    severity: urgent
+    index_sentence: "mold growth spreading across walls after a recent flood or major leak"
+    passage: >
+      Building materials that stayed wet after a flood or major pipe failure are likely
+      already growing mold by the time visible colonies appear, since standing water and
+      saturated materials create an ideal breeding environment. Prioritize removing
+      contaminated porous materials and drying the space quickly, and treat any flood-origin
+      mold as a job for full remediation rather than routine spot cleaning.
+    citation: "EPA, Mold Cleanup in Your Home"
+
+  - id: epa-mold-012
+    title: "Mold growth following sewage or contaminated-water exposure"
+    class_tags: [mold_algae, water_damage]
+    severity: urgent
+    index_sentence: "mold growth on materials that were soaked by sewage-contaminated water"
+    passage: >
+      Mold that develops after contact with sewage or grossly contaminated water should be
+      assumed to carry additional biological hazards beyond the mold itself. Affected
+      porous materials are generally not salvageable and should be bagged and discarded
+      rather than cleaned, and this scenario should be handed to a professional remediation
+      contractor rather than handled in-house.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-013
+    title: "Suspected hidden mold behind finishes or wall cavities"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "suspected mold growth concealed behind wallpaper or inside a closed wall cavity"
+    passage: >
+      A musty odor or a known history of moisture behind wallpaper, paneling, or inside a
+      wall cavity can indicate mold growth that is not visible during a routine walkthrough.
+      Because opening up finishes to confirm hidden contamination requires specialized
+      judgment and can disturb concealed spores, this situation is a strong candidate for a
+      qualified remediation professional rather than a DIY investigation.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-014
+    title: "Biocide or bleach application on a mold-affected surface"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "surface recently treated with a bleach or biocide spray after mold removal"
+    passage: >
+      Applying a biocide or chlorine bleach solution is not recommended as a routine step
+      in mold cleanup, because dead mold spores remain allergenic and some species stay
+      toxic even after being killed. If a biocide is used, the area needs thorough
+      ventilation afterward, and bleach must never be mixed with ammonia-containing
+      cleaning products due to the risk of hazardous fumes.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-015
+    title: "Post-remediation verification that mold cleanup is complete"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "previously moldy area now clean, dry, and free of musty odor after remediation"
+    passage: >
+      Remediation is only considered finished once the underlying moisture source has been
+      fully corrected, no mold, water staining, or musty odor remains, and a follow-up
+      visit confirms the area has stayed dry. Inspectors should treat any recurring damp
+      odor or new staining after remediation as a sign the moisture problem was not
+      actually resolved.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-016
+    title: "Structural decay from long-term untreated mold and moisture"
+    class_tags: [mold_algae, water_damage]
+    severity: structural
+    index_sentence: "rotted, crumbling wallboard or framing from long-term mold and moisture damage"
+    passage: >
+      When mold and moisture are left unaddressed for an extended period, the underlying
+      wallboard, sheathing, or framing can soften, rot, and lose structural integrity,
+      moving the problem beyond a surface cleanup issue. Cases showing material
+      deterioration or suspected damage to structural components should be escalated for a
+      professional structural assessment rather than treated as routine mold remediation.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  # ---------------------------------------------------------------------
+  # water_damage
+  # ---------------------------------------------------------------------
+  - id: epa-mold-017
+    title: "Moisture staining as an early mold precursor"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "damp discoloration or staining on drywall from an unresolved moisture source"
+    passage: >
+      A damp stain on a wall or ceiling, even without visible mold yet, signals an active
+      moisture pathway that will likely support mold growth if it is not traced and fixed.
+      Inspectors should follow the staining back to its source, such as a roof, plumbing
+      line, or exterior wall penetration, rather than treating the stain itself as the
+      problem.
+    citation: "EPA 402-K-01-001, Chapter 1"
+
+  - id: epa-mold-018
+    title: "Material wet beyond the 48-hour drying window"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "wet building material that has stayed damp for more than two days"
+    passage: >
+      Wet or damp materials should be dried within 48 hours of the moisture event, because
+      beyond that window mold growth is likely to have already started inside the
+      material. Once the 48-hour mark has passed, the item should be evaluated for mold
+      contamination rather than assumed safe simply because it has since dried out.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-019
+    title: "Condensation forming on windows or cold surfaces"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "condensation droplets beading on window glass or a cold water pipe"
+    passage: >
+      Recurring condensation on window panes or uninsulated cold-water pipes indicates
+      that indoor humidity or surface temperature is out of balance, and left unaddressed
+      it can wet adjacent framing and finishes over time. Correcting the cause, whether
+      through added insulation, better air circulation, or humidity reduction, is more
+      effective than repeatedly wiping the moisture away.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-020
+    title: "Ceiling staining consistent with a roof leak"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "brownish water stain or discoloration spreading across a ceiling"
+    passage: >
+      A spreading stain or discoloration on a ceiling is a common sign of an intermittent
+      roof leak entering the building envelope above. The area should be inspected for an
+      active leak path and any wet insulation or sheathing above the ceiling, since the
+      visible stain often understates how much material behind it has actually gotten wet.
+    citation: "EPA 402-K-01-001, Chapter 1"
+
+  - id: epa-mold-021
+    title: "Active plumbing leak near a fixture or wall"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "water pooling beneath a sink or leaking around a pipe connection"
+    passage: >
+      An active plumbing leak should be repaired immediately rather than scheduled for
+      later maintenance, since standing water and saturated cabinetry or flooring can
+      support mold growth well within the 48-hour drying window. Any wet materials found
+      near the leak, such as cabinet backing or subfloor, should be dried out or removed
+      once the leak itself is stopped.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-022
+    title: "Poor exterior grading directing water toward the foundation"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "water pooling against a foundation wall from ground sloping toward the building"
+    passage: >
+      Ground that slopes toward the building instead of away from it channels rainwater
+      against the foundation, increasing the chance of basement or crawlspace moisture
+      intrusion over time. Regrading the soil away from the foundation and confirming
+      gutters discharge well clear of the wall are effective preventive fixes before
+      interior moisture problems develop.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-023
+    title: "Clogged or overflowing HVAC condensate drip pan"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "clogged or overflowing condensate drip pan beneath an HVAC air handler"
+    passage: >
+      HVAC condensate drip pans need to stay clean and draining freely, since a clogged or
+      overflowing pan can slowly wet surrounding insulation, ceiling tiles, or framing
+      without an obvious leak ever being noticed. Routine inspection of drip pans as part
+      of regular HVAC maintenance catches this before it becomes a hidden moisture problem.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-024
+    title: "Suspected hidden moisture without visible mold yet"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "suspected hidden moisture behind wallpaper or inside an unopened wall cavity"
+    passage: >
+      A history of a leak, a musty smell, or bubbling wallpaper without any visible mold
+      can still indicate moisture trapped inside a wall cavity or behind a finish surface.
+      This warrants further investigation, such as moisture metering or careful opening of
+      the finish, before assuming the space is dry.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-025
+    title: "Standing water covering a flooded interior space"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "standing water covering a flooded floor after a storm or pipe burst"
+    passage: >
+      Standing water and the wet materials it leaves behind form an immediate breeding
+      ground for mold and other microorganisms, so removal of water and contaminated
+      materials should begin as soon as it is safe to do so. Waiting even a day or two to
+      begin drying substantially increases the amount of material that will need to be
+      discarded rather than salvaged.
+    citation: "EPA, Mold Cleanup in Your Home"
+
+  - id: epa-mold-026
+    title: "Elevated indoor humidity above the recommended range"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "indoor air feeling persistently humid with fogged windows and clammy surfaces"
+    passage: >
+      Indoor relative humidity that runs above roughly 60 percent creates conditions where
+      surfaces stay damp enough for mold to take hold even without a discrete leak.
+      Bringing humidity back down into the 30 to 50 percent range, through ventilation,
+      dehumidification, or fixing an underlying moisture source, should be treated as a
+      preventive priority rather than a cosmetic comfort issue.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-027
+    title: "Trapped humidity in a poorly ventilated or modular building"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "poorly ventilated portable building interior with trapped, stale humidity"
+    passage: >
+      Tightly sealed modular and portable structures, along with older buildings retrofitted
+      for energy efficiency, can trap indoor moisture that would otherwise escape through
+      natural air leakage. These spaces deserve closer attention to ventilation rates and
+      humidity levels than typical permanent construction, since trapped moisture is harder
+      to detect until it has already caused damage.
+    citation: "EPA 402-K-01-001, Chapter 1"
+
+  - id: epa-mold-028
+    title: "Deteriorated building envelope allowing water intrusion"
+    class_tags: [water_damage]
+    severity: cosmetic
+    index_sentence: "cracked caulking and flashing allowing water intrusion at a building joint"
+    passage: >
+      Gaps in caulking, deteriorated flashing, or other breaches in the building envelope
+      let wind-driven rain and runoff work their way into wall assemblies over repeated
+      weather events. These defects are often the result of deferred maintenance and should
+      be repaired promptly, since each additional storm cycle increases the amount of
+      hidden moisture already trapped behind the finish.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  # ---------------------------------------------------------------------
+  # no_defect
+  # ---------------------------------------------------------------------
+  - id: epa-mold-029
+    title: "Healthy indoor humidity maintained in the recommended range"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "indoor hygrometer reading within the healthy 30 to 50 percent humidity range"
+    passage: >
+      An indoor relative humidity reading in the 30 to 50 percent range, well below the
+      roughly 60 percent threshold associated with mold risk, reflects a building
+      environment that is not creating favorable conditions for mold growth. This range
+      should still be checked periodically, since seasonal changes or HVAC issues can push
+      humidity upward over time.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-030
+    title: "Clean, dry wall surface with no moisture indicators"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "clean, dry drywall surface with no staining, discoloration, or musty odor"
+    passage: >
+      A wall or ceiling surface that is dry to the touch, free of staining, and has no
+      musty odor shows no sign of the moisture intrusion that typically precedes mold
+      growth. Routine periodic inspection remains worthwhile, since early moisture
+      problems can develop between visits without immediate visible signs.
+    citation: "EPA 402-K-01-001, Chapter 1"
+
+  - id: epa-mold-031
+    title: "HVAC condensate drip pans clean and draining properly"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "clean HVAC condensate drip pan draining freely with no standing water"
+    passage: >
+      A condensate drip pan that is clean, unobstructed, and draining properly reflects
+      the kind of routine HVAC maintenance that prevents hidden moisture buildup around
+      air handling equipment. This condition should be reconfirmed at each scheduled HVAC
+      inspection rather than assumed to persist indefinitely on its own.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-032
+    title: "Well-ventilated bathroom with no recurring mold"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "well-ventilated bathroom with a dry ceiling and no mold spots around fixtures"
+    passage: >
+      A bathroom with an exhaust fan or window used regularly during and after showers,
+      and no recurring mold spots around the tub, tile, or ceiling, demonstrates that
+      routine ventilation and cleaning are keeping humidity from lingering long enough to
+      support mold growth. Continued use of ventilation is what maintains this condition,
+      not a one-time fix.
+    citation: "EPA, Mold Cleanup in Your Home"
+
+  - id: epa-mold-033
+    title: "Building air quality consistent with a healthy, mold-free space"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "fresh-smelling interior space with no visible mold and no musty odor"
+    passage: >
+      A space with no musty odor, no visible mold growth, and no history of unresolved
+      moisture events is consistent with indoor air quality comparable to outdoor
+      background levels, the benchmark used to confirm mold remediation success. This
+      status is a snapshot in time and warrants rechecking after any future leak, flood, or
+      HVAC issue.
+    citation: "EPA 402-K-01-001, Chapter 3"
+
+  - id: epa-mold-034
+    title: "Foundation with proper grading and no water pooling"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "properly graded ground sloping away from a dry, unstained foundation wall"
+    passage: >
+      Soil that slopes away from the foundation and gutters that discharge well clear of
+      the wall show the exterior drainage measures needed to keep water away from the
+      building envelope. Periodic reinspection after grading shifts, landscaping changes,
+      or heavy storms helps confirm this protective condition is holding.
+    citation: "EPA 402-K-01-001, Chapter 2"
+
+  - id: epa-mold-035
+    title: "Dry wall cavity confirmed during routine inspection"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "dry wall cavity behind a fixture confirmed clean during a routine inspection"
+    passage: >
+      Opening or probing a wall cavity behind a fixture or finish and finding it dry, with
+      no staining or odor, rules out the hidden moisture intrusion that can otherwise go
+      undetected for long periods. Because this check only confirms conditions at the time
+      of inspection, it should be repeated on a regular schedule rather than treated as a
+      one-time clearance.
+    citation: "EPA 402-K-01-001, Chapter 3"

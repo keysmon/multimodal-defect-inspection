@@ -15,7 +15,7 @@
 | Dataset | Source | License | Required? |
 |---|---|---|---|
 | CODEBRIM | https://zenodo.org/records/2620293 → `CODEBRIM_classification_dataset.zip` | non-commercial/educational | yes |
-| BD3 | https://github.com/samy101/bd3-building-defects-detection-dataset | see repo | yes |
+| BD3 | Kaggle: `praveenkottari/bd3-dataset-for-building-defect-detection` (GitHub repos are README-only shells) | see Kaggle page | yes |
 | SDNET2018 | https://digitalcommons.usu.edu/all_datasets/48/ → `SDNET2018.zip` (~504 MB) | CC-BY-4.0 | yes |
 | Roboflow wall-defects | https://universe.roboflow.com/builddef2/building-defect-on-walls (free account + API key) | check page | **optional** — classes already covered by BD3 |
 
@@ -270,6 +270,46 @@ def test_real_mapping_file_is_valid_and_complete():
         ("sdnet2018", "non_cracked"),
     }
     assert expected_sources.issubset(mapping.keys())
+
+
+def test_missing_mappings_key_rejected(tmp_path):
+    p = write_mapping(tmp_path, "not_mappings: []\n")
+    with pytest.raises(ValueError, match="mappings"):
+        load_mapping(p)
+
+
+def test_empty_file_rejected(tmp_path):
+    p = write_mapping(tmp_path, "")
+    with pytest.raises(ValueError, match="mappings"):
+        load_mapping(p)
+
+
+def test_entry_missing_required_key_rejected(tmp_path):
+    p = write_mapping(
+        tmp_path,
+        """
+mappings:
+  - source_dataset: bd3
+    unified_label: mold_algae
+    rationale: missing source_label
+""",
+    )
+    with pytest.raises(ValueError, match="source_label"):
+        load_mapping(p)
+
+
+def test_entry_missing_rationale_rejected(tmp_path):
+    p = write_mapping(
+        tmp_path,
+        """
+mappings:
+  - source_dataset: bd3
+    source_label: algae
+    unified_label: mold_algae
+""",
+    )
+    with pytest.raises(ValueError, match="rationale"):
+        load_mapping(p)
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -398,14 +438,24 @@ UNIFIED_CLASSES = [
 
 EXCLUDE = "EXCLUDE"
 
-Mapping = dict[tuple[str, str], str]
+LabelMapping = dict[tuple[str, str], str]
+
+REQUIRED_KEYS = ("source_dataset", "source_label", "unified_label", "rationale")
 
 
-def load_mapping(path: Path) -> Mapping:
+def load_mapping(path: Path | str) -> LabelMapping:
     """Load and validate configs/label_mapping.yaml."""
-    raw = yaml.safe_load(Path(path).read_text())
-    mapping: Mapping = {}
-    for entry in raw["mappings"]:
+    path = Path(path)
+    raw = yaml.safe_load(path.read_text())
+    if not isinstance(raw, dict) or not isinstance(raw.get("mappings"), list):
+        raise ValueError(f"{path}: expected a top-level 'mappings' list")
+    mapping: LabelMapping = {}
+    for i, entry in enumerate(raw["mappings"]):
+        if not isinstance(entry, dict):
+            raise ValueError(f"{path}: entry {i} is not a mapping: {entry!r}")
+        missing = [k for k in REQUIRED_KEYS if not entry.get(k)]
+        if missing:
+            raise ValueError(f"{path}: entry {i} missing required key(s) {missing}: {entry!r}")
         key = (entry["source_dataset"], entry["source_label"])
         if key in mapping:
             raise ValueError(f"Duplicate mapping for {key}")
@@ -416,7 +466,7 @@ def load_mapping(path: Path) -> Mapping:
     return mapping
 
 
-def map_label(mapping: Mapping, source_dataset: str, source_label: str) -> str | None:
+def map_label(mapping: LabelMapping, source_dataset: str, source_label: str) -> str | None:
     """Return the unified label, or None if the sample is excluded.
 
     Raises KeyError for unmapped labels so new upstream labels surface loudly
@@ -434,7 +484,7 @@ def map_label(mapping: Mapping, source_dataset: str, source_label: str) -> str |
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_taxonomy.py -v`
-Expected: 7 passed.
+Expected: 11 passed.
 
 - [ ] **Step 5: Commit**
 
@@ -1014,7 +1064,7 @@ from pathlib import Path
 
 import yaml
 
-from defectlens.taxonomy import Mapping, load_mapping, map_label
+from defectlens.taxonomy import LabelMapping, load_mapping, map_label
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 FIELDS = ["image_path", "source_dataset", "source_label", "unified_label"]
@@ -1028,41 +1078,64 @@ class ManifestRow:
     unified_label: str
 
 
-def scan_dataset(repo_root: Path, dataset_name: str, mapping: Mapping) -> list[ManifestRow]:
+def scan_dataset(repo_root: Path, dataset_name: str, mapping: LabelMapping) -> list[ManifestRow]:
     dataset_dir = repo_root / "data" / "raw" / dataset_name
     if not dataset_dir.is_dir():
         raise FileNotFoundError(f"{dataset_dir} not found — run scripts/normalize_raw.py")
     rows: list[ManifestRow] = []
+    seen_real: dict[Path, str] = {}  # integrity re-check, independent of verify_raw
     for label_dir in sorted(d for d in dataset_dir.iterdir() if d.is_dir()):
         unified = map_label(mapping, dataset_name, label_dir.name)
         if unified is None:
             continue
         for img in sorted(label_dir.rglob("*")):
-            if img.suffix.lower() in IMAGE_EXTS and img.is_file():
-                rows.append(
-                    ManifestRow(
-                        image_path=img.relative_to(repo_root).as_posix(),
-                        source_dataset=dataset_name,
-                        source_label=label_dir.name,
-                        unified_label=unified,
-                    )
+            if img.suffix.lower() not in IMAGE_EXTS:
+                continue
+            if img.is_symlink() and not img.exists():
+                raise FileNotFoundError(
+                    f"Broken symlink {img} — re-run scripts/normalize_raw.py "
+                    "(scripts/verify_raw.py gives a full report)"
                 )
+            if not img.is_file():
+                continue
+            real = img.resolve()
+            other = seen_real.get(real)
+            if other is not None and other != label_dir.name:
+                raise ValueError(
+                    f"{real} is reachable from two labels ('{other}', "
+                    f"'{label_dir.name}') — raw tree is double-labeled "
+                    "(scripts/verify_raw.py gives a full report)"
+                )
+            seen_real[real] = label_dir.name
+            rows.append(
+                ManifestRow(
+                    image_path=img.relative_to(repo_root).as_posix(),
+                    source_dataset=dataset_name,
+                    source_label=label_dir.name,
+                    unified_label=unified,
+                )
+            )
     return rows
 
 
 def apply_caps(
     rows: list[ManifestRow], caps: dict[str, dict[str, int]], seed: int
 ) -> list[ManifestRow]:
-    """Deterministically subsample groups exceeding their cap."""
+    """Deterministically subsample groups exceeding their cap.
+
+    Each group gets its own RNG seeded from (seed, dataset, label), so a
+    group's sample is stable regardless of which other datasets or groups
+    exist in the manifest — required by the frozen-split contract.
+    """
     grouped: dict[tuple[str, str], list[ManifestRow]] = defaultdict(list)
     for r in rows:
         grouped[(r.source_dataset, r.source_label)].append(r)
-    rng = random.Random(seed)
     out: list[ManifestRow] = []
     for key in sorted(grouped):
         group = sorted(grouped[key], key=lambda r: r.image_path)
         cap = caps.get(key[0], {}).get(key[1])
         if cap is not None and len(group) > cap:
+            rng = random.Random(f"{seed}:{key[0]}:{key[1]}")
             group = rng.sample(group, cap)
         out.extend(group)
     return sorted(out, key=lambda r: r.image_path)
@@ -1070,8 +1143,9 @@ def apply_caps(
 
 def write_manifest(rows: list[ManifestRow], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        # LF endings so on-disk bytes match the LF-normalized committed blobs.
+        writer = csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n")
         writer.writeheader()
         for r in rows:
             writer.writerow(r.__dict__)
@@ -1183,6 +1257,33 @@ def test_small_groups_get_test_representation():
     rows = make_rows("d1", "efflorescence", 5)
     train, test = stratified_split(rows, test_fraction=0.15, seed=42)
     assert len(test) >= 1
+
+
+def test_split_stable_when_other_datasets_added():
+    """Frozen-split contract: adding a dataset must not reshuffle existing groups."""
+    rows = make_rows("d1", "crack", 100)
+    extra = make_rows("a_new", "spalling", 50)
+    _, test_a = stratified_split(rows, test_fraction=0.2, seed=42)
+    _, test_b = stratified_split(rows + extra, test_fraction=0.2, seed=42)
+    assert test_a == [r for r in test_b if r.source_dataset == "d1"]
+
+
+def test_frozen_split_artifacts_unchanged():
+    """Regression lock on the FROZEN split: 15,004/2,648 rows, 9 classes each.
+    (Requires read_manifest + UNIFIED_CLASSES imports and REPO_ROOT constant.)"""
+    train = read_manifest(REPO_ROOT / "data" / "manifests" / "train.csv")
+    test = read_manifest(REPO_ROOT / "data" / "manifests" / "test.csv")
+    assert len(train) == 15004
+    assert len(test) == 2648
+    assert {r.unified_label for r in test} == set(UNIFIED_CLASSES)
+    assert {r.unified_label for r in train} == set(UNIFIED_CLASSES)
+
+
+def test_tiny_groups_stay_in_train():
+    rows = make_rows("d1", "corrosion_stain", 3)
+    train, test = stratified_split(rows, test_fraction=0.15, seed=42)
+    assert len(train) == 3
+    assert len(test) == 0
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1213,19 +1314,27 @@ def stratified_split(
     grouped: dict[tuple[str, str], list[ManifestRow]] = defaultdict(list)
     for r in rows:
         grouped[(r.source_dataset, r.unified_label)].append(r)
-    rng = random.Random(seed)
     train: list[ManifestRow] = []
     test: list[ManifestRow] = []
     for key in sorted(grouped):
         group = sorted(grouped[key], key=lambda r: r.image_path)
+        # Per-group RNG: split membership must not depend on which other
+        # datasets exist (frozen-split contract; string seeding is
+        # SHA-512-based and PYTHONHASHSEED-immune).
+        rng = random.Random(f"{seed}:{key[0]}:{key[1]}")
         rng.shuffle(group)
         n_test = round(len(group) * test_fraction)
         if len(group) >= 4:
             n_test = max(1, n_test)
+        # Groups of size <= 3 may get zero test rows by design: too small to
+        # split meaningfully, they stay train-only. A future rare-class dataset
+        # addition should raise the group above this threshold or accept it.
         test.extend(group[:n_test])
         train.extend(group[n_test:])
-    key = lambda r: r.image_path  # noqa: E731
-    return sorted(train, key=key), sorted(test, key=key)
+    return (
+        sorted(train, key=lambda r: r.image_path),
+        sorted(test, key=lambda r: r.image_path),
+    )
 
 
 def main() -> None:
@@ -1233,11 +1342,28 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, default=Path("data/manifests/manifest.csv"))
     parser.add_argument("--test-fraction", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="allow overwriting an existing frozen split (requires explicit sign-off)",
+    )
     args = parser.parse_args()
+
+    if not args.manifest.is_file():
+        raise SystemExit(
+            f"{args.manifest} not found — run `python -m defectlens.ingest` first"
+        )
+    out_dir = args.manifest.parent
+    existing = [p for p in (out_dir / "train.csv", out_dir / "test.csv") if p.exists()]
+    if existing and not args.force:
+        raise SystemExit(
+            "Refusing to overwrite the FROZEN split "
+            f"({', '.join(str(p) for p in existing)}) — regenerating invalidates "
+            "all previously reported numbers; rerun with --force only with "
+            "explicit sign-off"
+        )
 
     rows = read_manifest(args.manifest)
     train, test = stratified_split(rows, args.test_fraction, args.seed)
-    out_dir = args.manifest.parent
     write_manifest(train, out_dir / "train.csv")
     write_manifest(test, out_dir / "test.csv")
 
@@ -1260,7 +1386,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_split.py -v`
-Expected: 4 passed.
+Expected: 7 passed.
 
 - [ ] **Step 5: Freeze the real split and commit it**
 
@@ -1354,10 +1480,10 @@ def sample_per_class(
     grouped: dict[str, list[ManifestRow]] = defaultdict(list)
     for r in rows:
         grouped[r.unified_label].append(r)
-    rng = random.Random(seed)
     picked: list[ManifestRow] = []
     for label in sorted(grouped):
         group = sorted(grouped[label], key=lambda r: r.image_path)
+        rng = random.Random(f"{seed}:{label}")  # per-class RNG (order-independence convention)
         k = min(n_per_class, len(group))
         picked.extend(rng.sample(group, k))
     return sorted(picked, key=lambda r: r.image_path)
@@ -1428,7 +1554,12 @@ git commit -m "feat: per-class spot-check protocol tooling (manual QA passed)"
 ```python
 import numpy as np
 
-from defectlens.eval.clip_zeroshot import expand_prompts, rank_from_similarity
+from defectlens.eval.clip_zeroshot import _nan_to_none, expand_prompts, rank_from_similarity
+
+
+def test_nan_to_none():
+    assert _nan_to_none(float("nan")) is None
+    assert _nan_to_none(0.5) == 0.5
 
 
 def test_expand_prompts():
@@ -1495,6 +1626,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -1521,6 +1653,11 @@ def rank_from_similarity(sims: np.ndarray, classes: list[str]) -> list[list[str]
     """sims: [n_images, n_classes] -> per-image class ranking, best first."""
     order = np.argsort(-sims, axis=1)
     return [[classes[j] for j in row] for row in order]
+
+
+def _nan_to_none(value: float) -> float | None:
+    """NaN (absent class) -> null in JSON; json.dumps NaN is invalid per RFC 8259."""
+    return None if math.isnan(value) else value
 
 
 def pick_device() -> str:
@@ -1579,20 +1716,22 @@ def main() -> None:
     ranked = rank_from_similarity(sims, UNIFIED_CLASSES)
     top1 = [r[0] for r in ranked]
 
+    per1 = per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1)
+    per3 = per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3)
     results = {
         "model": cfg["model"],
         "manifest": str(args.manifest),
         "n_images": len(rows),
-        "macro_top1": macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1),
-        "macro_top3": macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3),
-        "per_class_top1": per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1),
-        "per_class_top3": per_class_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3),
+        "macro_top1": _nan_to_none(macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=1)),
+        "macro_top3": _nan_to_none(macro_topk_accuracy(y_true, ranked, UNIFIED_CLASSES, k=3)),
+        "per_class_top1": {c: _nan_to_none(v) for c, v in per1.items()},
+        "per_class_top3": {c: _nan_to_none(v) for c, v in per3.items()},
         "confusion_matrix": confusion_matrix(y_true, top1, UNIFIED_CLASSES),
         "classes": UNIFIED_CLASSES,
     }
     args.out_dir.mkdir(exist_ok=True)
     out_json = args.out_dir / "clip_zeroshot_baseline.json"
-    out_json.write_text(json.dumps(results, indent=2))
+    out_json.write_text(json.dumps(results, indent=2, allow_nan=False))
     print(f"macro top-1: {results['macro_top1']:.3f}  macro top-3: {results['macro_top3']:.3f}")
     print(f"Wrote {out_json}")
 
@@ -1624,7 +1763,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_clip_zeroshot.py -v`
-Expected: 2 passed.
+Expected: 3 passed.
 
 - [ ] **Step 5: Run the full test suite**
 
@@ -1674,14 +1813,20 @@ Append to `README.md`:
 
 Fill in the two numbers from `results/clip_zeroshot_baseline.json` (3 decimal places).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Freeze the environment for reproducibility** (from Task 1 code review: lower-bound pins alone can't reproduce baseline numbers on a fresh machine)
 
 ```bash
-git add results/clip_zeroshot_baseline.json results/clip_zeroshot_confusion.png README.md
+source .venv/bin/activate && pip freeze > requirements-lock.txt
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add results/clip_zeroshot_baseline.json results/clip_zeroshot_confusion.png README.md requirements-lock.txt
 git commit -m "feat: CLIP zero-shot baseline on frozen test split"
 ```
 
-- [ ] **Step 4: Phase 1 exit review**
+- [ ] **Step 5: Phase 1 exit review**
 
 Verify against spec §8 week-1 exit criteria:
 - [ ] `data/manifests/test.csv` frozen and committed

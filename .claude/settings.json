@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source .venv/bin/activate)",
+      "Bash(source /Users/hangruan/Documents/GitHub/defect-lens/.venv/bin/activate)",
+      "Bash(pytest *)",
+      "Bash(python -m defectlens.*)",
+      "Bash(python scripts/*)",
+      "Bash(python3 -m defectlens.*)",
+      "Bash(python3 scripts/*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git checkout -b *)",
+      "Bash(mkdir *)",
+      "Bash(curl *)",
+      "Bash(pip install *)",
+      "Bash(docker compose *)",
+      "Bash(docker ps *)",
+      "Bash(caffeinate *)"
+    ]
+  }
+}

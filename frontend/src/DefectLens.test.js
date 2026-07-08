@@ -1,0 +1,116 @@
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import axios from "axios";
+import DefectLens from "./DefectLens";
+
+jest.mock("axios");
+
+const mockAnalyzeResponse = {
+  data: {
+    classes: [
+      { label: "crack", score: 0.91 },
+      { label: "spalling", score: 0.82 },
+      { label: "efflorescence", score: 0.71 },
+      { label: "corrosion", score: 0.6 },
+      { label: "delamination", score: 0.5 },
+      { label: "settlement", score: 0.4 },
+      { label: "moisture", score: 0.3 },
+      { label: "staining", score: 0.2 },
+      { label: "none", score: 0.1 },
+    ],
+    severity: "urgent",
+    description: "Visible structural crack detected near the beam.",
+    cards: [
+      {
+        id: "c1",
+        title: "Assess crack width",
+        passage: "Measure crack width using a comparator.",
+        severity: "urgent",
+        citation: "ACI 224R-01",
+        source_name: "ACI",
+        source_url: "https://example.com/aci",
+      },
+    ],
+  },
+};
+
+const mockSearchResponse = {
+  data: {
+    cards: [
+      {
+        id: "s1",
+        title: "Ventilation guidance",
+        passage: "Ensure adequate airflow to reduce moisture buildup.",
+        severity: "monitor",
+        citation: "ASHRAE 62.2",
+        source_name: "ASHRAE",
+        source_url: "https://example.com/ashrae",
+      },
+    ],
+  },
+};
+
+beforeAll(() => {
+  global.URL.createObjectURL = jest.fn(() => "blob:mock-url");
+  global.URL.revokeObjectURL = jest.fn();
+});
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
+test("renders the DefectLens header", () => {
+  render(<DefectLens />);
+  expect(
+    screen.getByText(/DefectLens — building-defect inspection assistant/i)
+  ).toBeInTheDocument();
+});
+
+test("analyze happy path shows severity banner and a guidance card", async () => {
+  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() =>
+    expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument()
+  );
+  expect(screen.getByText("Assess crack width")).toBeInTheDocument();
+  expect(screen.getByText("1. crack")).toBeInTheDocument();
+});
+
+test("search happy path shows a guidance card", async () => {
+  axios.post.mockResolvedValueOnce(mockSearchResponse);
+  render(<DefectLens />);
+
+  fireEvent.change(screen.getByPlaceholderText(/search defect guidance/i), {
+    target: { value: "mold" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
+
+  await waitFor(() =>
+    expect(screen.getByText("Ventilation guidance")).toBeInTheDocument()
+  );
+});
+
+test("shows an error banner when the analyze request fails", async () => {
+  axios.post.mockRejectedValueOnce(new Error("network error"));
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() =>
+    expect(
+      screen.getByText(/Analysis failed — is the API running\?/i)
+    ).toBeInTheDocument()
+  );
+});

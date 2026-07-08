@@ -1,0 +1,858 @@
+# Note: cards cite the SOP plus named nachi.org library articles (efflorescence,
+# moisture intrusion, visual inspection of concrete, exterior inspection PDFs);
+# source.url points at the SOP as the primary document.
+source:
+  name: "InterNACHI Standards of Practice & Library"
+  url: "https://www.nachi.org/sop.htm"
+  license: "copyrighted; own-words summaries with citation"
+
+cards:
+  # ---------------------------------------------------------------------
+  # crack
+  # ---------------------------------------------------------------------
+  - id: inachi-001
+    title: "Hairline shrinkage cracking in concrete"
+    class_tags: [crack]
+    severity: monitor
+    index_sentence: "thin hairline crack in a concrete foundation or slab surface"
+    passage: >
+      Hairline cracks that are narrow, roughly vertical or diagonal, and consistent in
+      width top-to-bottom typically result from normal curing shrinkage rather than
+      ongoing movement. Inspectors should note the crack's width, direction, and whether
+      both sides remain in the same plane, since offset or stepped surfaces point to a
+      different cause. When there is no vertical displacement and no associated moisture
+      staining, the condition can generally be reported as monitor-level rather than a
+      structural deficiency.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-002
+    title: "Stepped or displaced foundation crack"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "foundation crack with a stepped offset between the two sides"
+    passage: >
+      A crack where one side of the concrete or masonry sits noticeably higher or lower
+      than the other indicates differential movement rather than simple shrinkage. This
+      pattern, along with cracks that widen toward the top, suggests the soil beneath the
+      foundation is still shifting and the condition has not stabilized. Per the Standards
+      of Practice, indications of possible foundation movement must be reported as needing
+      further evaluation, with a recommendation for assessment by a qualified structural
+      engineer rather than an inspector estimate of cause.
+    citation: 'InterNACHI SOP §3.3.III; "Visual Inspection of Concrete"'
+
+  - id: inachi-003
+    title: "Diagonal cracking at window or door corners"
+    class_tags: [crack]
+    severity: monitor
+    index_sentence: "diagonal crack radiating from the corner of a window or door opening"
+    passage: >
+      Openings in a foundation or masonry wall concentrate stress at their corners, and
+      diagonal cracks radiating from these re-entrant corners are a common and often
+      expected result. Inspectors should still measure the crack width and check for
+      displacement, since a corner crack that stays hairline and stable is a lower-priority
+      finding than one that continues to widen. Photographing the crack square to the wall
+      surface makes later comparison easier.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-004
+    title: "Crack wider at top than at bottom"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "vertical crack that is noticeably wider at the top than at the bottom"
+    passage: >
+      A crack that narrows toward the bottom and widens toward the top is a classic sign
+      that the foundation is rotating or that one section is settling more than an
+      adjacent section, unlike a stable shrinkage crack that tends to hold a uniform width
+      along its length. Inspectors should describe this asymmetry specifically in the
+      report rather than simply noting that a crack was observed, since the shape itself
+      is diagnostic. A referral to a structural engineer is appropriate before any cosmetic
+      repair is made.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-005
+    title: "Interior drywall cracking linked to foundation movement"
+    class_tags: [crack]
+    severity: structural
+    index_sentence: "diagonal drywall crack at a ceiling-wall corner inside a home"
+    passage: >
+      Cracking in interior finishes, particularly at ceiling-wall junctions, above door
+      frames, or radiating from window corners, can be an early indicator of foundation
+      settlement even before exterior cracking is obvious. The Standards of Practice
+      specifically call out sheetrock and brick cracks as indications of possible
+      foundation movement that must be reported. Inspectors should note whether interior
+      cracking lines up with exterior wall cracks or sloped floors, since a matching
+      pattern strengthens the case for a structural referral.
+    citation: "InterNACHI SOP §3.3.III"
+
+  - id: inachi-006
+    title: "Plastic settlement cracking following rebar pattern"
+    class_tags: [crack]
+    severity: monitor
+    index_sentence: "surface crack in fresh concrete tracing the pattern of reinforcing bars"
+    passage: >
+      Cracks that form while concrete is still curing, often from excess mixing water,
+      poor consolidation, or the mix settling around reinforcement, tend to trace a
+      regular pattern that mirrors the rebar layout underneath. This differs from
+      long-term structural cracking because it forms early and generally does not
+      continue to progress once the concrete has cured. These cracks are typically a
+      monitor item unless accompanied by spalling or exposed steel.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-007
+    title: "Crack with efflorescence staining along its length"
+    class_tags: [crack, efflorescence]
+    severity: monitor
+    index_sentence: "white powdery deposit tracing the path of a crack in masonry or concrete"
+    passage: >
+      When white, chalky mineral deposits appear along the length of a crack, it shows
+      that water has been moving through that opening and evaporating at the surface,
+      carrying dissolved salts with it. This combination confirms the crack is, or
+      recently was, an active moisture pathway rather than a purely dry, stable
+      separation. Inspectors should identify any likely moisture source nearby, such as
+      grading or gutter discharge, since correcting that source is more useful to the
+      client than simply patching the crack.
+    citation: 'InterNACHI, "Understanding Efflorescence and Spalling: Critical Assessment Points for Home Inspectors"'
+
+  - id: inachi-008
+    title: "Foundation crack with active water penetration"
+    class_tags: [crack, water_damage]
+    severity: urgent
+    index_sentence: "foundation crack with visible water seeping or staining beneath it"
+    passage: >
+      A crack accompanied by wet concrete, dripping water, or a fresh waterline stain
+      below it indicates the foundation's water management has already failed rather than
+      simply being at risk. The Standards of Practice require inspectors to report
+      observed indications of active water penetration as a condition needing correction,
+      distinct from a merely cosmetic crack. A recommendation for evaluation and repair by
+      a qualified foundation or waterproofing contractor is appropriate given the active
+      nature of the intrusion.
+    citation: "InterNACHI SOP §3.3.III"
+
+  # ---------------------------------------------------------------------
+  # spalling
+  # ---------------------------------------------------------------------
+  - id: inachi-009
+    title: "Freeze-thaw spalling on exterior concrete flatwork"
+    class_tags: [spalling]
+    severity: monitor
+    index_sentence: "flaking or pitted surface on a concrete driveway or walkway"
+    passage: >
+      Repeated freezing and thawing of trapped moisture near the surface of a concrete
+      slab can pop off thin flakes of material, leaving a pitted or flaking texture on
+      driveways, walkways, and patios. This type of spalling is largely a durability and
+      appearance issue on flatwork unless it has progressed deeply enough to affect the
+      slab's structural section. Inspectors should note the extent of the affected area
+      and recommend resurfacing or sealing to slow further deterioration.
+    citation: 'InterNACHI, "Understanding Efflorescence and Spalling: Critical Assessment Points for Home Inspectors"'
+
+  - id: inachi-010
+    title: "Subsurface pressure spalling on a foundation wall"
+    class_tags: [spalling]
+    severity: monitor
+    index_sentence: "concrete foundation wall surface breaking away in flakes or chunks"
+    passage: >
+      When dissolved salts accumulate just beneath a concrete or masonry surface, the
+      osmotic pressure drawing moisture toward them can exceed the material's own
+      strength, popping off the surface layer even without a freeze-thaw cycle. Inspectors
+      should note whether the spalling is concentrated near grade level or downspout
+      discharge points, which helps identify the underlying moisture source. Because this
+      indicates an active moisture pathway through the wall, correcting drainage or
+      waterproofing is a more durable fix than patching the spalled area alone.
+    citation: 'InterNACHI, "Understanding Efflorescence and Spalling: Critical Assessment Points for Home Inspectors"'
+
+  - id: inachi-011
+    title: "Spalling brick face on masonry veneer"
+    class_tags: [spalling]
+    severity: monitor
+    index_sentence: "brick face flaking or breaking away on an exterior masonry wall"
+    passage: >
+      Brick veneer that loses its outer face, exposing the softer, more porous interior of
+      the unit, is usually a sign that moisture has been repeatedly absorbed and has
+      frozen or crystallized salts within the brick. Inspectors should note whether the
+      spalling is limited to units near a specific water source, such as a leaking gutter
+      or missing flashing, or spread broadly across a wall. Recommend a masonry specialist
+      evaluate units for replacement where spalling is extensive.
+    citation: "InterNACHI SOP §3.2"
+
+  - id: inachi-012
+    title: "Surface scaling distinguished from structural spalling"
+    class_tags: [spalling]
+    severity: cosmetic
+    index_sentence: "light surface scaling or dusting on a concrete floor or slab"
+    passage: >
+      Light scaling, a thin layer of cement paste flaking off a slab surface, should be
+      distinguished from deeper spalling that removes structural cover over reinforcement.
+      Scaling this shallow is generally a finishing or curing issue and does not by itself
+      indicate a moisture or structural problem. Inspectors should confirm that no
+      reinforcing steel is exposed and that the loss is limited to the top skin of the
+      concrete before classifying a condition as merely cosmetic.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-013
+    title: "Spalling that has progressed to exposed reinforcing steel"
+    class_tags: [spalling, exposed_rebar]
+    severity: structural
+    index_sentence: "concrete spalling with a section of rusted rebar visible underneath"
+    passage: >
+      Once spalling has advanced far enough to expose the reinforcing steel underneath,
+      the condition has moved from a surface durability issue to a structural one, since
+      corroding steel loses cross-section and its expanding rust can force off even more
+      concrete. Inspectors should report the location and extent of exposed steel clearly,
+      noting any visible section loss or pitting. This condition should be flagged for
+      evaluation by a structural engineer or qualified concrete repair contractor rather
+      than a simple patch.
+    citation: 'InterNACHI, "Understanding Efflorescence and Spalling: Critical Assessment Points for Home Inspectors"; InterNACHI SOP §3.3.III'
+
+  - id: inachi-014
+    title: "Spalling with rust staining from corroding rebar"
+    class_tags: [spalling, corrosion_stain]
+    severity: structural
+    index_sentence: "reddish-brown rust stains bleeding from a spalled concrete surface"
+    passage: >
+      Reddish-brown staining radiating from a spalled area is a strong indicator that
+      reinforcing steel beneath the surface is actively corroding, even before the bar
+      itself becomes visible. Because expanding rust is what typically causes the
+      surrounding concrete to spall in the first place, this combination should be
+      reported together as a single, structurally significant finding. Recommend a
+      qualified contractor or structural engineer assess the extent of steel
+      deterioration before any surface repair is undertaken.
+    citation: 'InterNACHI, "Understanding Efflorescence and Spalling: Critical Assessment Points for Home Inspectors"'
+
+  # ---------------------------------------------------------------------
+  # efflorescence
+  # ---------------------------------------------------------------------
+  - id: inachi-015
+    title: "Efflorescence on a basement foundation wall"
+    class_tags: [efflorescence]
+    severity: monitor
+    index_sentence: "white chalky powder deposit on an interior basement wall"
+    passage: >
+      White, powdery deposits on a concrete or masonry wall form when water moving
+      through the material dissolves naturally occurring salts and leaves them behind as
+      it evaporates at the surface. Its presence confirms that moisture is or was passing
+      through the wall, even if no active dripping is visible at the time of inspection.
+      Inspectors should note the deposit's extent and look for a nearby moisture source,
+      such as poor exterior grading or a missing downspout extension, and point the client
+      toward correcting that source rather than just cleaning the deposit.
+    citation: 'InterNACHI, "Efflorescence for Inspectors"'
+
+  - id: inachi-016
+    title: "Efflorescence on exterior brick or block veneer"
+    class_tags: [efflorescence]
+    severity: cosmetic
+    index_sentence: "white salt deposits streaking down an exterior brick wall"
+    passage: >
+      Efflorescence on an above-grade exterior wall is often tied to construction
+      moisture in newer masonry or to water intrusion behind the veneer in older
+      construction, and the two causes carry different levels of concern. Inspectors
+      should ask about the age of the masonry work and check flashing, weep holes, and
+      cap details above the affected area, since a functioning drainage plane typically
+      resolves construction-related efflorescence within a year or two. If deposits
+      persist or recur heavily after cleaning, this more likely signals an ongoing
+      moisture path worth evaluating.
+    citation: 'InterNACHI, "Efflorescence for Inspectors"'
+
+  - id: inachi-017
+    title: "Seasonal efflorescence banding on foundation wall"
+    class_tags: [efflorescence]
+    severity: monitor
+    index_sentence: "banded or streaked white mineral deposits at varying heights on a foundation wall"
+    passage: >
+      Efflorescence appearing in distinct horizontal bands at different heights on a
+      foundation wall can reflect seasonal changes in the surrounding groundwater level,
+      with each band marking a past high-water mark. Inspectors should document the
+      highest band observed, since it indicates the worst-case moisture exposure the wall
+      has experienced even if conditions are drier at the time of the inspection.
+      Recommending exterior drainage improvements is more effective than addressing only
+      the visible deposits.
+    citation: 'InterNACHI, "Efflorescence for Inspectors"'
+
+  - id: inachi-018
+    title: "Efflorescence in a crawlspace as a moisture indicator"
+    class_tags: [efflorescence]
+    severity: monitor
+    index_sentence: "white mineral crust on crawlspace piers or foundation walls"
+    passage: >
+      Efflorescence on crawlspace piers, foundation walls, or the underside of a slab
+      points to elevated moisture in a space that is already prone to poor air
+      circulation, which raises the likelihood of wood decay or mold if left unaddressed.
+      Inspectors should check for a properly installed vapor barrier on the crawlspace
+      floor and report this finding together with any observed wood-soil contact or
+      damaged framing nearby, since these conditions often compound each other.
+    citation: 'InterNACHI SOP §3.3; "Efflorescence for Inspectors"'
+
+  - id: inachi-019
+    title: "Distinguishing efflorescence from early mold growth"
+    class_tags: [efflorescence]
+    severity: cosmetic
+    index_sentence: "white powdery patch on a wall that could be mistaken for mold"
+    passage: >
+      Because both efflorescence and some early-stage mold can appear as a light-colored
+      patch on a wall, inspectors should confirm which condition they are looking at
+      before writing the finding, since the recommended follow-up differs. Efflorescence
+      is mineral, dry to the touch, and will dissolve or smear if wiped with a damp cloth,
+      whereas mold generally has a fuzzy or slightly raised texture and does not dissolve
+      the same way. Correctly identifying efflorescence allows the report to focus on
+      moisture management rather than unnecessarily raising a mold concern.
+    citation: 'InterNACHI, "Efflorescence for Inspectors"'
+
+  # ---------------------------------------------------------------------
+  # exposed_rebar
+  # ---------------------------------------------------------------------
+  - id: inachi-020
+    title: "Exposed reinforcing steel in a foundation wall"
+    class_tags: [exposed_rebar]
+    severity: structural
+    index_sentence: "rusted reinforcing bar visible protruding from a concrete foundation wall"
+    passage: >
+      Reinforcing steel that has become visible at a foundation wall or grade beam has
+      already lost its protective concrete cover, leaving it exposed to moisture and
+      accelerated corrosion. Inspectors should estimate how much of the bar's diameter has
+      already been lost to rust, since heavily pitted bars carry more structural concern
+      than lightly surface-rusted ones. This condition should be reported as a material
+      defect requiring evaluation by a structural engineer, with photographs including a
+      scale reference to support the client's follow-up conversation.
+    citation: "InterNACHI SOP §3.3.III"
+
+  - id: inachi-021
+    title: "Exposed rebar in a structural slab or elevated deck"
+    class_tags: [exposed_rebar]
+    severity: structural
+    index_sentence: "reinforcing bar exposed on the underside of an elevated concrete deck or slab"
+    passage: >
+      On an elevated slab or deck, exposed and corroding reinforcement is a more
+      immediate safety concern than the same condition on an at-grade foundation wall,
+      since it can affect the load path supporting people or vehicles above. Inspectors
+      should note the location, extent, and whether any sagging, cracking, or spalled
+      concrete accompanies the exposed steel. Given the direct safety implication, this
+      finding warrants prompt referral to a structural engineer, and the client should be
+      advised to limit load or access until it has been evaluated.
+    citation: "InterNACHI SOP §3.3.III"
+
+  - id: inachi-022
+    title: "Rebar exposed due to insufficient concrete cover"
+    class_tags: [exposed_rebar]
+    severity: structural
+    index_sentence: "reinforcing steel visible near the surface of a thin concrete section"
+    passage: >
+      Where reinforcing steel was placed with too little concrete cover during original
+      construction, it can become exposed relatively quickly through minor surface wear or
+      shallow spalling, well before the concrete itself would otherwise show distress.
+      Inspectors should note when exposed steel appears in multiple, evenly spaced
+      locations following a rebar grid, since this pattern points toward a systemic
+      construction issue rather than an isolated moisture problem. The finding should
+      still be reported as structural regardless of the underlying cause.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-023
+    title: "Exposed rebar at a garage slab edge or porch"
+    class_tags: [exposed_rebar]
+    severity: structural
+    index_sentence: "rusted rebar exposed along the broken edge of a garage slab or porch"
+    passage: >
+      Slab edges at garages and porches are frequently exposed to de-icing salts, standing
+      water, and repeated wetting, making them a common location for edge spalling that
+      exposes the reinforcing steel below. Even when the exposed area is small, rust-jacked
+      concrete indicates an active, worsening process rather than a stable condition.
+      Recommend evaluation and repair by a qualified concrete contractor, with a structural
+      engineer consulted if the affected slab carries structural load.
+    citation: "InterNACHI SOP §3.3.III"
+
+  - id: inachi-024
+    title: "Rust-jacking actively displacing concrete from rebar"
+    class_tags: [exposed_rebar]
+    severity: structural
+    index_sentence: "concrete visibly pushed apart by expanding rust on an embedded steel bar"
+    passage: >
+      When corroding reinforcing steel expands, it can generate enough internal pressure
+      to crack and progressively push apart the surrounding concrete, a process often
+      called rust-jacking. Inspectors observing this in progress, visible as fresh cracking
+      radiating from a rusted bar, should treat it as an active and worsening condition
+      rather than a stable, historical one. A structural engineer's evaluation is
+      warranted given the progressive nature of this failure mode.
+    citation: 'InterNACHI, "Understanding Efflorescence and Spalling: Critical Assessment Points for Home Inspectors"'
+
+  # ---------------------------------------------------------------------
+  # corrosion_stain
+  # ---------------------------------------------------------------------
+  - id: inachi-025
+    title: "Rust staining at metal railings or deck hardware"
+    class_tags: [corrosion_stain]
+    severity: monitor
+    index_sentence: "rust streaks running down from a metal railing post or deck bracket"
+    passage: >
+      Rust streaking below a metal railing post, joist hanger, or deck connector shows
+      that the fastener or bracket is corroding, which over time can weaken its holding
+      capacity even if the surrounding wood or concrete looks sound. Because railings and
+      guards are life-safety components, any corrosion affecting their attachment should
+      be noted clearly even when the overall finding is a monitor-level item. Recommending
+      replacement of corroded fasteners is a low-cost way to prevent a larger repair later.
+    citation: "InterNACHI SOP §3.2"
+
+  - id: inachi-026
+    title: "Rust staining below a steel lintel over an opening"
+    class_tags: [corrosion_stain]
+    severity: monitor
+    index_sentence: "rust stains bleeding down a brick wall below a steel lintel"
+    passage: >
+      Steel lintels that support masonry above windows and doors will show rust staining
+      on the brick below them once moisture reaches the steel, often well before any
+      sagging or cracking becomes visible. Inspectors should check the masonry above the
+      opening for any related cracking or unevenness, since advanced lintel corrosion can
+      eventually let the masonry above settle. Recommending that flashing and weep details
+      above the lintel be checked can help slow further deterioration.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  - id: inachi-027
+    title: "Corrosion staining on electrical equipment from moisture intrusion"
+    class_tags: [corrosion_stain]
+    severity: urgent
+    index_sentence: "rust discoloration on an electrical panel cover or recessed light fixture"
+    passage: >
+      Rust or corrosion staining on an electrical panel, junction box, or recessed light
+      housing usually indicates that moisture has been reaching live electrical
+      components, a safety concern distinct from cosmetic corrosion elsewhere in the home.
+      Inspectors should note the likely moisture source above the fixture and should not
+      open or test energized equipment showing signs of water exposure. Given the shock
+      and fire risk involved, this finding should be reported as urgent, with a
+      recommendation for evaluation by a licensed electrician.
+    citation: 'InterNACHI, "Moisture Intrusion"; InterNACHI SOP §3.7.III'
+
+  - id: inachi-028
+    title: "Corrosion staining on crawlspace vents and hardware"
+    class_tags: [corrosion_stain]
+    severity: monitor
+    index_sentence: "rust staining on foundation vents or metal fasteners inside a crawlspace"
+    passage: >
+      Rust on foundation vent screens, joist hangers, or other metal hardware in a
+      crawlspace is a useful secondary indicator of chronically high humidity in that
+      space, even when no standing water is present at the time of inspection. Inspectors
+      should pair this observation with a check of the vapor barrier, ventilation, and any
+      signs of wood decay nearby, since corrosion alone is rarely the primary defect but
+      signals conditions worth addressing. More extensive corrosion affecting structural
+      connectors should be flagged for closer evaluation.
+    citation: "InterNACHI SOP §3.3"
+
+  - id: inachi-029
+    title: "Rust streaking from corroding veneer ties"
+    class_tags: [corrosion_stain]
+    severity: monitor
+    index_sentence: "small rust streaks appearing at regular intervals on a brick veneer wall"
+    passage: >
+      Brick veneer is typically anchored to the structural wall behind it with metal
+      ties, and when those ties corrode, thin rust streaks can appear at the mortar joints
+      in a regular, grid-like pattern that mirrors the tie spacing. Inspectors should note
+      this pattern specifically, since it points to the ties themselves rather than an
+      isolated moisture problem, and tie corrosion over time can compromise the veneer's
+      attachment to the structure. A mason or engineer can determine whether tie
+      replacement is warranted.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  # ---------------------------------------------------------------------
+  # mold_algae
+  # ---------------------------------------------------------------------
+  - id: inachi-030
+    title: "Mold growth around a tub or shower enclosure"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "dark mold spots on grout or caulking around a bathtub or shower"
+    passage: >
+      Dark spotting on grout, caulk, or drywall around a tub or shower usually reflects
+      ordinary condensation and splashing combined with inadequate ventilation, though
+      inspectors should still check for soft drywall or loose tile that would suggest
+      otherwise. Because routine home inspections do not include lab testing for mold
+      species, the report should describe what is visible rather than characterizing the
+      type or health risk of the growth. Recommend correcting ventilation and moisture
+      sources, with further evaluation if drywall or framing damage is also suspected.
+    citation: 'InterNACHI, "How to Perform a Mold Inspection" (Ben Gromicko)'
+
+  - id: inachi-031
+    title: "Mold on framing or insulation in a basement or crawlspace"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "mold growth on wood framing or insulation in a basement or crawlspace"
+    passage: >
+      Mold growth on framing members, subfloor insulation, or stored materials in a
+      basement or crawlspace usually points to a chronic moisture source, such as an
+      unmanaged vapor barrier, poor drainage, or a plumbing leak, rather than a one-time
+      event. Where the affected area is extensive or involves structural framing, this
+      should be reported as urgent and referred to a qualified mold remediation
+      professional rather than treated as routine monitoring. Occupants with respiratory
+      sensitivities should be made aware of the finding promptly.
+    citation: 'InterNACHI, "How to Perform a Mold Inspection" (Ben Gromicko)'
+
+  - id: inachi-032
+    title: "Mold on attic roof sheathing"
+    class_tags: [mold_algae]
+    severity: monitor
+    index_sentence: "dark mold staining on the underside of attic roof sheathing"
+    passage: >
+      Dark staining or mold on the underside of roof sheathing can result either from an
+      active roof leak or simply from warm, moist household air condensing on cold
+      sheathing due to inadequate attic ventilation, and distinguishing between the two
+      changes the recommended fix. A stain pattern near a specific penetration or valley
+      points toward a leak, while a broad, even distribution points toward a ventilation or
+      vapor-barrier issue. Recommend correcting the identified cause rather than only
+      addressing the visible staining.
+    citation: 'InterNACHI SOP §3.9.III.1; "How to Perform a Mold Inspection" (Ben Gromicko)'
+
+  - id: inachi-033
+    title: "Algae streaking on shaded exterior siding"
+    class_tags: [mold_algae]
+    severity: cosmetic
+    index_sentence: "green or black streaking on exterior siding in a shaded, damp area"
+    passage: >
+      Greenish or black streaking on siding in areas that stay shaded and damp, such as
+      the north side of a house under tree cover, is typically algae growth rather than a
+      sign of a moisture problem within the wall assembly. Inspectors should confirm that
+      the growth is limited to the exterior surface and does not correspond to any
+      interior staining or soft material. Trimming back vegetation to improve airflow and
+      sun exposure is a practical long-term recommendation.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  - id: inachi-034
+    title: "Mold at HVAC ductwork or supply registers"
+    class_tags: [mold_algae]
+    severity: urgent
+    index_sentence: "mold growth around an HVAC supply register or visible inside ductwork"
+    passage: >
+      Mold visible at or inside HVAC ductwork and registers is a higher-priority finding
+      than surface mold elsewhere, since the air handling system can distribute spores
+      throughout the conditioned space. Inspectors should note where the growth is visible
+      and check for a condensation source, such as a poorly insulated duct running through
+      an unconditioned space. Because affected areas involving the HVAC system generally
+      exceed the scope of routine cleaning, this should be reported as urgent with
+      referral to an HVAC contractor and a mold remediation specialist.
+    citation: 'InterNACHI, "How to Perform a Mold Inspection" (Ben Gromicko)'
+
+  - id: inachi-035
+    title: "Water damage with resulting mold growth"
+    class_tags: [water_damage, mold_algae]
+    severity: urgent
+    index_sentence: "water-stained wall or ceiling with visible mold growth at the damaged area"
+    passage: >
+      When water staining and mold growth appear together on the same wall or ceiling
+      section, they should be reported as a single combined finding rather than two
+      separate observations, since the mold is a direct consequence of the moisture
+      intrusion. Because mold can begin developing within a day or two of a water event,
+      even a stain that looks old should prompt a check for concealed growth behind
+      adjacent finishes. This combination warrants an urgent classification and referral
+      to appropriate repair and remediation professionals rather than a wait-and-monitor
+      approach.
+    citation: 'InterNACHI, "Moisture Intrusion"; "How to Perform a Mold Inspection" (Ben Gromicko)'
+
+  # ---------------------------------------------------------------------
+  # water_damage
+  # ---------------------------------------------------------------------
+  - id: inachi-036
+    title: "Water staining on a basement wall or ceiling"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "brown or gray water stain on a basement wall or ceiling"
+    passage: >
+      A water stain on a basement wall or ceiling, even without active dripping at the
+      time of inspection, documents that moisture has reached that surface at some point
+      and should be reported rather than dismissed because the area is currently dry.
+      Inspectors should note the stain's size, color, and apparent freshness, and tie the
+      finding, where possible, to a probable source such as foundation waterproofing
+      failure or a plumbing line running through the area. Recommend further evaluation of
+      the specific source rather than only noting that a stain exists.
+    citation: 'InterNACHI, "Inspecting Foundation Dampproofing and Waterproofing (IRC R406)"'
+
+  - id: inachi-037
+    title: "Water staining at roof penetrations or chimney flashing"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "water stain on a ceiling below a roof penetration or chimney"
+    passage: >
+      Staining on a ceiling or in an attic directly below a roof penetration, vent, or
+      chimney is one of the more reliable indicators of an active or recent roof leak, and
+      the Standards of Practice specifically require reporting observed indications of
+      active roof leaks. Inspectors should trace the stain back toward its likely entry
+      point and check the surrounding flashing where accessible. Because active roof leaks
+      can progress quickly to structural or insulation damage, this finding is generally
+      reported as urgent, with a recommendation for repair by a qualified roofing
+      contractor.
+    citation: "InterNACHI SOP §3.1.III.A"
+
+  - id: inachi-038
+    title: "Water damage below a window or door head flashing"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "water staining or damaged trim below a window or door head"
+    passage: >
+      Staining or soft trim below a window or door frequently traces back to missing or
+      improperly lapped head flashing, which allows wind-driven rain to enter behind the
+      trim rather than shed away from the wall. Since air movement accounts for the great
+      majority of water vapor movement into wall cavities, even small gaps around openings
+      can be a significant moisture pathway over time. Recommending correction of the
+      flashing detail, not just re-caulking, addresses the underlying cause rather than a
+      symptom.
+    citation: 'InterNACHI, "Moisture Intrusion"'
+
+  - id: inachi-039
+    title: "Water damage beneath a plumbing fixture"
+    class_tags: [water_damage]
+    severity: urgent
+    index_sentence: "water-damaged flooring or cabinet base beneath a sink or toilet"
+    passage: >
+      Discoloration, softness, or swelling in flooring or cabinetry beneath a sink,
+      toilet, or water heater is a direct indicator of a past or ongoing plumbing leak,
+      which the Standards of Practice require inspectors to report when observed as an
+      active leak. Because ongoing leaks can lead to mold growth and structural decay in a
+      short period, this finding is generally reported as urgent, prompting prompt repair
+      by a licensed plumber. The client should also be advised to check for hidden damage
+      in adjacent cabinetry or subfloor.
+    citation: "InterNACHI SOP §3.6.III"
+
+  - id: inachi-040
+    title: "Ceiling staining linked to attic moisture and ventilation"
+    class_tags: [water_damage]
+    severity: monitor
+    index_sentence: "water stain on a ceiling with no obvious roof leak source above"
+    passage: >
+      Not every ceiling stain traces to a roof leak; condensation forming on the
+      underside of poorly ventilated attic sheathing or on ductwork can drip down and
+      stain the ceiling below in a pattern that looks similar to a leak. Inspectors should
+      check the attic above the stain for ventilation adequacy and any exhaust fans that
+      terminate in the attic rather than outside, since improperly vented fans are a common
+      contributing cause. Describing the stain as being of undetermined origin, while
+      noting any ventilation deficiency observed, is more accurate than assuming a roofing
+      cause.
+    citation: 'InterNACHI SOP §3.9; "Moisture Intrusion"'
+
+  # ---------------------------------------------------------------------
+  # peeling_paint
+  # ---------------------------------------------------------------------
+  - id: inachi-041
+    title: "Peeling paint on exterior siding or trim"
+    class_tags: [peeling_paint]
+    severity: cosmetic
+    index_sentence: "paint peeling or flaking off exterior wood siding or trim"
+    passage: >
+      Paint that is lifting and flaking off exterior siding or trim, exposing bare wood
+      beneath, is primarily a maintenance and appearance issue when limited to well-worn
+      areas without underlying wood damage. Inspectors should press or probe the exposed
+      wood lightly to check for softness or decay before classifying the finding as purely
+      cosmetic, since paint failure often follows, rather than causes, a wood problem
+      underneath. Left unaddressed for an extended period, peeling paint can progress from
+      a cosmetic finding to a wood-decay concern.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  - id: inachi-042
+    title: "Blistering paint from moisture behind the surface"
+    class_tags: [peeling_paint]
+    severity: monitor
+    index_sentence: "bubbled or blistered paint on an exterior wall surface"
+    passage: >
+      Paint that has bubbled or blistered, rather than simply flaked, often indicates
+      moisture trapped behind the paint film trying to escape through the surface, which
+      points to a source inside the wall assembly rather than ordinary weathering.
+      Inspectors should note the location of blistering relative to interior plumbing,
+      bathrooms, or known past leaks, since these can indicate the moisture is coming from
+      within. Repainting alone will not resolve blistering caused by trapped interior
+      moisture, so a recommendation to investigate the source is warranted.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  - id: inachi-043
+    title: "Chalking paint from UV and age-related degradation"
+    class_tags: [peeling_paint]
+    severity: cosmetic
+    index_sentence: "powdery chalky residue left on a hand after touching painted siding"
+    passage: >
+      A powdery residue that rubs off on the hand when touched, commonly called chalking,
+      is a normal end-of-life sign for exterior paint exposed to sun and weathering over
+      many years, rather than an indicator of moisture intrusion. Inspectors should
+      distinguish chalking, which leaves a dry powder without paint film loss, from
+      peeling or blistering, which involve the paint film separating from the substrate.
+      Recommend repainting on a normal maintenance cycle rather than urgent action.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  - id: inachi-044
+    title: "Peeling paint at friction surfaces on a pre-1978 home"
+    class_tags: [peeling_paint]
+    severity: urgent
+    index_sentence: "peeling or worn paint at a window sash or door edge on an older home"
+    passage: >
+      On homes built before 1978, paint that is peeling, chipping, or worn away at
+      friction points such as window sashes, door jambs, and stair rails deserves extra
+      attention, since these surfaces can generate lead-containing dust through everyday
+      use if the paint contains lead. General home inspectors who are not trained or
+      certified in lead detection should not attempt to test for lead themselves, but
+      should note the home's age and the extent of deteriorated paint and recommend
+      evaluation by a certified lead-based paint inspector or risk assessor, particularly
+      where young children are expected to occupy the home.
+    citation: 'InterNACHI, "Lead Facts for Inspectors"'
+
+  - id: inachi-045
+    title: "Peeling paint near grade at a wood-soil contact point"
+    class_tags: [peeling_paint]
+    severity: monitor
+    index_sentence: "peeling paint on wood siding or trim close to ground level"
+    passage: >
+      Paint failure concentrated near grade level often results from wicking moisture,
+      either from soil contact, splash-back, or poor grading, rather than from general sun
+      and weather exposure affecting the rest of the wall evenly. Inspectors should check
+      whether the affected wood is in direct contact with soil or mulch, since the
+      Standards of Practice call for reporting wood-soil contact as a condition needing
+      correction due to its decay and pest risk. Recommend regrading or trimming material
+      to restore clearance between the wood and the ground.
+    citation: "InterNACHI SOP §3.3.III"
+
+  - id: inachi-046
+    title: "Interior peeling paint tied to a leak source"
+    class_tags: [peeling_paint]
+    severity: monitor
+    index_sentence: "peeling paint on an interior ceiling or wall near a water stain"
+    passage: >
+      Peeling paint on an interior ceiling or wall, especially when it appears alongside a
+      discolored stain, usually indicates that moisture has repeatedly wetted that finish
+      from behind, most often from a roof leak, plumbing leak, or condensation source
+      above or within the wall. Inspectors should trace the stain and peeling back toward
+      its probable source rather than treating the paint failure as an isolated cosmetic
+      issue. Repainting should be recommended only after the moisture source has been
+      corrected.
+    citation: 'InterNACHI, "Moisture Intrusion"'
+
+  - id: inachi-047
+    title: "Peeling paint in a bathroom or kitchen lacking ventilation"
+    class_tags: [peeling_paint]
+    severity: cosmetic
+    index_sentence: "peeling paint on a bathroom or kitchen ceiling near a shower or stove"
+    passage: >
+      Paint peeling on a bathroom ceiling near the shower, or on kitchen walls near a
+      stove, frequently reflects routine condensation from everyday humidity rather than a
+      hidden leak, particularly when no exhaust fan is present or the fan is undersized.
+      Inspectors should confirm whether mechanical ventilation exists and appears
+      functional, and should check that the peeling is limited to areas consistent with
+      steam or cooking vapor rather than tracing back to a plumbing or roof source. If any
+      doubt remains about a hidden leak, the more conservative monitor classification
+      should be used instead.
+    citation: 'InterNACHI SOP §3.9; "Moisture Intrusion"'
+
+  # ---------------------------------------------------------------------
+  # no_defect
+  # ---------------------------------------------------------------------
+  - id: inachi-048
+    title: "Roof covering in serviceable condition — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "intact roof covering with no visible leaks, damage, or wear"
+    passage: >
+      When roof-covering materials, flashing, and penetrations show consistent wear
+      appropriate to their age, with no torn, missing, or lifted sections and no interior
+      staining suggesting a leak, the inspector can report the roof-covering condition as
+      satisfactory with no deficiency observed. The Standards of Practice call for
+      describing the roof-covering material and reporting only indications of active
+      leaks as defective, so an intact, unremarkable roof does not require further
+      comment. This does not certify remaining service life, only that no current
+      indication of a problem was observed from the vantage points used.
+    citation: "InterNACHI SOP §3.1"
+
+  - id: inachi-049
+    title: "Exterior wall covering intact — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "sound exterior siding with no cracking, gaps, or moisture damage"
+    passage: >
+      Exterior wall-covering materials that are properly fastened, free of significant
+      gaps, cracking, or moisture staining, and show only ordinary wear for their age and
+      material type can be reported as being in acceptable condition with no deficiency
+      observed. Inspectors should still describe the wall-covering type as required,
+      independent of condition. A "no deficiency" finding here reflects the visible
+      surfaces at the time of inspection and does not extend to concealed sheathing,
+      flashing, or framing that could not be observed.
+    citation: "InterNACHI SOP §3.2"
+
+  - id: inachi-050
+    title: "Foundation showing only stable shrinkage cracking — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "foundation wall with only minor, stable shrinkage cracks and no moisture staining"
+    passage: >
+      A foundation wall or basement that shows only minor, hairline shrinkage cracking,
+      with no vertical displacement, no efflorescence, and no visible water staining, is
+      generally consistent with normal concrete curing behavior rather than an active
+      structural or moisture problem. Under the Standards of Practice, inspectors are
+      required to report indications of possible foundation movement or active water
+      penetration; when neither is present, the appropriate finding is that no deficiency
+      was observed. This finding reflects only what was visible and readily accessible at
+      the time of inspection.
+    citation: "InterNACHI SOP §3.3"
+
+  - id: inachi-051
+    title: "Concrete flatwork with stable shrinkage cracking — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "driveway or patio slab with minor, stable cracks and no displacement"
+    passage: >
+      Driveways, walkways, and patios commonly develop fine shrinkage cracks as the
+      concrete cures, and when these cracks show no vertical offset, no spalling, and no
+      signs of ongoing widening, they are considered a normal characteristic of concrete
+      rather than a reportable defect. Inspectors can note that the flatwork was reviewed
+      and found to be performing as expected for its age and material, with no deficiency
+      observed beyond typical cosmetic cracking. No structural or moisture concerns are
+      implied by this type of cracking alone.
+    citation: 'InterNACHI, "Visual Inspection of Concrete"'
+
+  - id: inachi-052
+    title: "Interior finishes free of cracking or staining — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "interior wall and ceiling surfaces with no cracks, stains, or bulging"
+    passage: >
+      Interior walls, ceilings, and floors that show no cracking, no water staining, and
+      no bulging or soft spots when reviewed at representative locations throughout the
+      home support a finding of no deficiency observed for those interior finishes. The
+      Standards of Practice direct inspectors to inspect floors, walls, and ceilings as
+      part of the interior section, but do not require evaluating the paint or
+      wall-covering finish itself, so this finding is limited to structural and
+      moisture-related observations. Clients should understand that finishes concealed
+      behind furniture or storage were not moved and could not be observed.
+    citation: "InterNACHI SOP §3.10"
+
+  - id: inachi-053
+    title: "Exterior paint finish in sound condition — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "exterior paint finish with no peeling, blistering, or chalking"
+    passage: >
+      When exterior paint on siding and trim is intact, well-adhered, and shows no
+      peeling, blistering, or heavy chalking, the finish can be described as being in
+      good, serviceable condition at the time of inspection. Because paint and
+      wall-covering finishes are explicitly outside the scope of what the Standards of
+      Practice require inspectors to evaluate, this observation is offered as a courtesy
+      note about general maintenance condition rather than a required finding. No moisture
+      or substrate concerns are implied when the finish itself looks intact.
+    citation: 'InterNACHI, "How to Inspect the Exterior"'
+
+  - id: inachi-054
+    title: "Functioning foundation dampproofing — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "dry basement or crawlspace wall with no efflorescence, staining, or mold"
+    passage: >
+      A basement or crawlspace wall that shows no efflorescence, no water staining, no
+      mold, and no rust on nearby metal components suggests that the below-grade
+      dampproofing or waterproofing system is performing as intended under current
+      conditions. Inspectors can report this as no deficiency observed regarding
+      foundation moisture management, while still describing the foundation type and any
+      visible dampproofing materials at accessible areas. Clients should still be advised
+      to maintain proper exterior grading and gutter discharge to preserve this condition.
+    citation: 'InterNACHI, "Inspecting Foundation Dampproofing and Waterproofing (IRC R406)"'
+
+  - id: inachi-055
+    title: "Adequate attic insulation and ventilation — no deficiency observed"
+    class_tags: [no_defect]
+    severity: cosmetic
+    index_sentence: "attic space with even insulation coverage and no staining or mold on sheathing"
+    passage: >
+      An attic with insulation present at a consistent depth, functioning ventilation such
+      as ridge and soffit vents or gable vents, and no staining or mold visible on the
+      sheathing supports a finding of no deficiency observed for insulation and
+      ventilation. The Standards of Practice require inspectors to describe the type and
+      approximate average depth of insulation observed, and treat a space as deficient
+      only when insulation or ventilation is broadly missing, so an attic meeting these
+      expectations needs no further corrective recommendation. This finding reflects
+      visible conditions only and does not quantify insulation R-value.
+    citation: "InterNACHI SOP §3.9"

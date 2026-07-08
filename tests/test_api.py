@@ -1,0 +1,351 @@
+import subprocess
+import sys
+from io import BytesIO
+
+from fastapi.testclient import TestClient
+from PIL import Image
+
+from defectlens.corpus import Card
+from defectlens.rag.retrieve import Hit
+from defectlens.serve.api import create_app
+from defectlens.serve.recognizer import RecognitionResult
+
+
+def make_card(cid, tags, severity="monitor"):
+    return Card(
+        id=cid,
+        title=f"title-{cid}",
+        class_tags=tags,
+        severity=severity,
+        index_sentence=f"index-{cid}",
+        passage=f"passage-{cid}",
+        citation=f"citation-{cid}",
+        source_name=f"source-{cid}",
+        source_url=f"https://example.com/{cid}",
+        source_license="CC-BY-4.0",
+    )
+
+
+def make_png_bytes() -> bytes:
+    buf = BytesIO()
+    Image.new("RGB", (8, 8)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+class StubRecognizer:
+    """Fixed-result stand-in for Recognizer — no model, no DB."""
+
+    def __init__(self, result, expected_k=5):
+        self.result = result
+        self.expected_k = expected_k
+        self.calls = []
+
+    def analyze_image_bytes(self, data, k):
+        assert k == self.expected_k
+        self.calls.append(data)
+        return self.result
+
+
+class StubDescriber:
+    """Fixed-text stand-in for Describer — no model."""
+
+    def __init__(self, text="desc"):
+        self.text = text
+        self.calls = []
+
+    def describe(self, image, top_classes):
+        self.calls.append((image, list(top_classes)))
+        return self.text
+
+
+class StubTextSearcher:
+    def __init__(self, hits):
+        self.hits = hits
+        self.calls = []
+
+    def search(self, query, k=5):
+        self.calls.append((query, k))
+        return self.hits
+
+
+class FakeConn:
+    """Fake DB connection: conn.execute(sql).fetchone() -> (count,)."""
+
+    def __init__(self, count):
+        self.count = count
+        self.queries = []
+
+    def execute(self, sql):
+        self.queries.append(sql)
+        return self
+
+    def fetchone(self):
+        return (self.count,)
+
+
+class RaisingConn:
+    def execute(self, sql):
+        raise RuntimeError("db unreachable")
+
+
+# ---------------------------------------------------------------------------
+# POST /analyze
+# ---------------------------------------------------------------------------
+
+
+def _analyze_result():
+    card_a = make_card("c1", ["crack"], severity="urgent")
+    card_b = make_card("c2", ["spalling"], severity="monitor")
+    hits = [Hit(card=card_a, distance=0.1), Hit(card=card_b, distance=0.2)]
+    classes = [("crack", 0.9), ("spalling", 0.5), ("mold_algae", 0.1)]
+    return RecognitionResult(classes=classes, severity="urgent", hits=hits)
+
+
+def test_analyze_happy_path_full_response_shape():
+    result = _analyze_result()
+    recognizer = StubRecognizer(result)
+    describer = StubDescriber(text="Visible diagonal cracking.")
+    app = create_app(recognizer=recognizer, describer=describer)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze",
+        files={"file": ("test.png", make_png_bytes(), "image/png")},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["classes"] == [
+        {"label": "crack", "score": 0.9},
+        {"label": "spalling", "score": 0.5},
+        {"label": "mold_algae", "score": 0.1},
+    ]
+    assert body["severity"] == "urgent"
+    assert body["description"] == "Visible diagonal cracking."
+    assert body["cards"] == [
+        {
+            "id": "c1",
+            "title": "title-c1",
+            "passage": "passage-c1",
+            "severity": "urgent",
+            "citation": "citation-c1",
+            "source_name": "source-c1",
+            "source_url": "https://example.com/c1",
+        },
+        {
+            "id": "c2",
+            "title": "title-c2",
+            "passage": "passage-c2",
+            "severity": "monitor",
+            "citation": "citation-c2",
+            "source_name": "source-c2",
+            "source_url": "https://example.com/c2",
+        },
+    ]
+
+    # recognizer was called with k=5 (asserted inside stub) and got raw bytes
+    assert len(recognizer.calls) == 1
+    assert isinstance(recognizer.calls[0], bytes)
+
+    # describer got a PIL image and the top-3 class labels in score order
+    assert len(describer.calls) == 1
+    image, top_labels = describer.calls[0]
+    assert isinstance(image, Image.Image)
+    assert top_labels == ["crack", "spalling", "mold_algae"]
+
+
+def test_analyze_non_image_payload_returns_400_with_message():
+    def _boom(*a, **k):
+        raise AssertionError("recognizer/describer must not run on bad payload")
+
+    class ExplodingRecognizer:
+        analyze_image_bytes = _boom
+
+    class ExplodingDescriber:
+        describe = _boom
+
+    app = create_app(recognizer=ExplodingRecognizer(), describer=ExplodingDescriber())
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze",
+        files={"file": ("bad.txt", b"not an image", "text/plain")},
+    )
+
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert "image" in detail.lower()
+
+
+def test_analyze_with_describer_disabled_returns_empty_description():
+    result = _analyze_result()
+    recognizer = StubRecognizer(result)
+    describer = StubDescriber(text="")  # vlm disabled -> Describer.describe returns ""
+    app = create_app(recognizer=recognizer, describer=describer)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze",
+        files={"file": ("test.png", make_png_bytes(), "image/png")},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["description"] == ""
+
+
+# ---------------------------------------------------------------------------
+# POST /search
+# ---------------------------------------------------------------------------
+
+
+def test_search_happy_path_returns_cards():
+    card = make_card("s1", ["water_damage"], severity="monitor")
+    text_searcher = StubTextSearcher(hits=[Hit(card=card, distance=0.05)])
+    app = create_app(text_searcher=text_searcher)
+    client = TestClient(app)
+
+    resp = client.post("/search", json={"query": "dark stain under window"})
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "cards": [
+            {
+                "id": "s1",
+                "title": "title-s1",
+                "passage": "passage-s1",
+                "severity": "monitor",
+                "citation": "citation-s1",
+                "source_name": "source-s1",
+                "source_url": "https://example.com/s1",
+            }
+        ]
+    }
+    assert text_searcher.calls == [("dark stain under window", 5)]
+
+
+# ---------------------------------------------------------------------------
+# GET /health
+# ---------------------------------------------------------------------------
+
+
+class RecognizerWithConn:
+    def __init__(self, conn):
+        self.conn = conn
+
+
+class DescriberWithModel:
+    def __init__(self, model):
+        self.model = model
+
+
+def test_health_ok_path_reports_db_and_vlm_state():
+    recognizer = RecognizerWithConn(conn=FakeConn(count=410))
+    describer = DescriberWithModel(model=object())
+    app = create_app(recognizer=recognizer, describer=describer)
+    client = TestClient(app)
+
+    resp = client.get("/health")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "status": "ok",
+        "db": True,
+        "cards_indexed": 410,
+        "vlm_loaded": True,
+        "classifier": "clip-fused",
+    }
+
+
+def test_health_degraded_path_when_db_query_raises():
+    recognizer = RecognizerWithConn(conn=RaisingConn())
+    describer = DescriberWithModel(model=None)
+    app = create_app(recognizer=recognizer, describer=describer)
+    client = TestClient(app)
+
+    resp = client.get("/health")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "status": "degraded",
+        "db": False,
+        "cards_indexed": 0,
+        "vlm_loaded": False,
+        "classifier": "clip-fused",
+    }
+
+
+def test_health_degraded_when_recognizer_never_wired():
+    app = create_app()
+    client = TestClient(app)
+
+    resp = client.get("/health")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "degraded"
+    assert body["db"] is False
+    assert body["cards_indexed"] == 0
+    assert body["vlm_loaded"] is False
+
+
+# ---------------------------------------------------------------------------
+# Import sanity — api module must stay cheap to import (spec §7)
+# ---------------------------------------------------------------------------
+
+
+def test_module_import_does_not_pull_in_torch_or_transformers():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "import defectlens.serve.api\n"
+            "assert 'torch' not in sys.modules, 'torch imported at module level'\n"
+            "assert 'transformers' not in sys.modules, 'transformers imported at module level'\n"
+            "print('OK')\n",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK"
+
+
+def test_analyze_prefers_vlm_ranking_and_rekeys_severity():
+    """A describer exposing non-empty rank_classes switches /analyze to the
+    fine-tuned VLM classes + classifier tag and re-keys severity on the VLM
+    top class; cards still come from the CLIP-RAG recognizer result."""
+    card_rebar = make_card("c9", ["exposed_rebar"], severity="structural")
+    hits = [Hit(card=card_rebar, distance=0.1)]
+    clip_classes = [("crack", 0.9), ("spalling", 0.5)]
+    result = RecognitionResult(classes=clip_classes, severity="urgent", hits=hits)
+
+    describer = StubDescriber(text="Exposed reinforcement bar.")
+    describer.rank_classes = lambda img: [
+        ("exposed_rebar", 0.97), ("spalling", 0.02), ("crack", 0.01)
+    ]
+    app = create_app(recognizer=StubRecognizer(result), describer=describer)
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["classifier"] == "vlm-qlora"
+    assert body["classes"][0] == {"label": "exposed_rebar", "score": 0.97}
+    assert body["severity"] != "urgent"  # re-keyed on exposed_rebar, not CLIP's crack
+    assert body["cards"][0]["id"] == "c9"
+
+
+def test_analyze_falls_back_to_clip_when_no_vlm_ranking():
+    """StubDescriber has no rank_classes -> classifier stays clip-fused with
+    the recognizer's classes and severity untouched."""
+    result = _analyze_result()
+    app = create_app(recognizer=StubRecognizer(result), describer=StubDescriber())
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    body = resp.json()
+    assert body["classifier"] == "clip-fused"
+    assert body["classes"][0] == {"label": "crack", "score": 0.9}
+    assert body["severity"] == "urgent"
