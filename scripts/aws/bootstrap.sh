@@ -35,7 +35,15 @@ mkdir -p "$WORKDIR" "$CKPT_DIR"
 # Safety net: no matter how this script exits (success, training crash,
 # unhandled error under `set -e`), always shut the box down so a bug never
 # leaves a paid GPU instance running unattended.
-shutdown_now() { sudo shutdown -h now || true; }
+# Also push the cloud-init log (all bootstrap output incl. early failures)
+# to S3 before powering off — a bootstrap that dies before training would
+# otherwise leave zero evidence anywhere reachable (learned 2026-07-07:
+# first smoke attempt shut down in 4 min with nothing in S3 to diagnose).
+shutdown_now() {
+  aws s3 cp /var/log/cloud-init-output.log "${S3_PREFIX}/cloud-init-output.log" \
+    --region "$AWS_REGION" || true
+  sudo shutdown -h now || true
+}
 trap shutdown_now EXIT
 
 echo "== syncing phase3 package from ${S3_PREFIX} =="
