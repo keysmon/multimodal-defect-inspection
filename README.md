@@ -28,9 +28,12 @@ M3 Pro — most of it Qwen generation; ~1s with DEFECTLENS_NO_VLM=1.)
     uvicorn defectlens.serve.api:app --port 8000   # DEFECTLENS_NO_VLM=1 to skip the 7GB VLM
     cd frontend && npm install && npm start  # http://localhost:3000
 
-Interim classifier note: until the Phase 3 fine-tune lands, class ranking uses
-the measured CLIP RRF-fusion pipeline (recall@5 0.863 on the frozen test split)
-— the fine-tuned VLM will replace it behind the same API contract.
+Classifier: the Phase 3 fine-tuned Qwen2.5-VL-3B QLoRA adapter (macro top-1
+0.851) ranks the defect classes; the free-text description is generated with
+the adapter disabled (base weights) since the classification fine-tune
+measurably degrades open-ended narration. With `DEFECTLENS_NO_VLM=1` (or no
+adapter present) classification falls back to the measured CLIP RRF-fusion
+pipeline (recall@5 0.863). `/health` reports which classifier is active.
 
 ## Phase 2 Results — Cross-Modal RAG
 
