@@ -156,7 +156,10 @@ def _load_model_and_processor(adapter: Path | None, device: str, max_pixels: int
     import torch
     from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 
-    dtype = torch.bfloat16 if device == "cuda" else torch.float32
+    # bf16 on MPS too, not just CUDA: fp32 is ~15GB for 3.75B params and
+    # swap-thrashes an 18GB machine (root cause of the 2026-07-08 jetsam
+    # kills + crawling local evals). CPU stays fp32.
+    dtype = torch.float32 if device == "cpu" else torch.bfloat16
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(QWEN_MODEL, dtype=dtype)
     if adapter is not None:
         from peft import PeftModel
