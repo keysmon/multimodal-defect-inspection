@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 import os
+import re
 from contextlib import asynccontextmanager
 from io import BytesIO
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel
 
 from defectlens.rag.retrieve import Hit, query_by_text
+from defectlens.train.qlora import MAX_NOTE_CHARS
 
 # ---------------------------------------------------------------------------
 # Config (env-driven; no hardcoded URLs elsewhere in this module)
@@ -107,7 +109,12 @@ def create_app(
     )
 
     @app.post("/analyze")
-    async def analyze(request: Request, file: UploadFile = File(...)) -> dict:
+    async def analyze(
+        request: Request,
+        file: UploadFile = File(...),
+        note: str = Form(""),
+    ) -> dict:
+        note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
         data = await file.read()
         try:
             img = Image.open(BytesIO(data))
@@ -121,7 +128,7 @@ def create_app(
         recognizer = request.app.state.recognizer
         describer = request.app.state.describer
 
-        result = recognizer.analyze_image_bytes(data, k=5)
+        result = recognizer.analyze_image_bytes(data, k=5, note=note_text)
 
         # Phase 3 classifier: fine-tuned VLM ranking (macro top-1 0.851)
         # when the adapter is loaded; CLIP-fused ranking otherwise. Cards
@@ -130,7 +137,9 @@ def create_app(
         classes = result.classes
         severity = result.severity
         classifier = "clip-fused"
-        vlm_classes = getattr(describer, "rank_classes", lambda _img: [])(img)
+        vlm_classes = getattr(describer, "rank_classes", lambda _img, note=None: [])(
+            img, note=note_text
+        )
         if vlm_classes:
             from defectlens.serve.recognizer import severity_for
 
@@ -149,6 +158,7 @@ def create_app(
             "classes": [{"label": label, "score": score} for label, score in classes],
             "severity": severity,
             "classifier": classifier,
+            "note": note_text,
             "description": description,
             "cards": [_card_to_dict(hit.card) for hit in result.hits],
         }

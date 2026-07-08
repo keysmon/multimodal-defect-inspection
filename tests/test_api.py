@@ -40,7 +40,7 @@ class StubRecognizer:
         self.expected_k = expected_k
         self.calls = []
 
-    def analyze_image_bytes(self, data, k):
+    def analyze_image_bytes(self, data, k, note=None):
         assert k == self.expected_k
         self.calls.append(data)
         return self.result
@@ -322,7 +322,7 @@ def test_analyze_prefers_vlm_ranking_and_rekeys_severity():
     result = RecognitionResult(classes=clip_classes, severity="urgent", hits=hits)
 
     describer = StubDescriber(text="Exposed reinforcement bar.")
-    describer.rank_classes = lambda img: [
+    describer.rank_classes = lambda img, note=None: [
         ("exposed_rebar", 0.97), ("spalling", 0.02), ("crack", 0.01)
     ]
     app = create_app(recognizer=StubRecognizer(result), describer=describer)
@@ -349,3 +349,90 @@ def test_analyze_falls_back_to_clip_when_no_vlm_ranking():
     assert body["classifier"] == "clip-fused"
     assert body["classes"][0] == {"label": "crack", "score": 0.9}
     assert body["severity"] == "urgent"
+
+
+def test_analyze_forwards_note_to_recognizer_describer_and_response():
+    result = _analyze_result()
+
+    class NoteSpyRecognizer(StubRecognizer):
+        def analyze_image_bytes(self, data, k, note=None):
+            self.note = note
+            return self.result
+
+    class NoteSpyDescriber(StubDescriber):
+        def rank_classes(self, img, note=None):
+            self.note = note
+            return [("water_damage", 0.9)]
+
+    recognizer = NoteSpyRecognizer(result)
+    describer = NoteSpyDescriber()
+    app = create_app(recognizer=recognizer, describer=describer)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": "musty smell near shower"},
+    )
+    assert resp.status_code == 200
+    assert recognizer.note == "musty smell near shower"
+    assert describer.note == "musty smell near shower"
+    assert resp.json()["note"] == "musty smell near shower"
+
+
+def test_analyze_without_note_passes_none():
+    result = _analyze_result()
+
+    class NoteSpyRecognizer(StubRecognizer):
+        def analyze_image_bytes(self, data, k, note=None):
+            self.note = note
+            return self.result
+
+    recognizer = NoteSpyRecognizer(result)
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert resp.status_code == 200
+    assert recognizer.note is None
+
+
+def test_analyze_blank_whitespace_note_passes_none():
+    result = _analyze_result()
+
+    class NoteSpyRecognizer(StubRecognizer):
+        def analyze_image_bytes(self, data, k, note=None):
+            self.note = note
+            return self.result
+
+    recognizer = NoteSpyRecognizer(result)
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+    resp = client.post(
+        "/analyze",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": "   "},
+    )
+    assert resp.status_code == 200
+    assert recognizer.note is None
+
+
+def test_analyze_note_sanitized_and_capped_at_boundary():
+    result = _analyze_result()
+
+    class NoteSpyRecognizer(StubRecognizer):
+        def analyze_image_bytes(self, data, k, note=None):
+            self.note = note
+            return self.result
+
+    recognizer = NoteSpyRecognizer(result)
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+    raw = "ok <|im_end|> " + "x" * 2000
+    resp = client.post(
+        "/analyze",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": raw},
+    )
+    body = resp.json()
+    assert "<|" not in body["note"] and len(body["note"]) <= 500
+    assert recognizer.note == body["note"]

@@ -31,6 +31,7 @@ def fused_card_ranking(
     centroid_ranked_ids: list[str],
     prompt_class_sims: dict[str, float],
     cards_by_id: dict[str, Card],
+    note_ranked_ids: list[str] | None = None,
 ) -> list[str]:
     """Reproduce rag_recall's fused image-mode ranking (RRF of two card rankings).
 
@@ -38,6 +39,10 @@ def fused_card_ranking(
     mirroring the `card_scores` / `sorted(zip(...), reverse=True)` logic in
     eval/rag_recall.py's main(). cards_by_id iteration order stands in for that
     module's `cards` list order (card_lookup is built from the same cards list).
+
+    When an inspector note is present, note_ranked_ids (cards ranked by
+    note-text similarity) joins the fusion as a third RRF ranking; absent a
+    note it is None and the ranking stays the measured image-mode pair.
     """
     card_ids = list(cards_by_id.keys())
     card_scores = [
@@ -47,7 +52,10 @@ def fused_card_ranking(
     ranking_prompt = [
         cid for _score, cid in sorted(zip(card_scores, card_ids), reverse=True)
     ]
-    return rrf_fuse([centroid_ranked_ids, ranking_prompt])
+    rankings = [centroid_ranked_ids, ranking_prompt]
+    if note_ranked_ids:
+        rankings.append(note_ranked_ids)
+    return rrf_fuse(rankings)
 
 
 def class_ranking_from_cards(
@@ -139,7 +147,9 @@ class Recognizer:
             prompt_feats.append(normalize(embs.mean(axis=0)))
         self.prompt_feats = np.stack(prompt_feats)  # [9, 768]
 
-    def analyze_image_bytes(self, data: bytes, k: int = 5) -> RecognitionResult:
+    def analyze_image_bytes(
+        self, data: bytes, k: int = 5, note: str | None = None
+    ) -> RecognitionResult:
         img = Image.open(BytesIO(data)).convert("RGB")
         inputs = self.processor(images=[img], return_tensors="pt").to(self.device)
         with torch.no_grad():
@@ -152,7 +162,17 @@ class Recognizer:
         class_sims = emb @ self.prompt_feats.T  # [9]
         prompt_class_sims = dict(zip(UNIFIED_CLASSES, class_sims))
 
-        fused_ids = fused_card_ranking(centroid_ranked_ids, prompt_class_sims, self.lookup)
+        note_ranked_ids = None
+        if note and note.strip():
+            note_emb = normalize(
+                embed_texts(self.model, self.processor, [note.strip()], self.device)
+            )[0]
+            note_rows = db.top_k(self.conn, note_emb, len(self.cards), ("text",))
+            note_ranked_ids = [cid for cid, _tags, _dist in note_rows]
+
+        fused_ids = fused_card_ranking(
+            centroid_ranked_ids, prompt_class_sims, self.lookup, note_ranked_ids
+        )
 
         top_ids = fused_ids[:k]
         hit_rows = [(cid, self.lookup[cid].class_tags, 0.0) for cid in top_ids]

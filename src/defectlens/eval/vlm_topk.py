@@ -96,26 +96,30 @@ def pick_device() -> str:
     return "cpu"
 
 
-def score_answers(model, processor, image, device: str) -> dict[str, float]:
+def score_answers(model, processor, image, device: str, note: str | None = None) -> dict[str, float]:
     """Length-normalized teacher-forced log-likelihood of each of the 9 answers.
 
-    For each label, builds the exact same (image, label) chat used in
-    training (qlora.build_messages) and measures the prompt-token length the
-    same way qlora.build_collate_fn does: re-encoding the prompt-only chat
-    (add_generation_prompt=True) with the same image, since Qwen2.5-VL's
-    image-token expansion is image-size-dependent. Tokens from that boundary
-    to the end of the full sequence are the "answer" span (assistant text +
-    any closing/eos tokens the chat template adds) — summed log-softmax over
-    that span, divided by its token count so multi-token answers (e.g.
-    "corrosion stain") aren't penalized relative to single-token ones
-    (e.g. "crack").
+    For each label, builds the same (image, label) chat used in training
+    (qlora.build_messages) with the optional inspector note prefixed when
+    given; blank note = exact training prompt. Measures the prompt-token
+    length the same way qlora.build_collate_fn does: re-encoding the
+    prompt-only chat (add_generation_prompt=True) with the same image, since
+    Qwen2.5-VL's image-token expansion is image-size-dependent. Tokens from
+    that boundary to the end of the full sequence are the "answer" span
+    (assistant text + any closing/eos tokens the chat template adds) — summed
+    log-softmax over that span, divided by its token count so multi-token
+    answers (e.g. "corrosion stain") aren't penalized relative to
+    single-token ones (e.g. "crack").
+
+    Args:
+        note: Optional inspector free-text to prefix before the question.
     """
     import torch
     import torch.nn.functional as F
 
     scores: dict[str, float] = {}
     for label in UNIFIED_CLASSES:
-        messages = build_messages(image, label)
+        messages = build_messages(image, label, note=note)
         full_text = processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=False
         )

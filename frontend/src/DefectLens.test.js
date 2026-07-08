@@ -98,6 +98,39 @@ test("search happy path shows a guidance card", async () => {
   );
 });
 
+test("analyze posts the inspector note in the form data", async () => {
+  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/optional inspector note/i), {
+    target: { value: "musty smell near shower" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() => expect(axios.post).toHaveBeenCalled());
+  const formData = axios.post.mock.calls[0][1];
+  expect(formData.get("note")).toBe("musty smell near shower");
+});
+
+test("selecting a new image resets the inspector note", () => {
+  render(<DefectLens />);
+
+  const noteField = screen.getByPlaceholderText(/optional inspector note/i);
+  fireEvent.change(noteField, { target: { value: "old note" } });
+  expect(noteField.value).toBe("old note");
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+
+  expect(screen.getByPlaceholderText(/optional inspector note/i).value).toBe("");
+});
+
 test("shows an error banner when the analyze request fails", async () => {
   axios.post.mockRejectedValueOnce(new Error("network error"));
   render(<DefectLens />);

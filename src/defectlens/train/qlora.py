@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -36,6 +37,7 @@ QUESTION = (
     "crack, spalling, efflorescence, exposed rebar, corrosion stain, "
     "mold or algae, water damage, peeling paint, no defect."
 )
+MAX_NOTE_CHARS = 500
 
 assert set(HUMANIZED) == set(UNIFIED_CLASSES), "HUMANIZED must cover all unified classes"
 
@@ -75,19 +77,30 @@ def sample_weights(rows: list[ManifestRow]) -> list[float]:
     return [weights[r.unified_label] for r in rows]
 
 
-def build_messages(image_path: str, label: str) -> list[dict]:
+def build_messages(image_path: str, label: str, note: str | None = None) -> list[dict]:
     """Qwen chat-format messages for one (image, label) training example.
 
     `image_path` is embedded as-is into the "image" content field: pass a
     path string (as these tests do) or an already-opened PIL.Image (as the
     training Dataset does) — the processor accepts either.
+
+    `note` (optional inspector free-text) is prefixed before the question.
+    A None/blank note produces the EXACT training-time prompt — the serve
+    layer's empty-note hard gate (spec Phase 5) rests on this equality, so
+    never restructure the no-note branch without retraining.
     """
+    question = QUESTION
+    if note and note.strip():
+        # Strip chat-template control markers (<|im_end|> etc.) and cap
+        # length: the note is user-supplied text entering the prompt.
+        clean = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS]
+        question = f"Inspector note: {clean}\n{QUESTION}"
     return [
         {
             "role": "user",
             "content": [
                 {"type": "image", "image": image_path},
-                {"type": "text", "text": QUESTION},
+                {"type": "text", "text": question},
             ],
         },
         {"role": "assistant", "content": HUMANIZED[label]},

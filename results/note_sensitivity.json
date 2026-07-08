@@ -1,0 +1,621 @@
+{
+ "n": 40,
+ "authorship_caveat": "informative notes were hand-authored by the project authors while viewing the images; this measures prompt sensitivity, not field accuracy gain",
+ "conditions": {
+  "empty": {
+   "accuracy": 0.9,
+   "preds": [
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_002.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_006.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_009.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_029.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_037.jpg",
+     "true": "crack",
+     "pred": "peeling_paint"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_048.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_049.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_050.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_052.jpg",
+     "true": "crack",
+     "pred": "spalling"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_063.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_075.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_079.jpg",
+     "true": "crack",
+     "pred": "spalling"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_086.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_090.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_096.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_097.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_100.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_104.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_121.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_123.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_013.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_021.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_023.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_025.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_032.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_034.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_041.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_043.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_052.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_060.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_065.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_106.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_116.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_121.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_124.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_126.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_128.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_132.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_134.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_149.jpg",
+     "true": "no_defect",
+     "pred": "water_damage"
+    }
+   ]
+  },
+  "informative": {
+   "accuracy": 0.9,
+   "preds": [
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_002.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_006.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_009.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_029.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_037.jpg",
+     "true": "crack",
+     "pred": "peeling_paint"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_048.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_049.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_050.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_052.jpg",
+     "true": "crack",
+     "pred": "spalling"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_063.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_075.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_079.jpg",
+     "true": "crack",
+     "pred": "spalling"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_086.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_090.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_096.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_097.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_100.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_104.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_121.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_123.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_013.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_021.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_023.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_025.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_032.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_034.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_041.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_043.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_052.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_060.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_065.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_106.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_116.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_121.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_124.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_126.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_128.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_132.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_134.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_149.jpg",
+     "true": "no_defect",
+     "pred": "water_damage"
+    }
+   ]
+  },
+  "misleading": {
+   "accuracy": 0.9,
+   "preds": [
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_002.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_006.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_009.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_029.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_037.jpg",
+     "true": "crack",
+     "pred": "peeling_paint"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_048.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_049.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_050.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_052.jpg",
+     "true": "crack",
+     "pred": "spalling"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_063.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_075.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_079.jpg",
+     "true": "crack",
+     "pred": "spalling"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_086.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_090.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_096.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_097.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_100.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_104.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_121.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/major_crack/BD3_original_dataset__train__major_crack__cls01_123.jpg",
+     "true": "crack",
+     "pred": "crack"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_013.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_021.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_023.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_025.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_032.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_034.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_041.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_043.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_052.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_060.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_065.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_106.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_116.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_121.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_124.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_126.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_128.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_132.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_134.jpg",
+     "true": "no_defect",
+     "pred": "no_defect"
+    },
+    {
+     "path": "data/raw/bd3/plain/BD3_original_dataset__train__plain__cls04_149.jpg",
+     "true": "no_defect",
+     "pred": "water_damage"
+    }
+   ]
+  }
+ }
+}
