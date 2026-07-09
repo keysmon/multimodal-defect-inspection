@@ -31,11 +31,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Build frontend (FrontendStack synth needs frontend/build)
+        working-directory: frontend
+        run: |
+          npm ci
+          REACT_APP_API_URL=/api npm run build
       - name: cdk synth
         run: |
           pip install -r infra/requirements.txt
           cd infra
-          npx --yes aws-cdk@2 synth
+          # ApiStack is excluded: its Docker image COPYs gitignored model
+          # artifacts (models/cloud_artifacts, models/audio_bank) that only
+          # exist locally/S3. Add an OIDC-authenticated S3 sync step before
+          # including it here.
+          npx --yes aws-cdk@2 synth FrontendStack OpsStack GpuStack GitHubOidcStack --exclusively
 
   deploy:
     needs: test-and-synth
