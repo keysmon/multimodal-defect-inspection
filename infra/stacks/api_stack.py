@@ -57,10 +57,14 @@ class ApiStack(Stack):
                 platform=ecr_assets.Platform.LINUX_ARM64,
             ),
             architecture=lambda_.Architecture.ARM_64,
-            memory_size=6144,
+            # Account quota caps new-account Lambda memory at 3008MB (increase
+            # requested; bump to 8192 + re-enable audio when granted). At 3008
+            # CLIP fits; CLAP is disabled via DEFECTLENS_NO_AUDIO to stay in RAM.
+            memory_size=3008,
             timeout=Duration.seconds(120),
             environment={
                 "DEFECTLENS_NO_VLM": "1",
+                "DEFECTLENS_NO_AUDIO": "1",
                 "DEFECTLENS_DESCRIBER": "bedrock",
                 "DEFECTLENS_BEDROCK_MODEL": BEDROCK_MODEL_ID,
                 "DEFECTLENS_BEDROCK_REGION": self.region,
