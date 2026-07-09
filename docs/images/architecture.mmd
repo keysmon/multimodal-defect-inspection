@@ -12,9 +12,9 @@ flowchart LR
         bedrock["Amazon Bedrock<br/>Claude Haiku · description"]
     end
 
-    subgraph gpuTier["Planned async GPU path"]
+    subgraph gpuTier["Async GPU path (scale-to-zero)"]
         s3async[("S3<br/>async in / out")]
-        sm["SageMaker async endpoint<br/>Qwen2.5-VL-3B QLoRA<br/>scale-to-zero"]
+        sm["SageMaker async endpoint<br/>Qwen2.5-VL-3B QLoRA<br/>autoscales 0-1"]
     end
 
     user -->|HTTPS| cf
@@ -22,9 +22,6 @@ flowchart LR
     cf -->|/api/*| apigw
     apigw --> lambda
     lambda -->|describe| bedrock
-    lambda -. "planned: /analyze-vlm" .-> s3async
-    s3async -.-> sm
-    sm -.-> s3async
-
-    classDef planned stroke-dasharray: 5 5,fill:#f5f5f5,stroke:#999,color:#333;
-    class s3async,sm planned;
+    lambda -->|"/analyze-vlm"| s3async
+    s3async --> sm
+    sm --> s3async

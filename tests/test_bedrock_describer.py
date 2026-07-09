@@ -100,6 +100,31 @@ def test_describe_swallows_bedrock_errors_and_returns_empty():
     assert d.describe(_png_image(), ["crack"]) == ""
 
 
+def test_describe_logs_throttle_as_one_line_without_traceback(caplog):
+    """Zero-quota accounts throttle EVERY Converse call; with the fail-fast
+    client that is one warning per /analyze, so throttles must log a single
+    line (no exc_info traceback) while unexpected errors keep the traceback."""
+
+    class ThrottlingException(Exception):
+        pass
+
+    d = BedrockDescriber()
+    d._client = FakeBedrockClient(raises=ThrottlingException("Too many tokens"))
+    with caplog.at_level("WARNING"):
+        assert d.describe(_png_image(), ["crack"]) == ""
+    throttle_records = [r for r in caplog.records if "throttled" in r.message]
+    assert len(throttle_records) == 1
+    assert throttle_records[0].exc_info is None
+
+    caplog.clear()
+    d._client = FakeBedrockClient(raises=RuntimeError("boom"))
+    with caplog.at_level("WARNING"):
+        assert d.describe(_png_image(), ["crack"]) == ""
+    failed_records = [r for r in caplog.records if "failed" in r.message]
+    assert len(failed_records) == 1
+    assert failed_records[0].exc_info is not None
+
+
 def test_converse_surfaces_errors_for_the_smoke_test():
     """The non-swallowing path used by the smoke test must raise, so a wrong
     model id / access issue is visible instead of masked as ''."""
@@ -122,6 +147,27 @@ def test_bedrock_describer_has_no_local_vlm_or_adapter_or_ranker():
     assert d.model is None  # /health vlm_loaded stays False
     assert d.adapter_loaded is False  # /health classifier stays clip-fused
     assert not hasattr(d, "rank_classes")  # api.py getattr default -> [] -> CLIP-fused
+
+
+# ---------------------------------------------------------------------------
+# Client config — fail fast, never boto3's default 5-attempt backoff
+# ---------------------------------------------------------------------------
+
+
+def test_bedrock_client_fails_fast_no_retries():
+    """Regression lock: with zero applied Bedrock quota every Converse call
+    throttles, and boto3's default retries (initial + 4 backoff attempts) were
+    adding ~10s to every /analyze. describe()'s ""-fallback is the retry
+    strategy — the client itself must make exactly one attempt."""
+    d = BedrockDescriber()
+    client = d._bedrock_client()  # builds the client; no network call
+    cfg = client.meta.config
+    # total_max_attempts counts the initial call — 1 = zero retries.
+    # (botocore normalizes max_attempts=N to total_max_attempts=N+1, so
+    # asserting the normalized key locks the actual behavior.)
+    assert cfg.retries == {"total_max_attempts": 1, "mode": "standard"}
+    assert cfg.connect_timeout == 3
+    assert cfg.read_timeout == 15
 
 
 # ---------------------------------------------------------------------------

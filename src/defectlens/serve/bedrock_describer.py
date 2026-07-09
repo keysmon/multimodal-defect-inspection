@@ -72,8 +72,24 @@ class BedrockDescriber:
     def _bedrock_client(self):
         if self._client is None:
             import boto3  # lazy: keeps the module import AWS-free
+            from botocore.config import Config
 
-            self._client = boto3.client("bedrock-runtime", region_name=self.region)
+            # Fail fast: description is optional and describe() degrades to "",
+            # so that fallback — not boto3's default 5-attempt exponential
+            # backoff — is the retry strategy. With zero applied Bedrock quota
+            # (new-account state) every call throttles, and the default retries
+            # were adding ~10s to every /analyze until the quota activates.
+            self._client = boto3.client(
+                "bedrock-runtime",
+                region_name=self.region,
+                config=Config(
+                    # total_max_attempts counts the initial call: exactly one
+                    # attempt, zero retries (max_attempts=1 would mean 1 RETRY).
+                    retries={"total_max_attempts": 1, "mode": "standard"},
+                    connect_timeout=3,
+                    read_timeout=15,
+                ),
+            )
         return self._client
 
     def converse(self, image, top_classes, audio_band=None) -> str:
@@ -103,10 +119,17 @@ class BedrockDescriber:
     def describe(self, image, top_classes, audio_band=None) -> str:
         try:
             return self.converse(image, top_classes, audio_band)
-        except Exception:
+        except Exception as exc:
             # Description is optional — a Bedrock outage/throttle must not fail
             # the analysis; classification + RAG cards still return. Log at
             # warning so a persistent misconfig (bad model id, missing IAM/model
             # access) is visible in CloudWatch instead of silently empty.
-            logger.warning("Bedrock describe failed", exc_info=True)
+            if exc.__class__.__name__ == "ThrottlingException":
+                # Known-expected while the account's Bedrock quota activates:
+                # the fail-fast client turns this into one throttle per
+                # /analyze, so a full traceback per request would flood
+                # CloudWatch. One line carries the same signal.
+                logger.warning("Bedrock describe throttled: %s", exc)
+            else:
+                logger.warning("Bedrock describe failed", exc_info=True)
             return ""

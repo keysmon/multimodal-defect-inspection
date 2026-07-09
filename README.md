@@ -9,6 +9,8 @@ RAG index over 205 cited guidance cards supplies the remediation advice.
 
 **Live demo:** <https://d2wxjiu5re5mow.cloudfront.net>
 
+![DefectLens demo: a gallery example runs the full analysis (severity band, ranked defect classes, cited guidance cards), then a text query searches the HVAC audio-fault corpus](docs/images/defectlens-demo.gif)
+
 | Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
 | :---: | :---: | :---: |
 | **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 |
@@ -29,11 +31,15 @@ with no CORS:
   container. The Lambda runs CLIP classification, CLAP equipment-audio anomaly
   scoring, 205-card cross-modal RAG retrieval, and severity fusion, and calls
   Amazon Bedrock (Claude Haiku) for the condition description. (Audio is disabled
-  in the cloud today pending a Lambda memory-quota increase.)
-- **Planned async GPU path** (dashed) - an `/analyze-vlm` route will hand the image
-  to a SageMaker async endpoint (scale-to-zero) running the Qwen2.5-VL-3B QLoRA
-  fine-tune, with S3 for async in/out - bringing the 0.851-macro classifier to the
-  cloud with no always-on GPU.
+  in the cloud today pending a Lambda memory-quota increase, and descriptions are
+  temporarily empty while the new account's Bedrock quota activates - the client
+  fails fast to a blank description rather than retrying into the throttle.)
+- **Async GPU path** - the `/analyze-vlm` route hands the image to a SageMaker
+  async endpoint (ml.g5.xlarge) running the Qwen2.5-VL-3B QLoRA fine-tune, with S3
+  for async in/out - the 0.851-macro classifier in the cloud with no always-on GPU.
+  The endpoint autoscales 0-1 on queue backlog and drains back to zero when idle
+  (verified), so the first request after an idle period pays an instance spin-up +
+  model load (several minutes); the UI polls `/vlm-status` while it runs.
 
 ## Run locally
 
