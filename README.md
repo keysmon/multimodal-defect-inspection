@@ -9,6 +9,8 @@ RAG index over 205 cited guidance cards supplies the remediation advice.
 
 **Live demo:** <https://d2wxjiu5re5mow.cloudfront.net>
 
+![DefectLens demo: a gallery example runs the full analysis (severity band, ranked defect classes, cited guidance cards), then a text query searches the HVAC audio-fault corpus](docs/images/defectlens-demo.gif)
+
 | Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
 | :---: | :---: | :---: |
 | **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 |
