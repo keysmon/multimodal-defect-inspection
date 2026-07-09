@@ -51,6 +51,30 @@ const mockSearchResponse = {
   },
 };
 
+const mockAudioResponse = {
+  data: {
+    ...mockAnalyzeResponse.data,
+    severity: "urgent",
+    combined_severity: "structural",
+    audio: {
+      score: 0.4213,
+      band: "anomalous",
+      severity: "urgent",
+      cards: [
+        {
+          id: "h1",
+          title: "Bearing wear rumble",
+          passage: "Low-frequency rumble that rises with load.",
+          severity: "urgent",
+          citation: "ASHRAE HVAC Applications",
+          source_name: "ASHRAE",
+          source_url: "https://example.com/ashrae-bearing",
+        },
+      ],
+    },
+  },
+};
+
 beforeAll(() => {
   global.URL.createObjectURL = jest.fn(() => "blob:mock-url");
   global.URL.revokeObjectURL = jest.fn();
@@ -114,6 +138,68 @@ test("analyze posts the inspector note in the form data", async () => {
   await waitFor(() => expect(axios.post).toHaveBeenCalled());
   const formData = axios.post.mock.calls[0][1];
   expect(formData.get("note")).toBe("musty smell near shower");
+});
+
+test("analyze posts the selected audio file in the form data", async () => {
+  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [img] },
+  });
+  const wav = new File(["RIFF"], "fan.wav", { type: "audio/wav" });
+  fireEvent.change(screen.getByTestId("audio-input"), {
+    target: { files: [wav] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() => expect(axios.post).toHaveBeenCalled());
+  const formData = axios.post.mock.calls[0][1];
+  expect(formData.get("audio")).toBe(wav);
+});
+
+test("analyze with audio shows the combined severity banner and audio panel", async () => {
+  axios.post.mockResolvedValueOnce(mockAudioResponse);
+  render(<DefectLens />);
+
+  const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [img] },
+  });
+  const wav = new File(["RIFF"], "fan.wav", { type: "audio/wav" });
+  fireEvent.change(screen.getByTestId("audio-input"), {
+    target: { files: [wav] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() =>
+    expect(
+      screen.getByText(/Combined severity: Structural/i)
+    ).toBeInTheDocument()
+  );
+  expect(screen.getByText("Equipment audio")).toBeInTheDocument();
+  expect(screen.getByText(/score: 0\.421/i)).toBeInTheDocument();
+  expect(screen.getByText("anomalous")).toBeInTheDocument();
+  expect(screen.getByText("Bearing wear rumble")).toBeInTheDocument();
+});
+
+test("selecting a new image clears a previously chosen audio file", () => {
+  // Observable half of the stale-input fix: the chosen-audio filename display
+  // disappears when a new image is picked. (The DOM input.value reset that
+  // makes re-picking the SAME wav work is not observable in jsdom — file input
+  // .value is always "" — so that half rides on the useRef idiom + Task 7 E2E.)
+  render(<DefectLens />);
+
+  const img1 = new File(["a"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [img1] } });
+  const wav = new File(["RIFF"], "fan.wav", { type: "audio/wav" });
+  fireEvent.change(screen.getByTestId("audio-input"), { target: { files: [wav] } });
+  expect(screen.getByText("fan.wav")).toBeInTheDocument();
+
+  const img2 = new File(["b"], "wall2.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [img2] } });
+  expect(screen.queryByText("fan.wav")).not.toBeInTheDocument();
 });
 
 test("selecting a new image resets the inspector note", () => {

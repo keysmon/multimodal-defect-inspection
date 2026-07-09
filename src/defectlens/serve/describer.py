@@ -24,15 +24,25 @@ QWEN_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct"
 DEFAULT_ADAPTER = "models/qwen25vl-lora-v1"
 
 
-def build_prompt(top_classes: list[str]) -> str:
-    """Deterministic instruction naming the top classes."""
+def build_prompt(top_classes: list[str], audio_band: str | None = None) -> str:
+    """Deterministic instruction naming the top classes.
+
+    When an equipment-audio clip accompanies the photo, its calibrated band is
+    named in one extra sentence so the narration covers both signals (Phase 5.3).
+    """
     named = ", ".join(c.replace("_", " ") for c in top_classes[:3])
-    return (
+    prompt = (
         "Describe the visible condition of this building surface in 2-3 "
         f"sentences for an inspection report. Focus on signs of: {named}. "
         "Be factual and specific about what is visible; do not speculate "
         "about causes you cannot see."
     )
+    if audio_band:
+        prompt += (
+            " An accompanying equipment-audio recording was assessed as "
+            f"'{audio_band.replace('_', ' ')}'; note this alongside the visual findings."
+        )
+    return prompt
 
 
 def vlm_disabled() -> bool:
@@ -116,7 +126,9 @@ class Describer:
             reverse=True,
         )
 
-    def describe(self, image, top_classes: list[str]) -> str:
+    def describe(
+        self, image, top_classes: list[str], audio_band: str | None = None
+    ) -> str:
         if vlm_disabled() or self.model is None or self.processor is None:
             return ""
 
@@ -127,7 +139,7 @@ class Describer:
                 "role": "user",
                 "content": [
                     {"type": "image", "image": image},
-                    {"type": "text", "text": build_prompt(top_classes)},
+                    {"type": "text", "text": build_prompt(top_classes, audio_band)},
                 ],
             }
         ]

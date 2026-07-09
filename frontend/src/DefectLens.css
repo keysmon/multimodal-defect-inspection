@@ -231,3 +231,49 @@
   font-size: 14px;
   resize: vertical;
 }
+
+.audio-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.audio-filename {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.audio-panel {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.audio-panel-title {
+  margin: 0 0 10px 0;
+  font-size: 1.05rem;
+  color: #333;
+}
+
+.audio-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.audio-band-chip {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.audio-score {
+  font-size: 0.9rem;
+  color: #444;
+  font-variant-numeric: tabular-nums;
+}

@@ -17,6 +17,22 @@ UNIFIED_CLASSES = [
     "no_defect",
 ]
 
+# Audio fault-family vocabulary for equipment-sound guidance cards (Phase 5.3):
+# a separate tag space from the 9 visual UNIFIED_CLASSES above, which stay pinned
+# at 9. Corpus cards may tag from either set; the corpus loader accepts the union.
+AUDIO_FAULT_TAGS = (
+    "fan_imbalance",
+    "bearing_wear",
+    "belt_drive",
+    "airflow_restriction",
+    "motor_electrical",
+    "pump_cavitation",
+    "pump_seal_leak",
+    "compressor_knock",
+    "mounting_vibration",
+    "normal_operation",
+)
+
 EXCLUDE = "EXCLUDE"
 
 LabelMapping = dict[tuple[str, str], str]

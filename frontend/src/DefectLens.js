@@ -1,5 +1,5 @@
 // src/DefectLens.js
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import axios from "axios";
 import "./DefectLens.css";
 
@@ -69,6 +69,11 @@ function buildReportMarkdown(analyzeResult) {
   lines.push(`- Date: ${date}`);
   lines.push(`- Filename: ${analyzeResult.filename}`);
   lines.push(`- Severity: ${severityStyle(analyzeResult.severity).label}`);
+  if (analyzeResult.audio) {
+    lines.push(
+      `- Combined severity: ${severityStyle(analyzeResult.combined_severity).label}`
+    );
+  }
   if (analyzeResult.note) lines.push(`- Inspector note: ${analyzeResult.note}`);
   lines.push("");
 
@@ -94,12 +99,27 @@ function buildReportMarkdown(analyzeResult) {
     lines.push("");
   });
 
+  if (analyzeResult.audio) {
+    lines.push("## Equipment audio");
+    lines.push(`- Band: ${analyzeResult.audio.band}`);
+    lines.push(`- Score: ${Number(analyzeResult.audio.score).toFixed(3)}`);
+    lines.push(`- Severity: ${analyzeResult.audio.severity}`);
+    if (analyzeResult.audio.cards && analyzeResult.audio.cards.length) {
+      lines.push("- Guidance:");
+      analyzeResult.audio.cards.forEach((card) => {
+        lines.push(`  - ${card.title}`);
+      });
+    }
+    lines.push("");
+  }
+
   return lines.join("\n");
 }
 
 function DefectLens() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [selectedAudio, setSelectedAudio] = useState(null);
   const [note, setNote] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState(null);
@@ -110,13 +130,25 @@ function DefectLens() {
 
   const [error, setError] = useState("");
 
+  // The audio <input> is uncontrolled: clearing selectedAudio state on image
+  // change does NOT reset the DOM value, so re-picking the same wav fires no
+  // change event and the file is silently dropped. Reset the element too.
+  const audioInputRef = useRef(null);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setSelectedFile(file || null);
     setImagePreview(file ? URL.createObjectURL(file) : null);
     setNote("");
+    setSelectedAudio(null);
+    if (audioInputRef.current) audioInputRef.current.value = "";
     setAnalyzeResult(null);
     setError("");
+  };
+
+  const handleAudioChange = (e) => {
+    const file = e.target.files[0];
+    setSelectedAudio(file || null);
   };
 
   const handleAnalyze = async () => {
@@ -130,6 +162,7 @@ function DefectLens() {
     const formData = new FormData();
     formData.append("file", selectedFile);
     if (note.trim()) formData.append("note", note.trim());
+    if (selectedAudio) formData.append("audio", selectedAudio);
 
     try {
       const response = await axios.post(`${API}/analyze`, formData, {
@@ -185,7 +218,13 @@ function DefectLens() {
   };
 
   const topClasses = analyzeResult ? analyzeResult.classes.slice(0, 3) : [];
-  const bandStyle = analyzeResult ? severityStyle(analyzeResult.severity) : null;
+  const hasAudio = Boolean(analyzeResult && analyzeResult.audio);
+  const bannerSeverity = analyzeResult
+    ? hasAudio
+      ? analyzeResult.combined_severity
+      : analyzeResult.severity
+    : null;
+  const bandStyle = bannerSeverity ? severityStyle(bannerSeverity) : null;
 
   return (
     <div className="defectlens-container">
@@ -221,6 +260,18 @@ function DefectLens() {
           rows={2}
           maxLength={500}
         />
+        <input
+          type="file"
+          accept=".wav,audio/wav"
+          ref={audioInputRef}
+          onChange={handleAudioChange}
+          className="audio-input"
+          data-testid="audio-input"
+          aria-label="Upload equipment audio (optional)"
+        />
+        {selectedAudio && (
+          <span className="audio-filename">{selectedAudio.name}</span>
+        )}
         <button
           onClick={handleAnalyze}
           disabled={isAnalyzing}
@@ -239,7 +290,7 @@ function DefectLens() {
               color: bandStyle.color,
             }}
           >
-            Severity: {bandStyle.label}
+            {hasAudio ? "Combined severity" : "Severity"}: {bandStyle.label}
           </div>
 
           <div className="rank-chips">
@@ -274,6 +325,28 @@ function DefectLens() {
           )}
 
           <CardList cards={analyzeResult.cards} />
+
+          {hasAudio && (
+            <div className="audio-panel">
+              <h2 className="audio-panel-title">Equipment audio</h2>
+              <div className="audio-summary">
+                <span
+                  className="audio-band-chip"
+                  style={{
+                    backgroundColor: severityStyle(analyzeResult.audio.severity)
+                      .background,
+                    color: severityStyle(analyzeResult.audio.severity).color,
+                  }}
+                >
+                  {analyzeResult.audio.band.replace(/_/g, " ")}
+                </span>
+                <span className="audio-score">
+                  score: {Number(analyzeResult.audio.score).toFixed(3)}
+                </span>
+              </div>
+              <CardList cards={analyzeResult.audio.cards} />
+            </div>
+          )}
         </section>
       )}
 

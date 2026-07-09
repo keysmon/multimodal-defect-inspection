@@ -11,7 +11,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-from defectlens.corpus import Card, load_corpus_dir
+from defectlens.corpus import Card, is_audio_card, load_corpus_dir
 from defectlens.eval.clip_zeroshot import _features, pick_device
 from defectlens.ingest import ManifestRow, read_manifest
 from defectlens.rag import db
@@ -128,7 +128,9 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
 
-    cards = load_corpus_dir(args.corpus_dir)
+    # Audio-only guidance cards (hvac-*) belong in the 512-dim CLAP audio table,
+    # not this 768-dim visual card_vectors index; exclude them here.
+    cards = [c for c in load_corpus_dir(args.corpus_dir) if not is_audio_card(c)]
     if not cards:
         raise SystemExit(f"no cards found in {args.corpus_dir}")
 

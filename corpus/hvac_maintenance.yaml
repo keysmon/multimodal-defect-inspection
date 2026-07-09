@@ -1,0 +1,708 @@
+# HVAC equipment audio fault-family guidance cards (Phase 5.3).
+# class_tags use the audio fault-family vocabulary (AUDIO_FAULT_TAGS), not the
+# visual UNIFIED_CLASSES. Each index_sentence is written as an AUDIBLE symptom so
+# it can serve as the CLAP text-embedding source for audio retrieval.
+# Passages are own-words summaries; sources are cited by reference (document and
+# chapter/section titles), never as fabricated page-level quotations. Chapter
+# numbers vary by handbook edition, so chapters are cited by title.
+source:
+  name: "HVAC Equipment Sound & Vibration Maintenance References"
+  url: "https://www.energy.gov/eere/amo/downloads/improving-pumping-system-performance-sourcebook-industry-second-edition"
+  license: "mixed public sources (U.S. DOE/EERE sourcebooks are public domain; ASHRAE Handbook and ISO standards cited by reference, not reproduced); own-words summaries with citation"
+cards:
+  - id: hvac-001
+    title: "Blower-wheel imbalance from dirt accumulation"
+    class_tags: [fan_imbalance]
+    severity: monitor
+    index_sentence: "a low rhythmic rumble from a blower that repeats once with every revolution and grows with fan speed"
+    passage: >
+      A forward-curved blower wheel accumulates a film of dust, lint, and grease across its blades over
+      months of service, and because that film never deposits evenly the wheel develops a heavy spot that
+      throws it out of balance. The imbalance produces a vibration and rumble that peaks once per revolution,
+      so its frequency tracks fan speed and it is strongest at the highest blower tap. Left uncorrected, the
+      unbalanced load is carried by the shaft bearings and drive, shortening their life, but the underlying
+      cause is usually cleanable rather than a failed part. Cleaning the wheel and confirming the balance
+      weights are still in place typically restores smooth operation, which makes this a monitor-and-service
+      finding rather than an emergency.
+    citation: "ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (rotating-equipment noise and imbalance); U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (with AMCA International)"
+
+  - id: hvac-002
+    title: "Fan imbalance from a bent or damaged blade"
+    class_tags: [fan_imbalance]
+    severity: monitor
+    index_sentence: "a heavy wobbling thump from a fan that recurs at a steady beat matching the rotor speed"
+    passage: >
+      When a fan blade is bent by contact with debris, mishandling, or corrosion loss on one blade, the
+      center of mass shifts away from the shaft axis and the rotor becomes mechanically unbalanced. The
+      audible signature is a once-per-revolution thump or wobble whose pitch rises and falls directly with fan
+      speed, distinguishing it from bearing or electrical noise that has its own fixed character. Because the
+      unbalanced rotating mass hammers the bearings on every turn, a visibly damaged wheel should be repaired
+      or replaced rather than rebalanced in place. Confirming the disturbance frequency equals running speed
+      is the field check that separates imbalance from other rotating faults.
+    citation: "ISO 20816-1, Mechanical vibration — Measurement and evaluation of machine vibration: general guidelines (cited by reference); ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter"
+
+  - id: hvac-003
+    title: "Distinguishing imbalance from shaft misalignment by sound"
+    class_tags: [fan_imbalance]
+    severity: monitor
+    index_sentence: "a smooth once-per-turn rumble that stays steady, unlike the rougher twice-per-turn beat of misalignment"
+    passage: >
+      Imbalance and misalignment both raise vibration in rotating fan assemblies, but they leave different
+      acoustic fingerprints that a technician can use before instruments come out. Pure imbalance concentrates
+      its energy at exactly the running speed, giving a smooth, sinusoidal once-per-revolution rumble that is
+      largest in the radial direction. Misalignment, by contrast, typically adds a strong component at twice
+      running speed and more axial motion, so the sound is rougher and often accompanied by coupling heat.
+      Recognizing which pattern dominates guides whether to rebalance the wheel or realign and recheck the
+      shaft and coupling, and vibration analysis to confirm the dominant frequency is the standard next step.
+    citation: "ISO 20816-1, Mechanical vibration — Measurement and evaluation of machine vibration (cited by reference); ASHRAE Handbook—Fundamentals, 'Sound and Vibration' chapter"
+
+  - id: hvac-004
+    title: "Fan imbalance transmitted through the equipment casing"
+    class_tags: [fan_imbalance, mounting_vibration]
+    severity: monitor
+    index_sentence: "a droning rumble that makes the whole air-handler cabinet buzz in time with the spinning fan"
+    passage: >
+      An out-of-balance fan does not only vibrate at the rotor; the once-per-revolution force couples into the
+      cabinet, ductwork, and supporting structure, so the audible rumble is heard well away from the fan
+      itself. When the disturbance frequency happens to match a natural frequency of a panel or duct run, the
+      structure resonates and amplifies the sound into a pronounced drone. The correct fix addresses the
+      source by rebalancing or cleaning the wheel, but stiffening or isolating the resonant panel can reduce
+      transmitted noise where the residual imbalance is within tolerance. Because the finding reflects a
+      balance and mounting condition rather than an imminent failure, it is monitored and serviced on a
+      maintenance schedule.
+    citation: "ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (vibration transmission and isolation); U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry"
+
+  - id: hvac-005
+    title: "Fan wheel loose on the shaft"
+    class_tags: [fan_imbalance]
+    severity: monitor
+    index_sentence: "an unsteady wobbling rumble from a fan that seems to shift or lurch rather than hold a clean beat"
+    passage: >
+      A blower wheel or fan hub retained by a setscrew or taper lock can work loose over time, allowing the
+      wheel to shift slightly on the shaft and present an ever-changing heavy spot. Unlike a fixed imbalance
+      that produces a clean once-per-revolution tone, a loose wheel gives an unsteady, lurching rumble that can
+      wander in amplitude as the wheel repositions. A loose wheel also tends to migrate axially and can strike
+      the housing, so it should be re-seated and its fastener secured to the manufacturer's torque before the
+      looseness damages the shaft keyway. Verifying the setscrew engages the shaft flat and that the wheel runs
+      true is the practical field correction.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (fan maintenance); general industry service practice"
+
+  - id: hvac-006
+    title: "Grinding motor bearing from lubricant breakdown"
+    class_tags: [bearing_wear]
+    severity: urgent
+    index_sentence: "a dry metallic grinding or gravelly whir from a motor that gets louder as it runs"
+    passage: >
+      Rolling-element motor bearings depend on a thin lubricant film to keep the balls or rollers from
+      contacting the raceways directly; once the grease dries out, oxidizes, or is contaminated, metal-to-metal
+      contact begins and produces a dry grinding or gravelly whir. This sound tends to intensify as the bearing
+      heats and the remaining lubricant thins further, and it is often accompanied by elevated bearing
+      temperature. Because a bearing that has begun grinding is already shedding metal and can seize with little
+      further warning, the finding warrants prompt attention rather than deferral. Continued operation risks a
+      locked rotor that can burn out the motor windings, so the bearing or motor should be scheduled for repair
+      quickly.
+    citation: "U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry (motor maintenance); ISO 20816-3 for in-situ industrial-machine vibration (cited by reference)"
+
+  - id: hvac-007
+    title: "Bearing rumble and looseness under load"
+    class_tags: [bearing_wear]
+    severity: urgent
+    index_sentence: "a deep rumbling growl from rotating equipment that rises noticeably when the machine is put under load"
+    passage: >
+      As a bearing's internal clearances open up from wear, the rotating element is no longer held tightly and
+      begins to rumble, a lower-frequency growl that becomes more pronounced when the machine is loaded and the
+      forces on the bearing increase. Increased clearance also lets the shaft move slightly off its intended
+      center, which can trigger secondary rubbing and further noise. A rumbling, worn bearing is nearing the end
+      of its service life and can fail suddenly, so it should be treated as an urgent finding and replaced before
+      it seizes. Trending the vibration level over time, where instrumentation exists, helps confirm the
+      deterioration rate and prioritize the repair.
+    citation: "ISO 20816-1 and ISO 20816-3, Mechanical vibration — evaluation of machine vibration (cited by reference); ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter"
+
+  - id: hvac-008
+    title: "Worn bearing producing apparent imbalance"
+    class_tags: [bearing_wear, fan_imbalance]
+    severity: urgent
+    index_sentence: "a rough wobbling rumble from a fan that combines a once-per-turn beat with an underlying gritty grinding"
+    passage: >
+      A badly worn bearing lets the fan shaft orbit within the enlarged clearance, which can mimic imbalance by
+      adding a once-per-revolution component on top of the bearing's own gritty grinding. The combined sound is
+      a rough wobble layered over a continuous grinding, and attempts to rebalance the wheel will not resolve it
+      because the true source is the failing bearing. Confirming that the grinding persists at low speed and that
+      bearing temperature is elevated points to bearing wear rather than a simple heavy spot. Because a seizing
+      bearing can lock the fan and damage the motor, this compound finding is treated as urgent and the bearing
+      replaced.
+    citation: "ISO 20816-1, Mechanical vibration — evaluation of machine vibration (cited by reference); U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry"
+
+  - id: hvac-009
+    title: "Spalled bearing race producing rhythmic clicking"
+    class_tags: [bearing_wear]
+    severity: urgent
+    index_sentence: "a rhythmic ticking or clicking from a bearing that repeats faster than the shaft turns"
+    passage: >
+      When fatigue causes a small pit or spall to form on a bearing raceway, each passage of a rolling element
+      over the defect produces a sharp impact, heard as a rhythmic ticking or clicking. The repetition rate is a
+      characteristic defect frequency set by the bearing geometry and shaft speed and is generally higher than
+      running speed, which is what lets envelope or high-frequency analysis pinpoint the failing component. A
+      localized spall is an early but progressive failure mode that will spread to additional pits and then to
+      general roughness, so catching the clicking stage allows a planned replacement. Because the failure only
+      accelerates from here, the bearing is flagged as urgent for scheduling.
+    citation: "ISO 20816-1, Mechanical vibration — Measurement and evaluation of machine vibration (bearing condition, cited by reference); general industry service practice"
+
+  - id: hvac-010
+    title: "Dry sleeve bearing squeal"
+    class_tags: [bearing_wear]
+    severity: urgent
+    index_sentence: "a high-pitched continuous squeal or whine from a small motor's bearing that comes and goes with lubrication"
+    passage: >
+      Small direct-drive blower motors often use sleeve (journal) bearings that rely on an oil film; when that
+      film is lost through age or overheating, the shaft rubs the bushing and emits a high-pitched squeal or
+      whine. Some sleeve-bearing motors have oil ports that can be re-lubricated, and the squeal may quiet
+      temporarily after oiling, but a bushing that has already scored will return to squealing as clearance and
+      heat build. Persistent squeal after lubrication indicates the bearing surface is damaged and the motor
+      should be replaced before the rotor drags to a stop. Because a dragging rotor draws excess current and can
+      overheat the windings, the condition is treated as urgent.
+    citation: "U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry; InterNACHI, 'Inspecting HVAC Systems' (blower-motor condition)"
+
+  - id: hvac-011
+    title: "Slipping V-belt squeal on startup"
+    class_tags: [belt_drive]
+    severity: monitor
+    index_sentence: "a loud squeal or screech from a belt-drive unit at the moment of startup that fades once it runs"
+    passage: >
+      A V-belt transmits torque by wedging into the sheave grooves; when belt tension is low or the belt is
+      glazed, it cannot grip during the high-torque moment of startup and slips, producing a brief loud squeal
+      or screech that fades as the drive reaches speed. Repeated slipping polishes and hardens the belt's
+      contact faces, glazing them and making the next start slip even more, so the problem tends to worsen if
+      ignored. Correcting belt tension to specification, and replacing a glazed or worn belt, restores grip and
+      quiets the start. Because a slipping belt reduces delivered airflow and wastes energy but is not an
+      immediate safety hazard, it is a monitor-and-adjust finding.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (belt-drive maintenance and tensioning); general industry service practice"
+
+  - id: hvac-012
+    title: "Glazed or worn belt chirp"
+    class_tags: [belt_drive]
+    severity: monitor
+    index_sentence: "a repeating chirp or short squeak from a running belt that recurs at a steady interval"
+    passage: >
+      A belt that has hardened, cracked, or developed uneven wear can emit a repeating chirp or squeak once per
+      belt revolution as a worn spot or seam passes through the sheave. The interval between chirps corresponds
+      to the belt's length and speed rather than to shaft speed, which helps separate it from bearing or motor
+      noise. Belt dressings may mask the chirp briefly, but a belt that has reached this condition is best
+      replaced, and matched sets should be replaced together so tension shares evenly. Because the finding
+      signals routine belt wear rather than imminent equipment damage, it is scheduled as maintenance.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (belt inspection and replacement); general industry service practice"
+
+  - id: hvac-013
+    title: "Sheave misalignment and belt-edge wear noise"
+    class_tags: [belt_drive]
+    severity: monitor
+    index_sentence: "a rubbing or whirring rasp from a belt drive that sounds like the belt is scrubbing sideways"
+    passage: >
+      When the motor and driven sheaves are not in the same plane, the belt is forced to enter and leave the
+      grooves at an angle, scrubbing its sides against the sheave flanges and producing a rubbing or whirring
+      rasp. Misalignment accelerates belt-edge wear, runs the belt hot, and can throw the belt off entirely if
+      it worsens. A straightedge or laser laid across both sheave faces confirms angular and parallel alignment,
+      and correcting it both quiets the drive and extends belt life. Because misalignment degrades efficiency
+      and belt life rather than posing an immediate hazard, it is corrected on a maintenance basis.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (sheave alignment); ASHRAE Handbook—HVAC Systems and Equipment, 'Fans' chapter"
+
+  - id: hvac-014
+    title: "Belt-induced pulsation transmitted to the cabinet"
+    class_tags: [belt_drive, mounting_vibration]
+    severity: monitor
+    index_sentence: "a rhythmic slapping or flapping beat from a belt drive felt as a shudder through the unit"
+    passage: >
+      A belt with a lump, uneven thickness, or a set caused by sitting idle can produce a rhythmic slap or flap
+      each time the irregularity passes the sheave, and that pulsation is transmitted through the drive into the
+      cabinet as a felt shudder. The beat frequency follows the belt's rotation, distinguishing it from
+      fan-speed imbalance. Replacing the belt, and letting a new belt seat and re-tensioning after a short
+      run-in, removes the periodic disturbance. Because the condition reflects belt quality and tension rather
+      than a failing bearing or motor, it is monitored and serviced routinely.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry; ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (vibration transmission)"
+
+  - id: hvac-015
+    title: "Cracked belt slap"
+    class_tags: [belt_drive]
+    severity: monitor
+    index_sentence: "a periodic snapping or slapping from a belt that clicks each time it cycles around the pulleys"
+    passage: >
+      Age, heat, and ozone harden a belt until transverse cracks form across its underside; as each crack opens
+      and closes passing over the small sheave, it can produce a periodic snap or slap. This is a clear
+      end-of-life indication for the belt, and continued running risks the belt breaking and stopping airflow
+      entirely. Inspecting the belt by flexing it to reveal cracks, and replacing it, is the straightforward
+      remedy. Because the failure mode is gradual and the belt is an inexpensive wear item, the finding is
+      treated as scheduled maintenance rather than an emergency.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (belt condition); InterNACHI, 'Inspecting HVAC Systems'"
+
+  - id: hvac-016
+    title: "Restricted airflow from a clogged filter"
+    class_tags: [airflow_restriction]
+    severity: monitor
+    index_sentence: "a straining roar or deepening whoosh from an air handler as return air is pulled through a dirty filter"
+    passage: >
+      A loaded filter raises the resistance the blower must work against, and the increased pressure drop is
+      heard as a straining roar or a deeper, more forceful whoosh as air is pulled hard through the clogged
+      media. The higher static pressure reduces delivered airflow, which can cause the evaporator coil to
+      ice in cooling or the heat exchanger to overheat in heating. Because the cause is almost always a
+      neglected filter and the fix is simple replacement, this is a routine monitor-and-service finding, but a
+      chronically restricted system stresses the blower and should not be ignored. Confirming filter condition
+      and measuring static pressure across the air handler distinguishes filter loading from a duct problem.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' (filters and airflow); U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (system resistance)"
+
+  - id: hvac-017
+    title: "Whistling from closed or undersized dampers and grilles"
+    class_tags: [airflow_restriction]
+    severity: monitor
+    index_sentence: "a high-pitched whistle or hiss at a register or damper where air is forced through a narrow opening"
+    passage: >
+      When air is forced through a partly closed damper, an over-restricted grille, or a pinched opening, its
+      velocity spikes and the flow becomes turbulent enough to generate a high-pitched whistle or hiss. The
+      pitch reflects the size of the gap and the pressure across it, and the noise is loudest where the
+      restriction is most severe. Balancing the system by opening or resizing dampers and registers to carry
+      their intended flow lowers the velocity and removes the whistle. Because the condition indicates a
+      distribution or balancing problem rather than equipment damage, it is addressed as a monitoring and
+      commissioning item.
+    citation: "ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (airflow-generated noise); ASHRAE Handbook—Fundamentals, 'Duct Design' guidance (cited by reference)"
+
+  - id: hvac-018
+    title: "Roar from a collapsed or kinked flexible duct"
+    class_tags: [airflow_restriction]
+    severity: monitor
+    index_sentence: "a hollow roaring rush of air through ductwork that sounds like wind forcing through a narrowed passage"
+    passage: >
+      A flexible duct that is crushed, sharply bent, or sagging presents a sudden reduction in cross-section,
+      and the air accelerating through that constriction produces a hollow roaring rush. The elevated velocity
+      both makes noise and drops pressure, starving the rooms downstream of adequate air. Re-supporting,
+      straightening, or replacing the collapsed section restores the intended duct area and quiets the roar.
+      Because the issue is one of distribution and comfort rather than immediate equipment risk, it is handled
+      as a maintenance correction, though prolonged high static does add wear to the blower.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' (duct condition); U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry"
+
+  - id: hvac-019
+    title: "Restriction from a fouled coil raising system noise"
+    class_tags: [airflow_restriction, fan_imbalance]
+    severity: monitor
+    index_sentence: "a labored roar from an air handler whose fan also rumbles, as air fights through a dirt-caked coil"
+    passage: >
+      A dirt-caked evaporator or condenser coil restricts airflow much like a clogged filter, and the blower
+      laboring against the higher resistance produces a sustained roar. The same debris that fouls the coil
+      often coats the blower wheel, so a fouled-coil complaint frequently arrives together with a wheel-imbalance
+      rumble, and both should be checked. Cleaning the coil and the wheel restores rated airflow and balance,
+      lowering the noise and the load on the motor. Because these are cleanable, maintenance-class conditions
+      rather than component failures, the finding is monitored and serviced.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' (coil condition and airflow); U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry"
+
+  - id: hvac-020
+    title: "Whistling air leakage at duct seams and connections"
+    class_tags: [airflow_restriction]
+    severity: monitor
+    index_sentence: "a thin whistling or hissing leak at a duct joint where pressurized air escapes through a gap"
+    passage: >
+      Where a duct joint, boot, or plenum connection is poorly sealed, the pressure difference drives air through
+      the gap at high velocity and generates a thin whistle or hiss. Beyond the noise, the leakage wastes
+      conditioned air and can pull the system off balance so that some rooms are starved. Sealing the joint with
+      mastic or appropriate tape both quiets the leak and recovers the lost airflow. Because duct leakage is an
+      efficiency and comfort issue rather than an equipment hazard, it is corrected as routine maintenance.
+    citation: "U.S. DOE/EERE, Improving Fan System Performance: A Sourcebook for Industry (duct leakage); InterNACHI, 'Inspecting HVAC Systems'"
+
+  - id: hvac-021
+    title: "Humming motor that fails to start"
+    class_tags: [motor_electrical]
+    severity: urgent
+    index_sentence: "a steady loud electrical hum from a motor that will not turn, without the sound of the rotor spinning up"
+    passage: >
+      A single-phase motor that hums loudly but does not turn is drawing current with a stalled rotor, most
+      often because a failed start or run capacitor has removed the phase shift the motor needs to develop
+      starting torque. The stalled winding heats rapidly under locked-rotor current, and unless the thermal
+      protector trips, the insulation can be damaged within seconds to minutes. Because of this fast overheating,
+      a humming, non-starting motor is an urgent finding that should be de-energized promptly and diagnosed,
+      typically by checking the capacitor and the starting circuit. Repeated thermal trips accompanying the hum
+      reinforce that the motor is stalling rather than merely slow to start.
+    citation: "U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry (motor faults); InterNACHI, 'Inspecting HVAC Systems' (compressor and motor operation)"
+
+  - id: hvac-022
+    title: "Electrical growl from voltage or phase imbalance"
+    class_tags: [motor_electrical]
+    severity: urgent
+    index_sentence: "a rough electrical growl or buzz from a motor centered around a steady low-frequency drone"
+    passage: >
+      An induction motor supplied with unbalanced voltage or a lost phase carries unequal currents in its
+      windings, which sets up an uneven magnetic field and a characteristic rough growl or buzz built on the
+      line-frequency drone. The imbalance both makes noise and drives excess heating in the most heavily loaded
+      winding, disproportionate to the small percentage of voltage imbalance present. Because sustained operation
+      under phase or voltage imbalance rapidly ages the insulation and can burn out the motor, the condition is
+      urgent and the supply voltage and connections should be checked without delay. Measuring the phase voltages
+      and currents confirms the imbalance and separates it from mechanical noise.
+    citation: "U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry (voltage imbalance); general industry service practice"
+
+  - id: hvac-023
+    title: "Chattering contactor or relay"
+    class_tags: [motor_electrical]
+    severity: urgent
+    index_sentence: "a rapid buzzing chatter or rattling clatter from a control contactor pulling in and dropping out repeatedly"
+    passage: >
+      A contactor whose coil is under-voltaged, whose pole faces are dirty or pitted, or whose control circuit
+      is unstable will pull in and release rapidly, producing a buzzing chatter or clatter from the contact
+      assembly. Each chatter cycle draws inrush current and arcs the contacts, quickly eroding them and, on a
+      compressor or motor circuit, subjecting the load to repeated abusive starts. Because chattering both
+      destroys the contactor and can damage the connected motor or compressor, it is treated as an urgent
+      electrical fault requiring diagnosis of the coil voltage and control path. Confirming steady control
+      voltage and clean, properly seated contacts is the corrective check.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' (electrical controls); U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry"
+
+  - id: hvac-024
+    title: "Variable-frequency-drive electrical whine"
+    class_tags: [motor_electrical]
+    severity: urgent
+    index_sentence: "a high-pitched electrical whine or tone from a motor that shifts pitch as the drive changes speed"
+    passage: >
+      A motor fed by a variable-frequency drive emits a high-pitched tonal whine produced by the drive's
+      pulse-width-modulated switching, and the pitch shifts with commanded speed and switching frequency. A
+      modest, steady switching whine is normal, but a new, louder, or erratic electrical tone can indicate a
+      drive fault, a resonance, or insulation stress from voltage reflection on a long motor cable. Because
+      abnormal drive-related noise can accompany conditions that degrade motor insulation and bearings, a change
+      in the electrical whine warrants investigation of the drive settings and output. Reviewing the drive's
+      carrier frequency and fault log helps distinguish normal switching tone from a developing electrical
+      problem.
+    citation: "U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry (adjustable-speed drives); general industry service practice"
+
+  - id: hvac-025
+    title: "Electrical-discharge bearing damage (fluting)"
+    class_tags: [motor_electrical, bearing_wear]
+    severity: urgent
+    index_sentence: "a rhythmic electrical rumble or growl from a drive-fed motor bearing that rises over weeks of service"
+    passage: >
+      On inverter-fed motors, common-mode voltage can drive small currents through the bearings that spark
+      across the lubricant film and erode the raceways into a washboard pattern known as fluting. As the flutes
+      deepen, the bearing develops a rhythmic rumble or growl that grows over weeks, blending an electrical origin
+      with a mechanical bearing symptom. Because fluting is progressive and ends in bearing failure that can
+      strand the equipment, it is an urgent finding, and mitigation such as a shaft grounding ring or an
+      insulated bearing addresses the root cause rather than just replacing the damaged bearing. Confirming the
+      characteristic fluting pattern on a removed bearing, or the presence of an inverter drive, points to this
+      mechanism.
+    citation: "U.S. DOE/EERE, Improving Motor and Drive System Performance: A Sourcebook for Industry (drive-related bearing currents); ISO 20816-1 (cited by reference)"
+
+  - id: hvac-026
+    title: "Classic pump cavitation from low net positive suction head"
+    class_tags: [pump_cavitation]
+    severity: urgent
+    index_sentence: "a rattling crackle from a pump that sounds like it is pumping gravel or marbles"
+    passage: >
+      Cavitation occurs when the pressure at the pump suction falls below the liquid's vapor pressure, so vapor
+      bubbles form and then collapse violently as they reach the higher-pressure impeller passages, producing the
+      unmistakable sound of pumping gravel or marbles. The collapsing bubbles pit and erode the impeller and
+      volute over time and can wreck a pump if allowed to continue. Because the available net positive suction
+      head has dropped below what the pump requires, the fix targets the suction side, for example raising the
+      source level, lowering pump speed, or clearing a suction restriction. Given the ongoing internal erosion,
+      persistent cavitation is treated as an urgent condition.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (with Hydraulic Institute), NPSH and cavitation; Hydraulic Institute (ANSI/HI) pump standards (cited by reference)"
+
+  - id: hvac-027
+    title: "Suction-side cavitation from a clogged strainer or valve"
+    class_tags: [pump_cavitation]
+    severity: urgent
+    index_sentence: "a crackling gravelly rattle from a pump that appears after a suction strainer or valve begins to restrict flow"
+    passage: >
+      A partially clogged suction strainer, a throttled or failing suction valve, or a collapsed suction line
+      adds resistance that lowers the pressure reaching the impeller, pushing the pump into cavitation and its
+      telltale gravelly crackle. Because the restriction develops gradually, the cavitation noise often appears
+      or worsens over time even though the pump and its setpoints have not changed. Clearing the strainer,
+      opening or repairing the suction valve, and confirming the suction line is unobstructed restores adequate
+      suction pressure. The internal erosion from continued cavitation makes prompt correction important, so the
+      finding is urgent.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (suction conditions); Hydraulic Institute pump standards (cited by reference)"
+
+  - id: hvac-028
+    title: "Cavitation intensifying at high flow"
+    class_tags: [pump_cavitation]
+    severity: urgent
+    index_sentence: "a sharp crackling rattle from a pump that grows louder as flow increases and demand rises"
+    passage: >
+      A pump's required net positive suction head rises with flow, so a system pushed to high flow can drive the
+      required value above the head actually available and tip the pump into cavitation that gets louder as
+      demand increases. This is common when a pump is operated far to the right of its best-efficiency point or
+      when a control valve opens wide during peak load. Bringing the operating point back toward the pump's
+      design range, by trimming flow or adjusting the system curve, relieves the cavitation. Because the erosion
+      accompanying cavitation shortens pump life, the condition is treated as urgent and corrected rather than
+      tolerated.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (operating point and NPSH margin); Hydraulic Institute pump standards (cited by reference)"
+
+  - id: hvac-029
+    title: "Cavitation-driven vibration transmitted to piping"
+    class_tags: [pump_cavitation, mounting_vibration]
+    severity: urgent
+    index_sentence: "a rough crackling rattle from a pump accompanied by a shuddering buzz felt along the connected piping"
+    passage: >
+      The implosion of vapor bubbles during cavitation is not only audible but also excites broadband vibration
+      that couples into the pump casing and connected piping, so a cavitating pump often makes the nearby pipe
+      shudder and buzz. The combined acoustic crackle and structural vibration can loosen fasteners and fatigue
+      pipe supports if sustained. Addressing the suction condition that causes the cavitation removes both the
+      noise and the vibration at their source, which is preferable to merely bracing the piping. Because the
+      underlying cavitation continues to erode the impeller, the finding is urgent regardless of how the
+      transmitted vibration is managed.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed.; ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (vibration transmission)"
+
+  - id: hvac-030
+    title: "Distinguishing air entrainment from true cavitation"
+    class_tags: [pump_cavitation]
+    severity: urgent
+    index_sentence: "an intermittent crackling or sputtering from a pump that comes in bursts rather than a steady gravel rattle"
+    passage: >
+      Air drawn into the suction through a vortex, a leaking joint, or a low liquid level makes a sputtering,
+      intermittent crackle that can be mistaken for cavitation but has a different cause and cure. True
+      cavitation produces a steadier gravelly rattle tied to the vapor-pressure margin, whereas entrained air
+      tends to surge in bursts as pockets pass through the impeller. Both damage the pump and reduce output, so
+      the practical step is to locate and eliminate the air source or restore the suction condition as
+      appropriate. Because either mechanism erodes and destabilizes the pump, the finding is handled with urgency
+      once the correct cause is identified.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (suction problems); Hydraulic Institute pump standards (cited by reference)"
+
+  - id: hvac-031
+    title: "Mechanical-seal failure spray and hiss"
+    class_tags: [pump_seal_leak]
+    severity: urgent
+    index_sentence: "a hissing or spraying sound from a pump's shaft area where pressurized liquid is escaping past the seal"
+    passage: >
+      A mechanical seal keeps pumped liquid from escaping along the rotating shaft by holding two lapped faces
+      together; when those faces are damaged or the seal has failed, pressurized liquid escapes as a hiss or fine
+      spray at the seal housing. Beyond the fluid loss, a leaking seal can let air into the suction on some
+      arrangements and can spray onto the bearing housing and motor, inviting further damage. Because a failed
+      seal leaks continuously and can worsen quickly, and because the escaping fluid may be hot or treated, it is
+      an urgent finding that calls for prompt seal replacement. Confirming the leak originates at the seal faces
+      rather than a gasket or fitting directs the repair.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (sealing systems); general industry service practice"
+
+  - id: hvac-032
+    title: "Dry-running mechanical seal squeal"
+    class_tags: [pump_seal_leak]
+    severity: urgent
+    index_sentence: "a high-pitched squeal or chirp from a pump seal that runs without enough liquid to lubricate its faces"
+    passage: >
+      Mechanical seal faces are lubricated and cooled by a thin film of the pumped liquid; if that film is lost
+      because the pump runs dry, loses suction, or the seal flush fails, the faces contact directly and emit a
+      high-pitched squeal or chirp. Dry running overheats the faces within a short time, cracking or crazing them
+      and destroying the seal, sometimes in minutes. Because the damage is rapid and leads directly to a leaking
+      seal, a squealing dry seal is an urgent condition, and the pump should not be run dry while the flush and
+      suction supply are verified. Restoring proper flush flow and liquid supply prevents recurrence.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (seal flush and reliability); general industry service practice"
+
+  - id: hvac-033
+    title: "Packing-gland weep versus seal failure"
+    class_tags: [pump_seal_leak]
+    severity: urgent
+    index_sentence: "a dripping or light spitting sound at a pump's stuffing box where packing is passing more liquid than intended"
+    passage: >
+      Compression-packing stuffing boxes are designed to weep a small, controlled drip for lubrication and
+      cooling, but a steady stream, spitting, or a sudden increase indicates the packing is worn or improperly
+      adjusted and is no longer sealing. Over-tightening the gland to stop the leak is a common mistake that
+      burns the packing and scores the shaft sleeve, turning a maintenance adjustment into a repair. The correct
+      response is to adjust the gland to the proper light weep or repack the box, and to inspect the sleeve.
+      Because uncontrolled leakage can escalate and damage the sleeve, the finding is treated with urgency once
+      the weep clearly exceeds the intended trickle.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (packing and sealing); general industry service practice"
+
+  - id: hvac-034
+    title: "Intermittent spitting from a compromised seal"
+    class_tags: [pump_seal_leak]
+    severity: urgent
+    index_sentence: "an intermittent spitting or sputtering leak at a pump seal that pulses with the shaft rotation"
+    passage: >
+      A seal that is beginning to fail can spit or sputter intermittently as a nick or unevenly worn spot on the
+      face passes the sealing point once per revolution, letting a small pulse of liquid escape each turn. This
+      early, pulsing leak often precedes a steady spray and is a warning that the seal faces are compromised.
+      Catching it at the intermittent stage allows a planned seal replacement before a continuous leak forces an
+      unplanned shutdown. Because the condition only progresses toward a full leak, it is flagged as urgent for
+      scheduling.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (seal condition); general industry service practice"
+
+  - id: hvac-035
+    title: "Seal flush and quench flow problems"
+    class_tags: [pump_seal_leak]
+    severity: urgent
+    index_sentence: "a hissing or gurgling from a pump seal support system where flush or cooling flow to the seal is disrupted"
+    passage: >
+      Many mechanical seals rely on an external flush or quench that supplies clean, cool liquid to the faces;
+      when that support flow is throttled, plugged, or lost, the seal environment degrades and a hiss or gurgle
+      can appear at the seal or its support piping. A starved seal overheats and fails much as a dry-run seal
+      does, so a disruption in the flush is a precursor to a leaking seal rather than a benign event. Restoring
+      the specified flush pressure and flow, and clearing any plugged orifice or line, protects the seal.
+      Because loss of seal support leads promptly to seal failure, the finding is treated as urgent.
+    citation: "U.S. DOE/EERE, Improving Pumping System Performance: A Sourcebook for Industry, 2nd ed. (seal support systems); Hydraulic Institute pump standards (cited by reference)"
+
+  - id: hvac-036
+    title: "Liquid-slugging knock in a refrigeration compressor"
+    class_tags: [compressor_knock]
+    severity: urgent
+    index_sentence: "a loud metallic hammering or knocking from a compressor as liquid refrigerant enters and cannot be compressed"
+    passage: >
+      A compressor is built to compress vapor, not liquid; when liquid refrigerant or oil floods back to the
+      cylinders, the incompressible slug produces a violent metallic hammering or knock as the piston strikes it.
+      Liquid slugging can break valves, bend rods, and destroy a compressor quickly, so the knock is a serious
+      warning. Causes include an overcharged system, a failed metering device, low load with poor refrigerant
+      control, or migration during the off cycle without a crankcase heater. Because the mechanical damage can be
+      sudden and catastrophic, a slugging knock is an urgent finding that calls for stopping the compressor and
+      correcting the refrigerant-control or charge problem.
+    citation: "ASHRAE Handbook—HVAC Systems and Equipment, 'Compressors' chapter (compressor protection and floodback); InterNACHI, 'Inspecting HVAC Systems'"
+
+  - id: hvac-037
+    title: "Worn-rod or valve-plate knock in a reciprocating compressor"
+    class_tags: [compressor_knock]
+    severity: urgent
+    index_sentence: "a rhythmic internal knock or tapping from a reciprocating compressor that keeps time with its running speed"
+    passage: >
+      Wear in a reciprocating compressor's connecting-rod bearings, wrist pins, or a broken valve plate lets
+      internal parts move with excess clearance and strike on each stroke, producing a rhythmic knock that keeps
+      time with the crankshaft speed. Unlike a liquid slug that appears suddenly, mechanical-wear knock develops
+      gradually and tends to be present across operating conditions. Continued operation risks a thrown rod or
+      further internal damage that ends the compressor's life, so the knock is treated as urgent. Because the
+      internal parts are not field-serviceable in most sealed HVAC compressors, this finding usually points
+      toward compressor replacement.
+    citation: "ASHRAE Handbook—HVAC Systems and Equipment, 'Compressors' chapter; ISO 20816-8, Mechanical vibration — reciprocating compressor systems (cited by reference)"
+
+  - id: hvac-038
+    title: "Scroll-compressor reverse-rotation and shutdown rattle"
+    class_tags: [compressor_knock]
+    severity: urgent
+    index_sentence: "a loud clunk or rattling knock from a scroll compressor at shutdown or a growl when it runs backward"
+    passage: >
+      A scroll compressor normally makes a brief clunk at shutdown as the scrolls unload, but a loud rattling
+      knock, or a sustained growl after start, can indicate the scroll is running in reverse due to a miswired
+      phase, or that internal components are damaged. Reverse rotation does not pump and lets the scroll overheat,
+      while a damaged scroll knocks under load. Because reverse rotation and internal damage both threaten the
+      compressor quickly, the noise is treated as urgent and the phase rotation and internal condition should be
+      checked. Verifying correct phasing at commissioning prevents the reverse-rotation case.
+    citation: "ASHRAE Handbook—HVAC Systems and Equipment, 'Compressors' chapter (scroll compressors); InterNACHI, 'Inspecting HVAC Systems'"
+
+  - id: hvac-039
+    title: "Compressor knock transmitted through the refrigerant lineset"
+    class_tags: [compressor_knock, mounting_vibration]
+    severity: urgent
+    index_sentence: "a knocking or banging from a compressor that carries through the refrigerant lines and rattles nearby structure"
+    passage: >
+      The impact forces inside a knocking compressor travel through the rigid refrigerant lineset and mounting,
+      so an internal knock is often first noticed as banging or rattling transmitted to the piping and the
+      structure it touches. Where the lineset contacts framing without isolation, the transmitted knock is
+      amplified and can be mistaken for a loose pipe alone. Isolating the lines helps the transmitted noise, but
+      because the source is an internal compressor knock that signals mechanical distress, the compressor itself
+      must be diagnosed. Given the risk of sudden internal failure, the finding is urgent even when the most
+      obvious symptom is at the piping.
+    citation: "ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (piping vibration and isolation); ASHRAE Handbook—HVAC Systems and Equipment, 'Compressors' chapter"
+
+  - id: hvac-040
+    title: "Crankcase oil-related compressor knock"
+    class_tags: [compressor_knock]
+    severity: urgent
+    index_sentence: "a deep knocking from a compressor at startup that eases as it warms and oil circulation is restored"
+    passage: >
+      A compressor starved of oil, or one in which refrigerant has dissolved into cold crankcase oil during the
+      off cycle, can knock deeply at startup until proper oil circulation and viscosity are restored. Refrigerant
+      migrating into the oil boils off violently at start, foaming the oil and momentarily depriving bearings of
+      lubrication, which both knocks and wears the internals. A functioning crankcase heater and correct oil level
+      and type prevent this, and its absence is a common root cause. Because repeated oil-starved starts
+      accumulate bearing damage that ends in failure, the knock is treated as urgent and the lubrication and
+      crankcase-heater condition verified.
+    citation: "ASHRAE Handbook—HVAC Systems and Equipment, 'Compressors' chapter (lubrication and crankcase heaters); general industry service practice"
+
+  - id: hvac-041
+    title: "Loose-panel and fastener rattle"
+    class_tags: [mounting_vibration]
+    severity: monitor
+    index_sentence: "a buzzing rattle or chatter from a sheet-metal panel or loose screw vibrating against the equipment cabinet"
+    passage: >
+      Normal running vibration will set a loose access panel, guard, or fastener buzzing against the cabinet,
+      producing a rattle or chatter that is often the most audible noise a unit makes even though it reflects no
+      internal fault. The rattle typically appears or disappears at particular speeds where the running frequency
+      matches the loose part's resonance. Tightening the fasteners, adding gasketing, or securing the panel
+      removes the noise directly. Because the condition is a hardware-tightness issue rather than a failing
+      component, it is a routine monitor-and-correct finding, though a persistent rattle should be traced to rule
+      out a genuine vibration source feeding it.
+    citation: "ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (structure-borne noise); InterNACHI, 'Inspecting HVAC Systems'"
+
+  - id: hvac-042
+    title: "Failed vibration isolator transmitting equipment motion"
+    class_tags: [mounting_vibration]
+    severity: monitor
+    index_sentence: "a droning hum or throb felt through the floor or structure as equipment vibration passes through a failed isolator"
+    passage: >
+      Rotating equipment is normally set on spring or elastomeric isolators that keep its running vibration from
+      entering the building structure; when an isolator is compressed solid, cracked, or bottomed out, that
+      isolation is lost and a droning hum or throb is felt through the floor and walls. The transmitted vibration
+      can excite structural resonances far from the unit, making the source hard to locate by ear alone.
+      Restoring the isolators to their correct deflection, and confirming the equipment is not bridged to the
+      structure by a rigid pipe or conduit, re-establishes the break in the vibration path. Because the finding
+      concerns comfort and isolation rather than an imminent equipment failure, it is addressed on a maintenance
+      basis.
+    citation: "ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter (vibration isolation and deflection); general industry service practice"
+
+  - id: hvac-043
+    title: "Normal steady blower and airflow sound"
+    class_tags: [normal_operation]
+    severity: cosmetic
+    index_sentence: "a steady even whoosh of moving air and a smooth continuous hum from a blower running normally"
+    passage: >
+      A healthy air handler in steady operation produces a smooth, continuous whoosh of moving air combined with
+      an even, low mechanical hum from the blower and motor, without periodic beats, grinding, or tonal whines.
+      This baseline sound is broadband and unchanging at a given speed, and recognizing it is what lets a
+      technician or an automated listener flag the periodic or tonal deviations that signal a fault. A recording
+      that matches this benign profile indicates the equipment is running as intended and needs no corrective
+      action. Documenting the normal signature at commissioning gives a reference for comparison at later
+      inspections.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' (normal operating condition); ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter"
+
+  - id: hvac-044
+    title: "Normal startup and shutdown sequence sounds"
+    class_tags: [normal_operation]
+    severity: cosmetic
+    index_sentence: "a brief click of a relay, a soft whoosh of ignition, and a rising hum as equipment cycles on normally"
+    passage: >
+      The startup of typical HVAC equipment includes a sequence of brief, expected sounds: a relay or contactor
+      click, on gas equipment a short whoosh as the burner lights after the inducer runs, and a rising hum as the
+      motor or compressor comes up to speed. These transient sounds are normal and self-limiting, occurring once
+      per cycle at the start and again in reverse at shutdown, and should not be confused with a repeating
+      chatter or a knock that persists during running. Understanding the benign cycle sounds prevents
+      unnecessary service calls for behavior that is by design. A single soft clunk at scroll-compressor
+      shutdown, for instance, is expected rather than a fault.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' and 'Gas Furnace Inspection Checklist' (sequence of operation); general industry service practice"
+
+  - id: hvac-045
+    title: "Benign duct thermal-expansion ticking"
+    class_tags: [normal_operation]
+    severity: cosmetic
+    index_sentence: "a soft metallic ticking or popping from ductwork as it warms or cools at the start and end of a cycle"
+    passage: >
+      Sheet-metal ducts expand slightly when warm supply air enters and contract as they cool, and the metal
+      moving against its hangers and seams produces soft ticking or popping that comes and goes at the start and
+      end of each heating or cooling cycle. This oil-canning of the duct is a benign thermal effect, not a sign
+      of equipment trouble, though it can be reduced with cross-breaks, better support, or slip connections where
+      it annoys occupants. Distinguishing this cyclic, temperature-driven tick from a continuous mechanical
+      rattle keeps the diagnosis focused on real faults. It is documented as a comfort note rather than a repair
+      item.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' (duct behavior); ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter"
+
+  - id: hvac-046
+    title: "Normal refrigerant-flow and defrost sounds"
+    class_tags: [normal_operation]
+    severity: cosmetic
+    index_sentence: "a gentle gurgling or hissing of refrigerant at startup and a whoosh at the start of a defrost cycle"
+    passage: >
+      During normal operation a refrigerant system makes a gentle gurgle or hiss as refrigerant moves through the
+      metering device and lines, most noticeable at startup and shortly after the compressor cycles. Heat pumps
+      add an expected whoosh or momentary gurgle at the start and end of a defrost cycle as the reversing valve
+      shifts and pressures equalize. These flow sounds are transient and modest, unlike the steady gravelly
+      rattle of cavitation or a persistent loud hiss of a leak, and they indicate the refrigerant circuit is
+      functioning. Recognizing them prevents misreading routine refrigerant behavior as a fault.
+    citation: "InterNACHI, 'Inspecting HVAC Systems' and 'Central Air-Conditioning System Inspection' (normal refrigerant operation); general industry service practice"
+
+  - id: hvac-047
+    title: "Normal condenser-fan and outdoor-unit sound"
+    class_tags: [normal_operation]
+    severity: cosmetic
+    index_sentence: "a steady airy hum and even fan whir from an outdoor condensing unit running normally"
+    passage: >
+      A properly operating outdoor condensing unit produces a steady airy hum from the compressor combined with
+      an even whir from the condenser fan, rising to speed at start and settling into a constant tone. The sound
+      is continuous and free of periodic knocking, gravelly rattle, or rising-and-falling beats that would point
+      to imbalance, cavitation, or a compressor knock. This benign outdoor signature is a useful reference
+      because outdoor units are frequently the subject of noise complaints that turn out to be normal operation.
+      Capturing it as a baseline supports later comparison when a genuine change is reported.
+    citation: "InterNACHI, 'Central Air-Conditioning System Inspection' (condensing-unit operation); ASHRAE Handbook—HVAC Applications, 'Noise and Vibration Control' chapter"

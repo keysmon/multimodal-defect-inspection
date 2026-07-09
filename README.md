@@ -92,6 +92,24 @@ Zero-shot CLIP is strong on commodity classes (crack 0.85, mold/algae 0.80,
 peeling paint 0.77 top-1) but fails on exactly the fine-grained distinctions an
 inspector needs — spalling 0.15, no-defect 0.17, exposed rebar 0.25, corrosion
 stain 0.33 — which is the measured gap the Phase 3 fine-tune exists to close.
+### Audio in the product (Phase 5.3)
+
+![Trimodal analysis](docs/images/defectlens-trimodal.png)
+
+`/analyze` now accepts photo + inspector note + equipment audio in one request.
+The audio path scores the clip against a bank of 7,024 known-normal CLAP
+embeddings, bands the score by thresholds calibrated on held-out normals
+(monitor above the 90th percentile, urgent above the 99th: 0.073 / 0.134),
+retrieves cited HVAC-maintenance guidance from a 47-card corpus in CLAP text
+space, and fuses with the visual finding (worst-of severity + escalation when
+both signals are bad; the narrative names both). Machine-type retrieval
+accuracy: fan 1.00 / pump 0.86 / overall 0.93 (fan's family spans more tags,
+so its bar is lower); fault-family precision within a machine type is
+qualitative - MIMII carries no fault labels. Anomaly clips that sound close
+to normal band as normal-operation - that is the AUC 0.80 operating point,
+not a bug. Cards cite ASHRAE, DOE/EERE sourcebooks, ISO 20816, and
+InterNACHI. Reproduce: `python -m defectlens.eval.audio_retrieval`.
+
 ### Audio anomaly detection (Phase 5.2)
 
 Unsupervised equipment-sound anomaly detection on the DCASE 2020 Task 2 dev

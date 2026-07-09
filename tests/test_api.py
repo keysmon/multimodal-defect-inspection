@@ -8,6 +8,7 @@ from PIL import Image
 from defectlens.corpus import Card
 from defectlens.rag.retrieve import Hit
 from defectlens.serve.api import create_app
+from defectlens.serve.audio_analyzer import AudioFinding
 from defectlens.serve.recognizer import RecognitionResult
 
 
@@ -32,6 +33,16 @@ def make_png_bytes() -> bytes:
     return buf.getvalue()
 
 
+def make_wav_bytes() -> bytes:
+    """A short, valid PCM wav that passes the /analyze decode-check."""
+    import numpy as np
+    import soundfile as sf
+
+    buf = BytesIO()
+    sf.write(buf, np.zeros(16000, dtype="float32"), 16000, format="WAV")
+    return buf.getvalue()
+
+
 class StubRecognizer:
     """Fixed-result stand-in for Recognizer — no model, no DB."""
 
@@ -52,10 +63,25 @@ class StubDescriber:
     def __init__(self, text="desc"):
         self.text = text
         self.calls = []
+        self.audio_band = None
 
-    def describe(self, image, top_classes):
+    def describe(self, image, top_classes, audio_band=None):
         self.calls.append((image, list(top_classes)))
+        self.audio_band = audio_band
         return self.text
+
+
+class StubAudioAnalyzer:
+    """Fixed-finding stand-in for AudioAnalyzer — no model, no DB."""
+
+    def __init__(self, finding, enabled=True):
+        self.finding = finding
+        self.enabled = enabled
+        self.calls = []
+
+    def analyze(self, wav_bytes):
+        self.calls.append(wav_bytes)
+        return self.finding
 
 
 class StubTextSearcher:
@@ -436,3 +462,163 @@ def test_analyze_note_sanitized_and_capped_at_boundary():
     body = resp.json()
     assert "<|" not in body["note"] and len(body["note"]) <= 500
     assert recognizer.note == body["note"]
+
+
+# ---------------------------------------------------------------------------
+# POST /analyze — equipment-audio late fusion (Phase 5.3)
+# ---------------------------------------------------------------------------
+
+
+def _wav_files():
+    return {
+        "file": ("t.png", make_png_bytes(), "image/png"),
+        "audio": ("clip.wav", make_wav_bytes(), "audio/wav"),
+    }
+
+
+def test_analyze_with_audio_adds_finding_and_combines_severity():
+    result = _analyze_result()  # visual severity "urgent"
+    card_audio = make_card("h1", ["bearing_wear"], severity="urgent")
+    finding = AudioFinding(
+        score=0.42, band="anomalous", severity="urgent",
+        hits=[Hit(card=card_audio, distance=0.05)],
+    )
+    analyzer = StubAudioAnalyzer(finding)
+    describer = StubDescriber()
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=describer, audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files=_wav_files())
+    assert resp.status_code == 200
+    body = resp.json()
+
+    assert body["severity"] == "urgent"  # visual kept as-is (backward compat)
+    assert body["audio"] == {
+        "score": 0.42,
+        "band": "anomalous",
+        "severity": "urgent",
+        "cards": [
+            {
+                "id": "h1",
+                "title": "title-h1",
+                "passage": "passage-h1",
+                "severity": "urgent",
+                "citation": "citation-h1",
+                "source_name": "source-h1",
+                "source_url": "https://example.com/h1",
+            }
+        ],
+    }
+    # escalation: visual urgent + audio urgent -> bumped to structural
+    assert body["combined_severity"] == "structural"
+    assert len(analyzer.calls) == 1 and isinstance(analyzer.calls[0], bytes)
+    # the audio band was forwarded into the description prompt
+    assert describer.audio_band == "anomalous"
+
+
+def test_analyze_without_audio_reports_null_and_combined_equals_visual():
+    result = _analyze_result()  # visual "urgent"
+    analyzer = StubAudioAnalyzer(AudioFinding(0.0, "normal_operation", "cosmetic"))
+    describer = StubDescriber()
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=describer, audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    body = resp.json()
+    assert body["audio"] is None
+    assert body["combined_severity"] == "urgent"  # equals visual when no audio
+    assert analyzer.calls == []  # analyze() not called without an audio upload
+    assert describer.audio_band is None
+
+
+def test_analyze_audio_ignored_when_analyzer_disabled():
+    result = _analyze_result()
+    analyzer = StubAudioAnalyzer(AudioFinding(0.9, "anomalous", "urgent"), enabled=False)
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=StubDescriber(), audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files=_wav_files())
+    body = resp.json()
+    assert body["audio"] is None
+    assert body["combined_severity"] == "urgent"  # visual only
+    assert analyzer.calls == []
+
+
+def test_analyze_no_escalation_when_visual_below_monitor():
+    card_none = make_card("cN", ["no_defect"], severity="cosmetic")
+    hits = [Hit(card=card_none, distance=0.1)]
+    result = RecognitionResult(
+        classes=[("no_defect", 0.9)], severity="cosmetic", hits=hits
+    )
+    analyzer = StubAudioAnalyzer(AudioFinding(0.5, "anomalous", "urgent"))
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=StubDescriber(), audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files=_wav_files())
+    body = resp.json()
+    assert body["severity"] == "cosmetic"
+    assert body["audio"]["severity"] == "urgent"
+    # worst-of = urgent; no escalation because visual is below monitor
+    assert body["combined_severity"] == "urgent"
+
+
+def test_analyze_unreadable_audio_returns_400():
+    result = _analyze_result()
+    analyzer = StubAudioAnalyzer(AudioFinding(0.1, "normal_operation", "cosmetic"))
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=StubDescriber(), audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze",
+        files={
+            "file": ("t.png", make_png_bytes(), "image/png"),
+            "audio": ("bad.wav", b"not a wav at all", "audio/wav"),
+        },
+    )
+    assert resp.status_code == 400
+    assert "audio" in resp.json()["detail"].lower()
+    assert analyzer.calls == []  # decode-check 400s before analyze() is reached
+
+
+def test_analyze_oversized_audio_returns_413():
+    result = _analyze_result()
+    analyzer = StubAudioAnalyzer(AudioFinding(0.1, "normal_operation", "cosmetic"))
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=StubDescriber(), audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    oversized = b"\x00" * (10 * 1024 * 1024 + 1)  # just over the 10MB cap
+    resp = client.post(
+        "/analyze",
+        files={
+            "file": ("t.png", make_png_bytes(), "image/png"),
+            "audio": ("big.wav", oversized, "audio/wav"),
+        },
+    )
+    assert resp.status_code == 413
+    assert analyzer.calls == []  # size check 413s before decode/analyze
+
+
+def test_analyze_audio_ignored_when_analyzer_not_wired():
+    # audio uploaded but no analyzer wired (app.state.audio_analyzer is None):
+    # 200 with "audio": null and combined == visual — locks the None guard.
+    result = _analyze_result()  # visual severity "urgent"
+    app = create_app(recognizer=StubRecognizer(result), describer=StubDescriber())
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files=_wav_files())
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["audio"] is None
+    assert body["combined_severity"] == "urgent"
