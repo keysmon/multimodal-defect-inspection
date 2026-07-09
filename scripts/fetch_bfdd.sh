@@ -11,8 +11,16 @@ mkdir -p "${DEST}"
 cd "${DEST}"
 if [ ! -f bfdd.tar.gz ]; then
   echo "Downloading BFDD (~528 MB)..."
-  curl -sL -o bfdd.tar.gz "${URL}"
+  # -f: HTTP errors fail (don't save an error page as the tarball). On any
+  # curl failure, remove the partial file so the next run re-downloads cleanly.
+  curl -fSL -o bfdd.tar.gz "${URL}" || { rm -f bfdd.tar.gz; echo "download failed" >&2; exit 1; }
 fi
-echo "${SHA}  bfdd.tar.gz" | shasum -a 256 -c -
+# Self-heal a corrupt/partial tarball: on checksum mismatch, delete it and tell
+# the user to re-run (otherwise the [ ! -f ] guard would never re-fetch it).
+if ! echo "${SHA}  bfdd.tar.gz" | shasum -a 256 -c -; then
+  echo "sha256 mismatch — removing bad tarball; re-run this script to re-download." >&2
+  rm -f bfdd.tar.gz
+  exit 1
+fi
 [ -d Dataset_1x ] || tar -xzf bfdd.tar.gz
 echo "OK: ${DEST}/Dataset_1x"

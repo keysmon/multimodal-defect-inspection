@@ -123,7 +123,10 @@ paywalled). No id was left `unverified_<id>`.
 - The Mendeley description says **788** aligned pairs, but the shipped
   `Dataset_1x/` contains **838** complete RGB/IR/Label triples (all used).
 - The dataset ships its own `train.txt`/`test.txt` split. The thermal comparison
-  intentionally ignores these and uses a frozen seed-42 70/15/15 split
-  (`split_stems`) so the three input variants (rgb/ir/rgbir) share one split;
-  matching the paper's official partition is not a goal of this internal
-  controlled comparison.
+  intentionally ignores these and uses a frozen seed-42 70/15/15 split committed
+  as `data/manifests/bfdd_split.csv` (586/126/126). The manifest was generated
+  once by `split_pairs` and is the authoritative runtime source, loaded by
+  `frozen_split_pairs`, which fails loudly if the manifest and the on-disk pairs
+  disagree so a missing/added file can never silently re-partition it. All three
+  input variants (rgb/ir/rgbir) share this one split; matching the paper's
+  official partition is not a goal of this internal controlled comparison.
