@@ -125,6 +125,27 @@ def test_bedrock_describer_has_no_local_vlm_or_adapter_or_ranker():
 
 
 # ---------------------------------------------------------------------------
+# Client config — fail fast, never boto3's default 5-attempt backoff
+# ---------------------------------------------------------------------------
+
+
+def test_bedrock_client_fails_fast_no_retries():
+    """Regression lock: with zero applied Bedrock quota every Converse call
+    throttles, and boto3's default retries (initial + 4 backoff attempts) were
+    adding ~10s to every /analyze. describe()'s ""-fallback is the retry
+    strategy — the client itself must make exactly one attempt."""
+    d = BedrockDescriber()
+    client = d._bedrock_client()  # builds the client; no network call
+    cfg = client.meta.config
+    # total_max_attempts counts the initial call — 1 = zero retries.
+    # (botocore normalizes max_attempts=N to total_max_attempts=N+1, so
+    # asserting the normalized key locks the actual behavior.)
+    assert cfg.retries == {"total_max_attempts": 1, "mode": "standard"}
+    assert cfg.connect_timeout == 3
+    assert cfg.read_timeout == 15
+
+
+# ---------------------------------------------------------------------------
 # Import sanity — module must not pull boto3 at import time (cheap import)
 # ---------------------------------------------------------------------------
 
