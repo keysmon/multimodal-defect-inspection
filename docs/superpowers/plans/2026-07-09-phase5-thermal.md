@@ -375,9 +375,9 @@ from defectlens.thermal.bfdd import (
     CLASS_IDS,
     CLASS_NAMES,
     BfddPair,
+    frozen_split_pairs,
     list_pairs,
     load_mask,
-    split_pairs,
 )
 
 VARIANT_CHANNELS = {"rgb": 3, "ir": 3, "rgbir": 6}
@@ -469,7 +469,7 @@ def main() -> None:
     torch.manual_seed(args.seed)
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
-    buckets = split_pairs(list_pairs(), seed=42)  # frozen split, NOT args.seed
+    buckets = frozen_split_pairs()  # authoritative committed manifest, NOT args.seed
     train_pairs = buckets["train"][: args.subset or None]
     num_labels = len(CLASS_IDS)
 
@@ -618,7 +618,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from defectlens.thermal.bfdd import CLASS_IDS, CLASS_NAMES, list_pairs, load_mask, split_pairs
+from defectlens.thermal.bfdd import CLASS_IDS, CLASS_NAMES, frozen_split_pairs, list_pairs, load_mask
 from defectlens.thermal.train_seg import compose_input
 
 PALETTE = np.array(
@@ -653,7 +653,7 @@ def main() -> None:
     story_id = next(c for c in CLASS_IDS if CLASS_NAMES[c] == story)
     print(f"story class: {story} (IoU gap {gaps[story]:.3f})")
 
-    test_pairs = split_pairs(list_pairs(), seed=42)["test"]
+    test_pairs = frozen_split_pairs()["test"]
     picks = [p for p in test_pairs if story_id in np.unique(load_mask(p.label))][:3]
 
     fig, axes = plt.subplots(len(picks), 5, figsize=(16, 3.2 * len(picks)))
