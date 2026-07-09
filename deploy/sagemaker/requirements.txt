@@ -1,0 +1,15 @@
+# Extra deps the HuggingFace Inference DLC installs at endpoint start, on top of
+# the image's own torch 2.6.0 + transformers 5.5.3 (see infra/stacks/gpu_stack.py
+# for the exact DLC tag).
+#
+# peft is pinned to the version that WROTE the adapter (models/qwen25vl-lora-v1
+# was saved with peft 0.19.1 — see its adapter_config.json "peft_version"). An
+# older peft rejects the newer adapter_config.json keys, and a much newer one is
+# unverified against this checkpoint, so pin exactly for a reproducible load.
+#
+# torch / transformers / pillow / numpy are ALREADY in the DLC and are
+# deliberately NOT listed here: re-pinning transformers risks pulling a CUDA
+# wheel mismatch, and the DLC's transformers 5.5.3 already matches this repo's
+# pyproject (transformers>=5.0) and supports Qwen2.5-VL (>=4.49).
+peft==0.19.1
+accelerate>=0.34

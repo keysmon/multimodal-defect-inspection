@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import axios from "axios";
 import DefectLens from "./DefectLens";
@@ -217,6 +217,66 @@ test("selecting a new image resets the inspector note", () => {
   expect(screen.getByPlaceholderText(/optional inspector note/i).value).toBe("");
 });
 
+test("clicking a gallery example populates the note and runs the analyze flow", async () => {
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      blob: () =>
+        Promise.resolve(new Blob(["img-bytes"], { type: "image/jpeg" })),
+    })
+  );
+  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const tiles = screen.getAllByRole("button", { name: /load example:/i });
+  expect(tiles).toHaveLength(6);
+  fireEvent.click(tiles[0]);
+
+  // The example's note is loaded into the inspector-note field...
+  const noteField = screen.getByPlaceholderText(/optional inspector note/i);
+  await waitFor(() => expect(noteField.value).not.toBe(""));
+
+  // ...and the analyze flow runs, posting that note in the form data.
+  await waitFor(() => expect(axios.post).toHaveBeenCalled());
+  const formData = axios.post.mock.calls[0][1];
+  expect(formData.get("note")).toBe(noteField.value.trim());
+  expect(formData.get("file")).toBeInstanceOf(File);
+
+  await waitFor(() =>
+    expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument()
+  );
+});
+
+test("auto-retries once on a cold-start timeout, then succeeds", async () => {
+  jest.useFakeTimers();
+  axios.post
+    .mockRejectedValueOnce({ response: { status: 504 } })
+    .mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  // First attempt rejected -> warming status shown while the retry is pending.
+  await act(async () => {});
+  expect(screen.getByText(/Model warming up - retrying/i)).toBeInTheDocument();
+  expect(axios.post).toHaveBeenCalledTimes(1);
+
+  // Advance past the 3s backoff -> the single retry fires and succeeds.
+  await act(async () => {
+    jest.advanceTimersByTime(3000);
+  });
+  expect(axios.post).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  expect(
+    screen.queryByText(/Model warming up - retrying/i)
+  ).not.toBeInTheDocument();
+
+  jest.useRealTimers();
+});
+
 test("shows an error banner when the analyze request fails", async () => {
   axios.post.mockRejectedValueOnce(new Error("network error"));
   render(<DefectLens />);
@@ -232,4 +292,68 @@ test("shows an error banner when the analyze request fails", async () => {
       screen.getByText(/Analysis failed — is the API running\?/i)
     ).toBeInTheDocument()
   );
+});
+
+test("GPU button submits to the fine-tuned model and renders its result", async () => {
+  const mockVlmSubmit = {
+    data: {
+      job_id: "job-1",
+      output_location: "s3://b/async-out/job-1.out",
+      failure_location: "s3://b/async-fail/job-1.out",
+    },
+  };
+  // First poll returns "ready" (200), so no polling delay is exercised here.
+  const mockVlmReady = {
+    status: 200,
+    data: {
+      status: "ready",
+      classes: [
+        { label: "exposed_rebar", score: 0.88 },
+        { label: "spalling", score: 0.09 },
+        { label: "crack", score: 0.03 },
+      ],
+    },
+  };
+  axios.post
+    .mockResolvedValueOnce(mockAnalyzeResponse) // /analyze reveals the GPU button
+    .mockResolvedValueOnce(mockVlmSubmit); // /analyze-vlm submit
+  axios.get.mockResolvedValueOnce(mockVlmReady); // /vlm-status ready on first poll
+
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  // The GPU button only appears once there is an analysis result.
+  const gpuButton = await screen.findByRole("button", {
+    name: /run fine-tuned model/i,
+  });
+  fireEvent.click(gpuButton);
+
+  // It submits the image to /analyze-vlm...
+  await waitFor(() =>
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("/analyze-vlm"),
+      expect.any(FormData),
+      expect.anything()
+    )
+  );
+
+  // ...polls /vlm-status with the returned output location...
+  await waitFor(() =>
+    expect(screen.getByText("fine-tuned VLM (GPU)")).toBeInTheDocument()
+  );
+  expect(axios.get).toHaveBeenCalledWith(
+    expect.stringContaining("/vlm-status"),
+    expect.objectContaining({
+      params: expect.objectContaining({
+        output_location: "s3://b/async-out/job-1.out",
+      }),
+    })
+  );
+  // ...and renders the fine-tuned model's top class.
+  expect(screen.getByText("1. exposed rebar")).toBeInTheDocument();
 });

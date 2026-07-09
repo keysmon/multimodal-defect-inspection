@@ -34,6 +34,8 @@ from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
+from stacks import _gpu_config as gpu
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Bedrock: the global cross-region inference profile routes to the underlying
@@ -47,8 +49,33 @@ STAGE_NAME = "api"
 
 
 class ApiStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        *,
+        gpu_endpoint_name: str | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        environment = {
+            "DEFECTLENS_NO_VLM": "1",
+            "DEFECTLENS_NO_AUDIO": "1",
+            "DEFECTLENS_DESCRIBER": "bedrock",
+            "DEFECTLENS_BEDROCK_MODEL": BEDROCK_MODEL_ID,
+            "DEFECTLENS_BEDROCK_REGION": self.region,
+            # Absolute paths inside the image (LAMBDA_TASK_ROOT == /var/task).
+            "CARD_VECTORS_PATH": "/var/task/models/cloud_artifacts/card_vectors.npz",
+            "AUDIO_BANK_DIR": "/var/task/models/audio_bank",
+        }
+        # GPU async path (5.5c) is OFF by default: SAGEMAKER_ENDPOINT is the sole
+        # on-switch, so a CPU-only deploy answers 503 rather than invoking a
+        # missing endpoint. Enable by deploying GpuStack, then redeploying
+        # ApiStack with `-c gpu_endpoint_name=defectlens-vlm-async`.
+        if gpu_endpoint_name:
+            environment["SAGEMAKER_ENDPOINT"] = gpu_endpoint_name
+            environment["ASYNC_INPUT_S3"] = f"s3://{gpu.BUCKET}/{gpu.ASYNC_IN_PREFIX}"
 
         fn = lambda_.DockerImageFunction(
             self,
@@ -64,17 +91,36 @@ class ApiStack(Stack):
             # CLIP fits; CLAP is disabled via DEFECTLENS_NO_AUDIO to stay in RAM.
             memory_size=3008,
             timeout=Duration.seconds(120),
-            environment={
-                "DEFECTLENS_NO_VLM": "1",
-                "DEFECTLENS_NO_AUDIO": "1",
-                "DEFECTLENS_DESCRIBER": "bedrock",
-                "DEFECTLENS_BEDROCK_MODEL": BEDROCK_MODEL_ID,
-                "DEFECTLENS_BEDROCK_REGION": self.region,
-                # Absolute paths inside the image (LAMBDA_TASK_ROOT == /var/task).
-                "CARD_VECTORS_PATH": "/var/task/models/cloud_artifacts/card_vectors.npz",
-                "AUDIO_BANK_DIR": "/var/task/models/audio_bank",
-            },
+            environment=environment,
         )
+
+        # When the GPU path is enabled, the serving Lambda invokes the async
+        # endpoint and reads/writes the async S3 prefixes. Scoped to the known
+        # endpoint + prefixes; attached only when wired (harmless when unused).
+        if gpu_endpoint_name:
+            fn.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["sagemaker:InvokeEndpointAsync"],
+                    resources=[
+                        f"arn:aws:sagemaker:{self.region}:{self.account}:endpoint/{gpu_endpoint_name}"
+                    ],
+                )
+            )
+            fn.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["s3:PutObject"],
+                    resources=[f"arn:aws:s3:::{gpu.BUCKET}/{gpu.ASYNC_IN_PREFIX}*"],
+                )
+            )
+            fn.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["s3:GetObject"],
+                    resources=[
+                        f"arn:aws:s3:::{gpu.BUCKET}/{gpu.ASYNC_OUT_PREFIX}*",
+                        f"arn:aws:s3:::{gpu.BUCKET}/{gpu.ASYNC_FAIL_PREFIX}*",
+                    ],
+                )
+            )
 
         fn.add_to_role_policy(
             iam.PolicyStatement(
@@ -108,8 +154,10 @@ class ApiStack(Stack):
         )
         for path, method in (
             ("/analyze", apigwv2.HttpMethod.POST),
+            ("/analyze-vlm", apigwv2.HttpMethod.POST),
             ("/search", apigwv2.HttpMethod.POST),
             ("/health", apigwv2.HttpMethod.GET),
+            ("/vlm-status", apigwv2.HttpMethod.GET),
         ):
             http_api.add_routes(path=path, methods=[method], integration=integration)
 

@@ -23,6 +23,7 @@ import aws_cdk as cdk
 from stacks.api_stack import ApiStack
 from stacks.frontend_stack import FrontendStack
 from stacks.github_oidc_stack import GitHubOidcStack
+from stacks.gpu_stack import GpuStack
 from stacks.ops_stack import OpsStack
 
 # Pinned, NOT read from CDK_DEFAULT_ACCOUNT: this app is the defectlens account's
@@ -37,7 +38,12 @@ env = cdk.Environment(account=ACCOUNT, region=REGION)
 
 app = cdk.App()
 
-api = ApiStack(app, "ApiStack", env=env)
+# GPU async path is off by default (CPU-only demo -> /analyze-vlm returns 503).
+# Enable by redeploying ApiStack with `-c gpu_endpoint_name=defectlens-vlm-async`
+# AFTER GpuStack is deployed; that sets SAGEMAKER_ENDPOINT + the invoke/S3 IAM.
+gpu_endpoint_name = app.node.try_get_context("gpu_endpoint_name")
+
+api = ApiStack(app, "ApiStack", env=env, gpu_endpoint_name=gpu_endpoint_name)
 
 frontend = FrontendStack(
     app,
@@ -60,5 +66,10 @@ OpsStack(
 
 # Authored for CI wiring; intentionally not part of the demo deploy.
 GitHubOidcStack(app, "GitHubOidcStack", env=env, github_repo=GITHUB_REPO)
+
+# Phase 5.5c GPU async path. Authored + synth-validated, but NOT auto-deployed:
+# deploy explicitly (`cdk deploy GpuStack`) after the user signs off on the first
+# GPU bill. No cross-stack ref to Api/Frontend/Ops, so it deploys standalone.
+GpuStack(app, "GpuStack", env=env)
 
 app.synth()

@@ -1,0 +1,30 @@
+flowchart LR
+    user(["Inspector<br/>browser"])
+
+    subgraph edge["Edge / static"]
+        cf["CloudFront"]
+        s3[("S3 (private, OAC)<br/>React SPA build")]
+    end
+
+    subgraph apiTier["Serverless API - ca-central-1"]
+        apigw["API Gateway HTTP API<br/>/api/* · 29s cap"]
+        lambda["Lambda container (CPU)<br/>CLIP classify · CLAP audio<br/>205-card RAG · severity fusion"]
+        bedrock["Amazon Bedrock<br/>Claude Haiku · description"]
+    end
+
+    subgraph gpuTier["Planned async GPU path"]
+        s3async[("S3<br/>async in / out")]
+        sm["SageMaker async endpoint<br/>Qwen2.5-VL-3B QLoRA<br/>scale-to-zero"]
+    end
+
+    user -->|HTTPS| cf
+    cf -->|default behavior| s3
+    cf -->|/api/*| apigw
+    apigw --> lambda
+    lambda -->|describe| bedrock
+    lambda -. "planned: /analyze-vlm" .-> s3async
+    s3async -.-> sm
+    sm -.-> s3async
+
+    classDef planned stroke-dasharray: 5 5,fill:#f5f5f5,stroke:#999,color:#333;
+    class s3async,sm planned;

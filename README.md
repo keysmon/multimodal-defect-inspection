@@ -1,9 +1,66 @@
 # DefectLens
 
-Building-defect inspection assistant: photo → fine-grained defect ID + severity
-framing + retrieved remediation guidance and standards citations.
+DefectLens is a building-defect inspection assistant: upload a defect photo and it
+returns ranked fine-grained defect classes, a severity band, a natural-language
+condition description, and cited remediation guidance drawn from an inspection-
+standards corpus - with optional equipment-audio anomaly screening in the same
+request. A fine-tuned vision-language model does the classification; a cross-modal
+RAG index over 205 cited guidance cards supplies the remediation advice.
+
+**Live demo:** <https://d2wxjiu5re5mow.cloudfront.net>
+
+| Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
+| :---: | :---: | :---: |
+| **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 |
 
 Design spec: `docs/superpowers/specs/2026-07-06-defect-lens-design.md`
+
+## Architecture
+
+![DefectLens architecture](docs/images/architecture.png)
+
+Two tiers sit behind a single CloudFront origin, so the SPA talks to one domain
+with no CORS:
+
+- **Static tier** - CloudFront serves the React single-page app from a private S3
+  bucket (Origin Access Control; the bucket stays fully private).
+- **Serverless API tier** (ca-central-1) - CloudFront routes `/api/*` to an API
+  Gateway HTTP API (named stage, 29s integration cap) fronting a CPU Lambda
+  container. The Lambda runs CLIP classification, CLAP equipment-audio anomaly
+  scoring, 205-card cross-modal RAG retrieval, and severity fusion, and calls
+  Amazon Bedrock (Claude Haiku) for the condition description. (Audio is disabled
+  in the cloud today pending a Lambda memory-quota increase.)
+- **Planned async GPU path** (dashed) - an `/analyze-vlm` route will hand the image
+  to a SageMaker async endpoint (scale-to-zero) running the Qwen2.5-VL-3B QLoRA
+  fine-tune, with S3 for async in/out - bringing the 0.851-macro classifier to the
+  cloud with no always-on GPU.
+
+## Run locally
+
+    docker compose up -d db                        # pgvector (indexed corpus)
+    uvicorn defectlens.serve.api:app --port 8000   # DEFECTLENS_NO_VLM=1 skips the 7GB VLM
+    cd frontend && npm install && npm start        # http://localhost:3000
+
+With `DEFECTLENS_NO_VLM=1` (or no adapter present) classification falls back to the
+measured CLIP RRF-fusion pipeline; `/health` reports which classifier is active.
+
+## Cost and the cold-start caveat
+
+The demo runs scale-to-zero, so idle cost is roughly **$2/month** (S3 + CloudFront +
+CloudWatch; no always-on compute), guarded by a $15/mo budget and a daily
+cost-explorer cutoff. The trade-off is a cold start: after an idle period the Lambda
+has to cold-load its models, which can exceed the API Gateway's 29s cap, so the
+*first* request may fail. A keep-warm ping runs every 5 minutes to keep an instance
+hot; warm requests return in ~2.4s. The UI auto-retries once on a cold-start timeout
+and explains that the demo scales to zero, so a second try usually succeeds.
+
+---
+
+The sections below capture the per-phase methodology and measured results. They are
+collapsed for readability - expand any one for the full write-up.
+
+<details>
+<summary><b>Project status and the product</b></summary>
 
 ## Status
 
@@ -35,7 +92,10 @@ measurably degrades open-ended narration. With `DEFECTLENS_NO_VLM=1` (or no
 adapter present) classification falls back to the measured CLIP RRF-fusion
 pipeline (recall@5 0.863). `/health` reports which classifier is active.
 
-## Phase 2 Results — Cross-Modal RAG
+</details>
+
+<details>
+<summary><b>Phase 2 Results — Cross-Modal RAG</b></summary>
 
 **Corpus:** 205 cited guidance cards (`corpus/`) from EPA, HUD NSPIRE,
 InterNACHI, and FHWA/NPS engineering references — every class ≥15 cards,
@@ -60,7 +120,10 @@ weakest class in both signal paths — the measured motivation for Phase 3's
 fine-tune. Reproduce: `python -m defectlens.rag.embed` then
 `python -m defectlens.eval.rag_recall --image-mode fused`.
 
-## Results
+</details>
+
+<details>
+<summary><b>Results — unified dataset and fine-tune</b></summary>
 
 Unified dataset: 17,652 images / 9 classes merged from CODEBRIM, BD3, and
 SDNET2018 (`docs/datasets.md`); frozen stratified test split of 2,648 images
@@ -92,7 +155,11 @@ Zero-shot CLIP is strong on commodity classes (crack 0.85, mold/algae 0.80,
 peeling paint 0.77 top-1) but fails on exactly the fine-grained distinctions an
 inspector needs — spalling 0.15, no-defect 0.17, exposed rebar 0.25, corrosion
 stain 0.33 — which is the measured gap the Phase 3 fine-tune exists to close.
-### Cross-dataset generalization (Phase 5.4)
+
+</details>
+
+<details>
+<summary><b>Cross-dataset generalization (Phase 5.4)</b></summary>
 
 Does the fine-tune survive buildings it has never seen? Evaluated zero-shot
 (no re-training) on 400 images sampled from an independently collected
@@ -117,7 +184,10 @@ other seven classes lack independent labeled sources at usable scale, so
 this measures the dominant-error axis only. Reproduce:
 `python -m defectlens.eval.vlm_topk --test-manifest data/manifests/ood_test.csv --adapter models/qwen25vl-lora-v1`.
 
-### Audio in the product (Phase 5.3)
+</details>
+
+<details>
+<summary><b>Audio in the product (Phase 5.3)</b></summary>
 
 ![Trimodal analysis](docs/images/defectlens-trimodal.png)
 
@@ -135,7 +205,10 @@ to normal band as normal-operation - that is the AUC 0.80 operating point,
 not a bug. Cards cite ASHRAE, DOE/EERE sourcebooks, ISO 20816, and
 InterNACHI. Reproduce: `python -m defectlens.eval.audio_retrieval`.
 
-### Audio anomaly detection (Phase 5.2)
+</details>
+
+<details>
+<summary><b>Audio anomaly detection (Phase 5.2)</b></summary>
 
 Unsupervised equipment-sound anomaly detection on the DCASE 2020 Task 2 dev
 set (MIMII fan + pump): CLAP embeddings (laion/clap-htsat-unfused, no
@@ -162,7 +235,10 @@ benchmark, HVAC-motivated - real HVAC acoustics differ. Reproduce:
 (results/audio_auc.json). Dataset: DCASE 2020 Task 2 dev set (MIMII/ToyADMOS
 consortium), CC BY-NC-SA 4.0, zenodo.org/records/3678171.
 
-### Inspector notes (Phase 5.1)
+</details>
+
+<details>
+<summary><b>Inspector notes (Phase 5.1)</b></summary>
 
 `/analyze` accepts an optional free-text inspector note. The note conditions
 guidance-card retrieval (a third list in the RRF fusion - e.g. a "north
@@ -191,8 +267,13 @@ verified but not yet quantitatively benchmarked.
 Environment for these numbers is pinned in `requirements-lock.txt`
 (transformers 5.13.0, torch — see lockfile).
 
-## Setup
+</details>
+
+<details>
+<summary><b>Setup (development)</b></summary>
 
     python3 -m venv .venv && source .venv/bin/activate
     pip install -e ".[dev]"
     pytest
+
+</details>

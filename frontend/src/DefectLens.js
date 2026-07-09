@@ -5,6 +5,71 @@ import "./DefectLens.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
+// Cold-start retry: the live demo scales to zero, so the first analyze after an
+// idle period commonly fails while the model warms. We retry once after a short
+// backoff before surfacing an error.
+const RETRY_DELAY_MS = 3000;
+const RETRY_STATUS = "Model warming up - retrying...";
+const ANALYZE_ERROR = "Analysis failed — is the API running?";
+const COLD_START_HINT =
+  "The demo scales to zero when idle - the first analysis can take a minute. Please try again.";
+
+// GPU async path (fine-tuned VLM on a scale-to-zero SageMaker endpoint): submit
+// once, then poll /vlm-status until the S3 result lands. The endpoint sleeps at
+// zero instances, so the FIRST run pays a ~5 min cold start while it wakes.
+const VLM_POLL_MS = 10000; // poll every 10s
+const VLM_MAX_POLLS = 42; // ~7 min ceiling before giving up
+const VLM_WARMING =
+  "Fine-tuned model warming up on GPU - the first run can take ~5 minutes...";
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A cold first request typically fails as an API Gateway 504 (integration
+// timeout past the 29s cap), a 503 from a warming instance, or a dropped
+// connection (ERR_NETWORK / ECONNABORTED). Those warrant one automatic retry;
+// a plain application error (e.g. a 4xx/5xx bug) does not, so it is NOT retried.
+function isColdStartError(err) {
+  const status = err?.response?.status;
+  if (status === 503 || status === 504) return true;
+  return err?.code === "ERR_NETWORK" || err?.code === "ECONNABORTED";
+}
+
+// One-click example gallery. Assets live in public/gallery/ (built by
+// scripts/build_gallery_assets.py from CC BY datasets; see that folder's
+// ATTRIBUTION.md). Each entry loads its image + inspector note and runs analyze.
+const GALLERY_EXAMPLES = [
+  {
+    image: "sdnet-wall-crack.jpg",
+    caption: "Concrete wall - crack",
+    note: "Diagonal hairline crack on an exterior concrete wall; checking whether it is active.",
+  },
+  {
+    image: "sdnet-pavement-crack.jpg",
+    caption: "Pavement - crack",
+    note: "Transverse crack across a concrete slab near an expansion joint.",
+  },
+  {
+    image: "metu-crack.jpg",
+    caption: "Facade - crack",
+    note: "Vertical crack on a campus building facade; width not yet measured.",
+  },
+  {
+    image: "sdnet-wall-clean.jpg",
+    caption: "Concrete wall - no defect",
+    note: "Baseline concrete wall section with no visible cracking.",
+  },
+  {
+    image: "sdnet-deck-clean.jpg",
+    caption: "Bridge deck - no defect",
+    note: "Concrete bridge deck, routine condition check.",
+  },
+  {
+    image: "metu-clean.jpg",
+    caption: "Facade - no defect",
+    note: "Clean facade panel used as a reference image.",
+  },
+];
+
 // Severity band -> display styling (spec: structural/urgent/monitor/cosmetic).
 const SEVERITY_STYLES = {
   structural: { background: "#c0392b", color: "#fff", label: "Structural" },
@@ -122,7 +187,14 @@ function DefectLens() {
   const [selectedAudio, setSelectedAudio] = useState(null);
   const [note, setNote] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState("");
   const [analyzeResult, setAnalyzeResult] = useState(null);
+
+  // GPU (fine-tuned VLM) re-run of the just-analyzed image.
+  const [isVlmRunning, setIsVlmRunning] = useState(false);
+  const [vlmStatus, setVlmStatus] = useState("");
+  const [vlmResult, setVlmResult] = useState(null);
+  const [vlmError, setVlmError] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -135,6 +207,13 @@ function DefectLens() {
   // change event and the file is silently dropped. Reset the element too.
   const audioInputRef = useRef(null);
 
+  const resetVlm = () => {
+    setIsVlmRunning(false);
+    setVlmStatus("");
+    setVlmResult(null);
+    setVlmError("");
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setSelectedFile(file || null);
@@ -143,6 +222,7 @@ function DefectLens() {
     setSelectedAudio(null);
     if (audioInputRef.current) audioInputRef.current.value = "";
     setAnalyzeResult(null);
+    resetVlm();
     setError("");
   };
 
@@ -151,31 +231,131 @@ function DefectLens() {
     setSelectedAudio(file || null);
   };
 
-  const handleAnalyze = async () => {
-    if (!selectedFile) {
+  const handleAnalyze = async (overrides = {}) => {
+    // Overrides let the gallery run analyze with a freshly-fetched file/note
+    // synchronously, without waiting for the async state updates to flush.
+    const file = overrides.file ?? selectedFile;
+    const noteText = overrides.note ?? note;
+    const audioFile = "audio" in overrides ? overrides.audio : selectedAudio;
+    if (!file) {
       setError("Please select an image first.");
       return;
     }
     setIsAnalyzing(true);
     setError("");
+    setAnalyzeStatus("");
+    resetVlm(); // a fresh analysis invalidates any prior GPU re-run
+
+    const formData = new FormData();
+    formData.append("file", file);
+    if (noteText.trim()) formData.append("note", noteText.trim());
+    if (audioFile) formData.append("audio", audioFile);
+
+    const postAnalyze = () =>
+      axios.post(`${API}/analyze`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+    let retried = false;
+    try {
+      let response;
+      try {
+        response = await postAnalyze();
+      } catch (err) {
+        if (!isColdStartError(err)) throw err;
+        retried = true;
+        setAnalyzeStatus(RETRY_STATUS);
+        await sleep(RETRY_DELAY_MS);
+        response = await postAnalyze();
+      }
+      setAnalyzeResult({ ...response.data, filename: file.name });
+    } catch (err) {
+      console.error("Error during analyze:", err);
+      setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
+      setAnalyzeResult(null);
+    } finally {
+      setIsAnalyzing(false);
+      setAnalyzeStatus("");
+    }
+  };
+
+  const handleRunGpu = async () => {
+    // Re-run the just-analyzed image through the fine-tuned VLM on the GPU async
+    // endpoint. Submit once, then poll /vlm-status until the S3 result lands.
+    if (!selectedFile || isVlmRunning) return;
+    setIsVlmRunning(true);
+    setVlmError("");
+    setVlmResult(null);
+    setVlmStatus(VLM_WARMING);
 
     const formData = new FormData();
     formData.append("file", selectedFile);
     if (note.trim()) formData.append("note", note.trim());
-    if (selectedAudio) formData.append("audio", selectedAudio);
 
     try {
-      const response = await axios.post(`${API}/analyze`, formData, {
+      const submit = await axios.post(`${API}/analyze-vlm`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setAnalyzeResult({ ...response.data, filename: selectedFile.name });
+      const { output_location, failure_location } = submit.data;
+
+      let settled = false;
+      for (let i = 0; i < VLM_MAX_POLLS && !settled; i++) {
+        const params = { output_location };
+        if (failure_location) params.failure_location = failure_location;
+        // axios treats 202 (pending) as success, so only ready/failed bodies
+        // resolve the loop; anything else means "still warming, keep polling".
+        const poll = await axios.get(`${API}/vlm-status`, { params });
+        if (poll.data.status === "ready") {
+          setVlmResult({ classes: poll.data.classes });
+          settled = true;
+        } else if (poll.data.status === "failed") {
+          setVlmError("The fine-tuned model run failed. Please try again.");
+          settled = true;
+        } else if (i < VLM_MAX_POLLS - 1) {
+          await sleep(VLM_POLL_MS);
+        }
+      }
+      if (!settled) {
+        setVlmError(
+          "The fine-tuned model is taking longer than expected. Please try again."
+        );
+      }
     } catch (err) {
-      console.error("Error during analyze:", err);
-      setError("Analysis failed — is the API running?");
-      setAnalyzeResult(null);
+      console.error("Error during GPU analyze:", err);
+      if (err?.response?.status === 503) {
+        setVlmError("The fine-tuned GPU model isn't deployed for this demo.");
+      } else {
+        setVlmError("Fine-tuned model request failed. Please try again.");
+      }
     } finally {
-      setIsAnalyzing(false);
+      setIsVlmRunning(false);
+      setVlmStatus("");
     }
+  };
+
+  const handleGalleryExample = async (example) => {
+    setError("");
+    let file;
+    try {
+      const response = await fetch(
+        `${process.env.PUBLIC_URL}/gallery/${example.image}`
+      );
+      const blob = await response.blob();
+      file = new File([blob], example.image, {
+        type: blob.type || "image/jpeg",
+      });
+    } catch (err) {
+      console.error("Error loading gallery example:", err);
+      setError("Couldn't load the example image. Please try uploading one.");
+      return;
+    }
+    setSelectedFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setNote(example.note);
+    setSelectedAudio(null);
+    if (audioInputRef.current) audioInputRef.current.value = "";
+    setAnalyzeResult(null);
+    await handleAnalyze({ file, note: example.note, audio: null });
   };
 
   const handleSearch = async () => {
@@ -236,6 +416,34 @@ function DefectLens() {
 
       {error && <div className="error-banner">{error}</div>}
 
+      <section className="gallery-section">
+        <h2 className="gallery-title">Try an example</h2>
+        <p className="gallery-subtitle">
+          One click loads a sample photo and inspector note, then runs the
+          analysis.
+        </p>
+        <div className="gallery-grid">
+          {GALLERY_EXAMPLES.map((example) => (
+            <button
+              key={example.image}
+              type="button"
+              className="gallery-tile"
+              onClick={() => handleGalleryExample(example)}
+              disabled={isAnalyzing}
+              aria-label={`Load example: ${example.caption}`}
+            >
+              <img
+                src={`${process.env.PUBLIC_URL}/gallery/${example.image}`}
+                alt={example.caption}
+                className="gallery-thumb"
+                loading="lazy"
+              />
+              <span className="gallery-caption">{example.caption}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="upload-section">
         <input
           type="file"
@@ -273,12 +481,13 @@ function DefectLens() {
           <span className="audio-filename">{selectedAudio.name}</span>
         )}
         <button
-          onClick={handleAnalyze}
+          onClick={() => handleAnalyze()}
           disabled={isAnalyzing}
           className="analyze-button"
         >
           {isAnalyzing ? "Analyzing..." : "Analyze"}
         </button>
+        {analyzeStatus && <p className="analyze-status">{analyzeStatus}</p>}
       </section>
 
       {analyzeResult && (
@@ -347,6 +556,40 @@ function DefectLens() {
               <CardList cards={analyzeResult.audio.cards} />
             </div>
           )}
+
+          <div className="gpu-panel">
+            <button
+              onClick={handleRunGpu}
+              disabled={isVlmRunning}
+              className="gpu-button"
+            >
+              {isVlmRunning
+                ? "Running fine-tuned model..."
+                : "Run fine-tuned model (GPU, ~5 min cold)"}
+            </button>
+            {vlmStatus && <p className="analyze-status">{vlmStatus}</p>}
+            {vlmError && <p className="vlm-error">{vlmError}</p>}
+            {vlmResult && (
+              <div className="rank-chips vlm-chips">
+                {vlmResult.classes.slice(0, 3).map((c, i) => (
+                  <span key={c.label} className="rank-chip">
+                    {`${i + 1}. ${c.label.replace(/_/g, " ")}`}
+                    {typeof c.score === "number" && (
+                      <span className="rank-score">
+                        {`${Math.round(c.score * 100)}%`}
+                      </span>
+                    )}
+                  </span>
+                ))}
+                <span
+                  className="classifier-badge"
+                  title="Classified by the fine-tuned Qwen2.5-VL model on the GPU async endpoint (macro top-1 0.851 on the frozen test split)"
+                >
+                  fine-tuned VLM (GPU)
+                </span>
+              </div>
+            )}
+          </div>
         </section>
       )}
 
