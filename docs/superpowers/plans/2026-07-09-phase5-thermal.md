@@ -376,7 +376,6 @@ from defectlens.thermal.bfdd import (
     CLASS_NAMES,
     BfddPair,
     frozen_split_pairs,
-    list_pairs,
     load_mask,
 )
 
