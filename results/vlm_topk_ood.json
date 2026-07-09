@@ -1,0 +1,143 @@
+{
+  "model_kind": "vlm_loglik",
+  "n_images": 400,
+  "macro_top1": 0.8775,
+  "per_class_top1": {
+    "crack": 0.99,
+    "spalling": null,
+    "efflorescence": null,
+    "exposed_rebar": null,
+    "corrosion_stain": null,
+    "mold_algae": null,
+    "water_damage": null,
+    "peeling_paint": null,
+    "no_defect": 0.765
+  },
+  "macro_top3": 0.9975,
+  "per_class_top3": {
+    "crack": 1.0,
+    "spalling": null,
+    "efflorescence": null,
+    "exposed_rebar": null,
+    "corrosion_stain": null,
+    "mold_algae": null,
+    "water_damage": null,
+    "peeling_paint": null,
+    "no_defect": 0.995
+  },
+  "confusion_matrix": [
+    [
+      198,
+      1,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      47,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      153
+    ]
+  ],
+  "classes": [
+    "crack",
+    "spalling",
+    "efflorescence",
+    "exposed_rebar",
+    "corrosion_stain",
+    "mold_algae",
+    "water_damage",
+    "peeling_paint",
+    "no_defect"
+  ],
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "adapter": "models/qwen25vl-lora-v1",
+  "manifest": "data/manifests/ood_test.csv"
+}
