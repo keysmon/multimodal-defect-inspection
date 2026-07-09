@@ -60,7 +60,7 @@ OpsStack(
     distribution=frontend.distribution,
     http_api=api.http_api,
     api_stage_name=api.stage_name,
-    daily_limit_usd="2",
+    daily_limit_usd="5",
     monthly_budget_usd=15,
 )
 

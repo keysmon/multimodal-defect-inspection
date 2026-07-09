@@ -14,6 +14,12 @@ import os
 from datetime import date, timedelta
 
 
+# Tuning note (2026-07-09): the limit was raised 2->5 USD after the guard
+# throttled the demo to zero on ordinary DEPLOY-DAY costs (ECR pushes, stack
+# churn ~$3.12) - Cost Explorer sees account-wide spend and cannot tell a
+# deploy day from traffic abuse. At >= LIMIT/2 the guard now publishes an SNS
+# warning WITHOUT throttling, so a busy-but-legitimate day is visible early.
+
 def max_daily_cost(results_by_time):
     """Return ``(date_str, amount)`` for the costliest day. Pure + testable.
 
@@ -64,8 +70,16 @@ def _notify(subject, message):
 
 
 def handler(event, context):
-    limit = float(os.environ.get("DAILY_LIMIT_USD", "2"))
+    limit = float(os.environ.get("DAILY_LIMIT_USD", "5"))
     worst_date, worst_amount = max_daily_cost(_recent_daily_costs())
+    if limit / 2 < worst_amount <= limit:
+        _notify(
+            "DefectLens cost guard WARNING",
+            f"{worst_date} spend ${worst_amount:.2f} is past half the "
+            f"${limit:.2f}/day limit. No action taken - traffic still open. "
+            f"If this is not a deploy day, investigate.",
+        )
+        return {"tripped": False, "warned": True, "date": worst_date, "amount": worst_amount}
     if worst_amount > limit:
         _throttle_stage_to_zero()
         message = (

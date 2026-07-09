@@ -73,6 +73,14 @@ class GpuStack(Stack):
                 },
             ),
         )
+        # SageMaker validates S3 access to the model artifact AT CREATE TIME,
+        # but CFN sees no edge between the Model and the role's DefaultPolicy
+        # (add_to_policy statements) - the first deploy raced and failed with
+        # "Could not access model data". Make the edge explicit.
+        default_policy = role.node.try_find_child("DefaultPolicy")
+        if default_policy is not None:
+            model.node.add_dependency(default_policy)
+
 
         endpoint_config = sagemaker.CfnEndpointConfig(
             self,
