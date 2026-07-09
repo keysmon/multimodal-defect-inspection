@@ -1,0 +1,4 @@
+# CDK app deps. The CDK CLI (npx aws-cdk@2) is separate (Node); these are the
+# Python construct libraries the app imports.
+aws-cdk-lib>=2.160.0,<3.0.0
+constructs>=10.0.0,<11.0.0
