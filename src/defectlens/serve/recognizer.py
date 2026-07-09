@@ -115,7 +115,10 @@ class Recognizer:
         self.device: str | None = None
         self.prompt_feats: np.ndarray | None = None
         self.cards: list[Card] = []
-        self.lookup: dict[str, Card] = {}
+        self.lookup: dict[str, Card] = {}  # visual cards only — drives fusion
+        # All cards incl. hvac-* audio cards — drives /search metadata joins
+        # (kept separate so hvac ids never enter the visual fusion lookup).
+        self.search_lookup: dict[str, Card] = {}
         # When a vector_store is injected (cloud/no-DB path) retrieval goes
         # through it and conn stays None; otherwise the pgvector conn is the
         # default local-dev path. See rag.vector_store.
@@ -130,11 +133,15 @@ class Recognizer:
 
         # Visual pipeline only: audio guidance cards (hvac-*) carry tags outside
         # the 9-class prompt-similarity dict and belong to AudioAnalyzer's lookup.
-        cards = [c for c in load_corpus_dir(self.corpus_dir) if not is_audio_card(c)]
+        # search_lookup keeps ALL cards so /search can surface hvac guidance;
+        # self.lookup stays visual-only so fusion can never KeyError on hvac tags.
+        all_cards = load_corpus_dir(self.corpus_dir)
+        cards = [c for c in all_cards if not is_audio_card(c)]
         if not cards:
             raise RuntimeError(f"no cards found in {self.corpus_dir}")
         self.cards = cards
         self.lookup = card_lookup(cards)
+        self.search_lookup = card_lookup(all_cards)
 
         if self.vector_store is None:
             self.conn = db.connect()
@@ -167,16 +174,24 @@ class Recognizer:
         return db.top_k(self.conn, embedding, k, kinds)
 
     def search_text(self, query: str, k: int = 5) -> list[Hit]:
-        """Text-query the card index, routed through the same seam as retrieval.
+        """Text-query the guidance cards for the /search box.
 
-        Serves the /search box. Must go through _visual_top_k (not the pgvector
-        conn directly) so it works in the no-DB cloud path where conn is None —
-        the previous rag.retrieve.query_by_text(conn, ...) 500s there. Reuses the
-        already-loaded CLIP model/processor; identical to the pgvector path
-        locally (_visual_top_k -> db.top_k on the same 'text' kind).
+        Cloud (the product surface): the injected vector_store carries a
+        search-scoped index over ALL cards — including the hvac-* audio cards
+        that are absent from the visual card_vectors table — so a query like
+        "pump grinding noise" can surface bearing_wear. Rows join to full Card
+        metadata via search_lookup (which contains hvac ids), so no KeyError.
+
+        Local pgvector: falls back to the visual 'text' vectors only, because
+        the hvac cards aren't in card_vectors. This is a known local/cloud
+        difference; cloud is the product surface. Either way this must not touch
+        recognizer.conn directly (it is None on the store path).
         """
         emb = normalize(embed_texts(self.model, self.processor, [query], self.device))[0]
-        rows = self._visual_top_k(emb, k, ("text",))
+        if self.vector_store is not None:
+            rows = self.vector_store.search_top_k(emb, k)
+            return hits_from_rows(rows, self.search_lookup)
+        rows = db.top_k(self.conn, emb, k, ("text",))
         return hits_from_rows(rows, self.lookup)
 
     def analyze_image_bytes(

@@ -4,14 +4,15 @@ The cloud deploy has no pgvector: the ~457 card vectors (410 visual x768 +
 47 audio x512) are baked into the Lambda image as one ``.npz`` and answered by
 brute-force cosine over normalized vectors — microseconds at this corpus size.
 
-``VectorStore`` is the seam both serving paths share. Its two methods match the
-two ``top_k`` call shapes already in the codebase, minus the pgvector ``conn``:
+``VectorStore`` is the seam both serving paths share:
 
 - ``visual_top_k(embedding, k, kinds)`` mirrors ``rag.db.top_k`` (Recognizer).
 - ``audio_top_k(embedding, k)`` mirrors ``rag.audio_db.top_k`` (AudioAnalyzer).
+- ``search_top_k(embedding, k)`` serves the /search box over ALL cards,
+  including the hvac-* audio cards absent from the visual index (format v2).
 
-Both return the same ``[(card_id, class_tags, cosine_distance)]`` row shape the
-pgvector functions do, so ``rag.retrieve.hits_from_rows`` reuses unchanged.
+All three return the same ``[(card_id, class_tags, cosine_distance)]`` row shape
+the pgvector functions do, so ``rag.retrieve.hits_from_rows`` reuses unchanged.
 ``PgVectorStore`` (the local dev path) stays the two ``rag.db`` / ``rag.audio_db``
 modules; ``ArrayVectorStore`` is the cloud impl. Recognizer / AudioAnalyzer take
 an optional store and fall back to the pgvector ``conn`` when none is injected,
@@ -34,6 +35,15 @@ VISUAL_CENTROID = "visual_embeddings_centroid"
 AUDIO_IDS = "audio_ids"
 AUDIO_TAGS = "audio_tags_json"
 AUDIO_EMB = "audio_embeddings"
+# Search-scoped index (format v2): CLIP text embeddings of index_sentences for
+# ALL cards, including the hvac-* audio cards absent from the visual
+# card_vectors table. Serves the free-text /search box so a query like "pump
+# grinding noise" can surface bearing_wear guidance. A v1 npz lacks these keys
+# and load() rejects it loudly.
+SEARCH_IDS = "search_ids"
+SEARCH_TEXT = "search_embeddings_text"
+FORMAT = "format_version"
+FORMAT_VERSION = 2
 
 # Visual ``kinds`` map to the two per-card embedding matrices. Mirrors the
 # ``kind`` CHECK constraint in rag/db.py's card_vectors table.
@@ -55,6 +65,9 @@ class VectorStore(Protocol):
         ...
 
     def audio_top_k(self, embedding, k: int) -> list[Row]:
+        ...
+
+    def search_top_k(self, embedding, k: int) -> list[Row]:
         ...
 
 
@@ -91,6 +104,8 @@ class ArrayVectorStore:
         audio_ids: list[str],
         audio_tags: list[list[str]],
         audio_emb: np.ndarray,
+        search_ids: list[str],
+        search_text: np.ndarray,
     ) -> None:
         self.visual_ids = list(visual_ids)
         self.visual_tags = list(visual_tags)
@@ -102,10 +117,20 @@ class ArrayVectorStore:
         self.audio_ids = list(audio_ids)
         self.audio_tags = list(audio_tags)
         self._audio = _normalize_rows(audio_emb)
+        # Search-scoped index over ALL cards (visual + hvac audio).
+        self.search_ids = list(search_ids)
+        self._search = _normalize_rows(search_text)
 
     @classmethod
     def load(cls, path: str | Path) -> "ArrayVectorStore":
         data = np.load(path, allow_pickle=False)
+        version = int(data[FORMAT]) if FORMAT in data.files else 1
+        if version < FORMAT_VERSION or SEARCH_IDS not in data.files:
+            raise ValueError(
+                f"{path}: card_vectors.npz is format v{version} but v{FORMAT_VERSION} "
+                "is required (search-scoped vectors covering hvac audio cards). "
+                "Re-run scripts/export_vector_artifacts.py."
+            )
         return cls(
             visual_ids=[str(x) for x in data[VISUAL_IDS]],
             visual_tags=[json.loads(s) for s in data[VISUAL_TAGS]],
@@ -114,6 +139,8 @@ class ArrayVectorStore:
             audio_ids=[str(x) for x in data[AUDIO_IDS]],
             audio_tags=[json.loads(s) for s in data[AUDIO_TAGS]],
             audio_emb=data[AUDIO_EMB],
+            search_ids=[str(x) for x in data[SEARCH_IDS]],
+            search_text=data[SEARCH_TEXT],
         )
 
     def visual_count(self) -> int:
@@ -148,5 +175,23 @@ class ArrayVectorStore:
             (cid, self.audio_tags[i], float(dists[i]))
             for i, cid in enumerate(self.audio_ids)
         ]
+        rows.sort(key=lambda r: r[2])
+        return rows[:k]
+
+    def search_count(self) -> int:
+        """Number of cards in the search-scoped index (visual + hvac audio)."""
+        return len(self.search_ids)
+
+    def search_top_k(self, embedding, k: int) -> list[Row]:
+        """Nearest cards for a free-text /search query, over ALL cards.
+
+        Covers the hvac-* audio cards absent from the visual index, so equipment
+        queries surface audible-symptom guidance. Rows carry empty class_tags —
+        the caller joins to full Card metadata by id (via search_lookup), so the
+        row tags are never read (mirrors how hits_from_rows consumes them).
+        """
+        q = _normalize_rows(np.asarray(embedding, dtype=np.float32))
+        dists = 1.0 - self._search @ q
+        rows = [(cid, [], float(dists[i])) for i, cid in enumerate(self.search_ids)]
         rows.sort(key=lambda r: r[2])
         return rows[:k]

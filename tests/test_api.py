@@ -267,9 +267,11 @@ def test_search_cloud_mode_no_db_returns_cards(monkeypatch):
         visual_ids=["s1"], visual_tags=[["water_damage"]],
         visual_text=text, visual_centroid=text,
         audio_ids=[], audio_tags=[], audio_emb=np.zeros((0, 4), np.float32),
+        search_ids=["s1"], search_text=text,
     )
     rec = Recognizer(vector_store=store)
     rec.lookup = {"s1": card}
+    rec.search_lookup = {"s1": card}
     rec.device = "cpu"
     rec.model = object()
     rec.processor = object()

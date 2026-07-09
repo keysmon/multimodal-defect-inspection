@@ -10,6 +10,12 @@ tables and writes that npz in exactly the ArrayVectorStore format:
                          card missing either kind is dropped by design — the
                          npz format requires both, and the pipeline writes both)
 - audio_card_vectors  -> audio_ids / audio_tags_json / audio_embeddings
+- search-scoped index  -> search_ids / search_embeddings_text (format v2): CLIP
+                         text embeddings of index_sentences for ALL cards —
+                         visual cards reuse their DB `text` vectors, hvac-* audio
+                         cards are freshly CLIP-text-embedded here so /search can
+                         surface audible-symptom guidance. A `format_version` key
+                         lets ArrayVectorStore reject a stale v1 npz loudly.
 
 The other cloud-serving needs are corpus-independent of this export and are
 baked directly by deploy/Dockerfile.lambda: the guidance corpus (corpus/), the
@@ -41,6 +47,10 @@ from defectlens.rag.vector_store import (
     AUDIO_EMB,
     AUDIO_IDS,
     AUDIO_TAGS,
+    FORMAT,
+    FORMAT_VERSION,
+    SEARCH_IDS,
+    SEARCH_TEXT,
     VISUAL_CENTROID,
     VISUAL_IDS,
     VISUAL_TAGS,
@@ -106,10 +116,39 @@ def read_audio(conn):
     return ids, tags_json, emb_arr
 
 
-def export(out: Path) -> tuple[int, int]:
+def build_search(v_ids, v_text, corpus_dir: Path):
+    """Search-scoped index over ALL cards: visual cards reuse their DB `text`
+    vectors (already CLIP-text embeddings of their index_sentence); the hvac-*
+    audio cards — absent from card_vectors — get freshly CLIP-text-embedded here
+    so the /search box can surface audible-symptom guidance.
+    """
+    from defectlens.corpus import is_audio_card, load_corpus_dir
+
+    hvac = [c for c in load_corpus_dir(corpus_dir) if is_audio_card(c)]
+    hvac_ids = [c.id for c in hvac]
+    if hvac_ids:
+        from transformers import CLIPModel, CLIPProcessor
+
+        from defectlens.eval.clip_zeroshot import pick_device
+        from defectlens.rag.embed import CLIP_MODEL, embed_texts
+
+        device = pick_device()
+        model = CLIPModel.from_pretrained(CLIP_MODEL).to(device).eval()
+        processor = CLIPProcessor.from_pretrained(CLIP_MODEL)
+        hvac_text = embed_texts(model, processor, [c.index_sentence for c in hvac], device)
+    else:
+        hvac_text = np.zeros((0, db.DIM), np.float32)
+
+    search_ids = list(v_ids) + hvac_ids
+    search_text = np.vstack([v_text, hvac_text]) if len(hvac_text) else v_text
+    return search_ids, search_text
+
+
+def export(out: Path, corpus_dir: Path = Path("corpus")) -> tuple[int, int, int]:
     conn = db.connect()  # same DB holds card_vectors and audio_card_vectors
     v_ids, v_tags, v_text, v_centroid = read_visual(conn)
     a_ids, a_tags, a_emb = read_audio(conn)
+    s_ids, s_text = build_search(v_ids, v_text, corpus_dir)
 
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
@@ -122,9 +161,12 @@ def export(out: Path) -> tuple[int, int]:
             AUDIO_IDS: np.array(a_ids),
             AUDIO_TAGS: np.array(a_tags),
             AUDIO_EMB: a_emb,
+            SEARCH_IDS: np.array(s_ids),
+            SEARCH_TEXT: s_text,
+            FORMAT: np.array(FORMAT_VERSION),
         },
     )
-    return len(v_ids), len(a_ids)
+    return len(v_ids), len(a_ids), len(s_ids)
 
 
 def verify(out: Path, queries: int = 5, seed: int = 11) -> bool:
@@ -159,6 +201,19 @@ def verify(out: Path, queries: int = 5, seed: int = 11) -> bool:
             ok = False
             print(f"MISMATCH audio: db={db_ids} store={store_ids}")
 
+    # Search index has no DB counterpart (it covers hvac cards absent from
+    # pgvector), so verify it structurally: hvac cards present, and each search
+    # vector self-retrieves at rank 0 (ids ↔ rows aligned, cosine sane).
+    if not any(cid.startswith("hvac") for cid in store.search_ids):
+        ok = False
+        print("MISMATCH search: no hvac ids in the search index")
+    n = len(store.search_ids)
+    for i in rng.choice(n, size=min(queries, n), replace=False):
+        top = store.search_top_k(store._search[i], 1)[0][0]
+        if top != store.search_ids[i]:
+            ok = False
+            print(f"MISMATCH search self-retrieval: {store.search_ids[i]} -> {top}")
+
     return ok
 
 
@@ -169,8 +224,11 @@ def main() -> None:
     parser.add_argument("--queries", type=int, default=5)
     args = parser.parse_args()
 
-    n_visual, n_audio = export(args.out)
-    print(f"Wrote {args.out} — {n_visual} visual + {n_audio} audio cards")
+    n_visual, n_audio, n_search = export(args.out)
+    print(
+        f"Wrote {args.out} — {n_visual} visual + {n_audio} audio cards; "
+        f"{n_search} search-scoped cards (visual + hvac)"
+    )
     if n_visual == 0 and n_audio == 0:
         raise SystemExit(
             "DB has no card vectors — run the indexing pipeline "
