@@ -106,6 +106,7 @@ class Recognizer:
         self,
         corpus_dir: Path = Path("corpus"),
         text_templates: Path = Path("configs/clip_prompts.yaml"),
+        vector_store=None,
     ) -> None:
         self.corpus_dir = corpus_dir
         self.text_templates = text_templates
@@ -115,6 +116,10 @@ class Recognizer:
         self.prompt_feats: np.ndarray | None = None
         self.cards: list[Card] = []
         self.lookup: dict[str, Card] = {}
+        # When a vector_store is injected (cloud/no-DB path) retrieval goes
+        # through it and conn stays None; otherwise the pgvector conn is the
+        # default local-dev path. See rag.vector_store.
+        self.vector_store = vector_store
         self.conn = None
 
     def load(self) -> None:
@@ -131,7 +136,8 @@ class Recognizer:
         self.cards = cards
         self.lookup = card_lookup(cards)
 
-        self.conn = db.connect()
+        if self.vector_store is None:
+            self.conn = db.connect()
 
         cfg = yaml.safe_load(self.text_templates.read_text(encoding="utf-8"))
         class_phrases = cfg["class_phrases"]
@@ -149,6 +155,17 @@ class Recognizer:
             prompt_feats.append(normalize(embs.mean(axis=0)))
         self.prompt_feats = np.stack(prompt_feats)  # [9, 768]
 
+    def _visual_top_k(self, embedding, k: int, kinds: tuple[str, ...]):
+        """Dispatch to the injected vector_store, else the pgvector conn.
+
+        Kept as one seam so both retrievals in analyze_image_bytes stay in sync.
+        Calls module-level db.top_k in the conn branch (not an imported name) so
+        tests that monkeypatch recognizer.db.top_k still land.
+        """
+        if self.vector_store is not None:
+            return self.vector_store.visual_top_k(embedding, k, kinds)
+        return db.top_k(self.conn, embedding, k, kinds)
+
     def analyze_image_bytes(
         self, data: bytes, k: int = 5, note: str | None = None
     ) -> RecognitionResult:
@@ -158,7 +175,7 @@ class Recognizer:
             raw_emb = _features(self.model.get_image_features(**inputs))
         emb = normalize(raw_emb.cpu().numpy())[0]  # [768]
 
-        centroid_rows = db.top_k(self.conn, emb, len(self.cards), ("image_centroid",))
+        centroid_rows = self._visual_top_k(emb, len(self.cards), ("image_centroid",))
         centroid_ranked_ids = [cid for cid, _tags, _dist in centroid_rows]
 
         class_sims = emb @ self.prompt_feats.T  # [9]
@@ -169,7 +186,7 @@ class Recognizer:
             note_emb = normalize(
                 embed_texts(self.model, self.processor, [note.strip()], self.device)
             )[0]
-            note_rows = db.top_k(self.conn, note_emb, len(self.cards), ("text",))
+            note_rows = self._visual_top_k(note_emb, len(self.cards), ("text",))
             note_ranked_ids = [cid for cid, _tags, _dist in note_rows]
 
         fused_ids = fused_card_ranking(

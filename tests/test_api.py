@@ -315,6 +315,42 @@ def test_health_degraded_when_recognizer_never_wired():
     assert body["vlm_loaded"] is False
 
 
+class RecognizerWithStore:
+    """No-DB serving stand-in: exposes a vector_store, no conn."""
+
+    def __init__(self, count):
+        self.vector_store = _CountingStore(count)
+
+
+class _CountingStore:
+    def __init__(self, count):
+        self._count = count
+
+    def visual_count(self):
+        return self._count
+
+
+def test_health_store_path_is_ok_with_db_false():
+    """Cloud/no-DB path: a loaded vector_store makes /health report status ok
+    and cards_indexed from the store, while db stays honestly false (there is
+    no pgvector). The 5.5b canary keys on status, not db."""
+    recognizer = RecognizerWithStore(count=410)
+    describer = DescriberWithModel(model=None)
+    app = create_app(recognizer=recognizer, describer=describer)
+    client = TestClient(app)
+
+    resp = client.get("/health")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "status": "ok",
+        "db": False,
+        "cards_indexed": 410,
+        "vlm_loaded": False,
+        "classifier": "clip-fused",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Import sanity — api module must stay cheap to import (spec §7)
 # ---------------------------------------------------------------------------

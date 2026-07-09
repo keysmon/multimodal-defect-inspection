@@ -218,24 +218,34 @@ def create_app(
         recognizer = request.app.state.recognizer
         describer = request.app.state.describer
 
+        # "db" is an honest pgvector-reachability flag — legitimately false in
+        # the cloud/no-DB path, where the baked npz vector_store is the index.
+        # "status" keys on servability (DB reachable OR a store is loaded), so
+        # the 5.5b canary must check "status", not "db".
         db_ok = False
+        store_ok = False
         cards_indexed = 0
         if recognizer is not None:
-            try:
-                row = recognizer.conn.execute(
-                    "SELECT count(*) FROM card_vectors"
-                ).fetchone()
-                cards_indexed = row[0]
-                db_ok = True
-            except Exception:
-                db_ok = False
-                cards_indexed = 0
+            store = getattr(recognizer, "vector_store", None)
+            if store is not None:
+                cards_indexed = store.visual_count()
+                store_ok = True
+            else:
+                try:
+                    row = recognizer.conn.execute(
+                        "SELECT count(*) FROM card_vectors"
+                    ).fetchone()
+                    cards_indexed = row[0]
+                    db_ok = True
+                except Exception:
+                    db_ok = False
+                    cards_indexed = 0
 
         vlm_loaded = bool(describer is not None and getattr(describer, "model", None) is not None)
         adapter_loaded = bool(getattr(describer, "adapter_loaded", False))
 
         return {
-            "status": "ok" if db_ok else "degraded",
+            "status": "ok" if (db_ok or store_ok) else "degraded",
             "db": db_ok,
             "cards_indexed": cards_indexed,
             "vlm_loaded": vlm_loaded,
