@@ -1,0 +1,19 @@
+{
+ "metric": "machine-type retrieval accuracy (>=3 of top-5 cards carry a tag from the clip's machine family)",
+ "protocol": "MIMII test clips, sample 50/machine seed 42; CLAP audio embedding -> audio_card_vectors top-5 (cosine)",
+ "note": "MIMII lacks fault-family labels; machine-type retrieval is the measurable proxy (spec metric adaptation). Fault-family retrieval quality is qualitative (demo evidence).",
+ "cards_indexed": 47,
+ "per_machine": {
+  "fan": {
+   "n": 50,
+   "correct": 50,
+   "accuracy": 1.0
+  },
+  "pump": {
+   "n": 50,
+   "correct": 43,
+   "accuracy": 0.86
+  }
+ },
+ "overall_accuracy": 0.93
+}
