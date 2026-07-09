@@ -98,9 +98,10 @@ def parse_input(data: dict) -> tuple[str, str | None]:
 def softmax_rank(loglik: dict[str, float]) -> list[list]:
     """Softmax the per-label log-likelihoods into (label, prob) pairs, descending.
 
-    Identical maths to serve.describer.Describer.rank_classes; returns JSON-ready
-    lists (not tuples) so the response serializes to [["crack", 0.87], ...].
-    Ties break by label name (ascending) for reproducibility.
+    The softmax normalization mirrors serve.describer.Describer.rank_classes; the
+    deterministic label-ascending tie-break mirrors eval.vlm_topk.rank_answers
+    (describer.rank_classes has no explicit tie-break). Returns JSON-ready lists
+    (not tuples) so the response serializes to [["crack", 0.87], ...].
     """
     if not loglik:
         return []
@@ -231,8 +232,13 @@ def model_fn(model_dir: str):
 
 
 def input_fn(request_body, content_type: str = "application/json") -> dict:
-    """Deserialize the request body to a dict. Only JSON is supported."""
-    if content_type != "application/json":
+    """Deserialize the request body to a dict. Only JSON is supported.
+
+    The content type may carry parameters (e.g. "application/json; charset=utf-8"),
+    so compare only the media type, not the raw header.
+    """
+    media_type = (content_type or "").split(";")[0].strip()
+    if media_type != "application/json":
         raise ValueError(f"unsupported content type: {content_type}")
     if isinstance(request_body, (bytes, bytearray)):
         request_body = request_body.decode("utf-8")
@@ -249,6 +255,15 @@ def predict_fn(data: dict, bundle: dict) -> dict:
     return build_response(softmax_rank(loglik))
 
 
-def output_fn(prediction: dict, accept: str = "application/json") -> tuple[str, str]:
-    """Serialize the prediction to JSON (allow_nan=False — NaN is invalid JSON)."""
-    return json.dumps(prediction, allow_nan=False), "application/json"
+def output_fn(prediction: dict, accept: str = "application/json") -> str:
+    """Serialize the prediction to a JSON body string (allow_nan=False — NaN is
+    invalid JSON).
+
+    The HuggingFace inference toolkit expects output_fn to return ONLY the body;
+    it sets the response content type separately via
+    context.set_response_content_type, then wraps the return value as
+    ``[response]``. Returning a (body, content_type) tuple would serialize the
+    TUPLE into the async S3 output (e.g. ``["{...}", "application/json"]``) and
+    break vlm_gateway.parse_output.
+    """
+    return json.dumps(prediction, allow_nan=False)

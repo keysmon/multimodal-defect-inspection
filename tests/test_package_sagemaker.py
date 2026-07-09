@@ -152,10 +152,20 @@ def test_input_fn_parses_json_bytes():
     assert mod.input_fn(b'{"image_b64": "abc"}') == {"image_b64": "abc"}
 
 
-def test_output_fn_serializes_json():
+def test_input_fn_accepts_parametrized_content_type():
     mod = _inference()
-    body, content_type = mod.output_fn({"classes": [["crack", 0.5]]})
-    assert content_type == "application/json"
+    assert mod.input_fn(
+        b'{"image_b64": "abc"}', "application/json; charset=utf-8"
+    ) == {"image_b64": "abc"}
+
+
+def test_output_fn_returns_json_body_string_not_tuple():
+    # The HF inference toolkit expects ONLY the body; content type is set
+    # separately by the handler. A (body, content_type) tuple would serialize
+    # into the async S3 output and break vlm_gateway.parse_output.
+    mod = _inference()
+    body = mod.output_fn({"classes": [["crack", 0.5]]})
+    assert isinstance(body, str)
     assert body == '{"classes": [["crack", 0.5]]}'
 
 
