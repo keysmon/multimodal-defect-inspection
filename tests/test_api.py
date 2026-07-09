@@ -588,3 +588,37 @@ def test_analyze_unreadable_audio_returns_400():
     assert resp.status_code == 400
     assert "audio" in resp.json()["detail"].lower()
     assert analyzer.calls == []  # decode-check 400s before analyze() is reached
+
+
+def test_analyze_oversized_audio_returns_413():
+    result = _analyze_result()
+    analyzer = StubAudioAnalyzer(AudioFinding(0.1, "normal_operation", "cosmetic"))
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=StubDescriber(), audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    oversized = b"\x00" * (10 * 1024 * 1024 + 1)  # just over the 10MB cap
+    resp = client.post(
+        "/analyze",
+        files={
+            "file": ("t.png", make_png_bytes(), "image/png"),
+            "audio": ("big.wav", oversized, "audio/wav"),
+        },
+    )
+    assert resp.status_code == 413
+    assert analyzer.calls == []  # size check 413s before decode/analyze
+
+
+def test_analyze_audio_ignored_when_analyzer_not_wired():
+    # audio uploaded but no analyzer wired (app.state.audio_analyzer is None):
+    # 200 with "audio": null and combined == visual — locks the None guard.
+    result = _analyze_result()  # visual severity "urgent"
+    app = create_app(recognizer=StubRecognizer(result), describer=StubDescriber())
+    client = TestClient(app)
+
+    resp = client.post("/analyze", files=_wav_files())
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["audio"] is None
+    assert body["combined_severity"] == "urgent"

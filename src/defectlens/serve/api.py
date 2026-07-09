@@ -28,6 +28,8 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 
+MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is generous
+
 
 class TextSearcher:
     """Text-vector retrieval that reuses the Recognizer's already-loaded CLIP
@@ -169,6 +171,10 @@ def create_app(
         combined_severity = severity
         if audio is not None and analyzer is not None and getattr(analyzer, "enabled", False):
             audio_bytes = await audio.read()
+            if len(audio_bytes) > MAX_AUDIO_BYTES:
+                raise HTTPException(
+                    status_code=413, detail="Uploaded audio exceeds the 10MB limit"
+                )
             try:
                 import soundfile as sf
 
