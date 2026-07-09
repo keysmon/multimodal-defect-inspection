@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel
@@ -73,12 +73,16 @@ def create_app(
     describer: Any = None,
     text_searcher: Any = None,
     audio_analyzer: Any = None,
+    vlm_gateway: Any = None,
 ) -> FastAPI:
     """App factory. Pass stubs directly for tests (stored on app.state as-is,
     no lifespan-triggered loading needed since TestClient without `with` never
     runs lifespan). Production wiring (module-level `app = create_app()`)
-    leaves all three None; the lifespan handler below loads the real,
-    heavyweight components exactly once on ASGI startup.
+    leaves all components None; the lifespan handler below loads the real,
+    heavyweight ones exactly once on ASGI startup.
+
+    vlm_gateway stays None on the CPU-only deploy (no SAGEMAKER_ENDPOINT), so the
+    GPU endpoints below answer 503 rather than invoking a missing endpoint.
     """
 
     @asynccontextmanager
@@ -127,6 +131,12 @@ def create_app(
             a = AudioAnalyzer(**audio_kwargs)
             a.load()
             app.state.audio_analyzer = a
+        if app.state.vlm_gateway is None:
+            # None unless SAGEMAKER_ENDPOINT is set (5.5c GPU async path); the
+            # CPU-only deploy leaves it None so /analyze-vlm returns 503.
+            from defectlens.serve.vlm_gateway import build_gateway_from_env
+
+            app.state.vlm_gateway = build_gateway_from_env()
         yield
 
     app = FastAPI(lifespan=lifespan)
@@ -134,6 +144,7 @@ def create_app(
     app.state.describer = describer
     app.state.text_searcher = text_searcher
     app.state.audio_analyzer = audio_analyzer
+    app.state.vlm_gateway = vlm_gateway
 
     app.add_middleware(
         CORSMiddleware,
@@ -236,6 +247,59 @@ def create_app(
         text_searcher = request.app.state.text_searcher
         hits = text_searcher.search(payload.query, k=5)
         return {"cards": [_card_to_dict(hit.card) for hit in hits]}
+
+    # -----------------------------------------------------------------------
+    # GPU async path (Phase 5.5c): the fine-tuned VLM on a scale-to-zero
+    # SageMaker async endpoint. /analyze-vlm submits a job (S3 in + async
+    # invoke, returns immediately); /vlm-status polls the S3 result. Both 503
+    # when the gateway isn't wired (CPU-only deploy — no SAGEMAKER_ENDPOINT).
+    # -----------------------------------------------------------------------
+
+    def _require_gateway(request: Request):
+        gateway = request.app.state.vlm_gateway
+        if gateway is None or not getattr(gateway, "enabled", False):
+            raise HTTPException(status_code=503, detail="GPU path not deployed")
+        return gateway
+
+    @app.post("/analyze-vlm")
+    async def analyze_vlm(
+        request: Request,
+        file: UploadFile = File(...),
+        note: str = Form(""),
+    ) -> dict:
+        gateway = _require_gateway(request)
+        note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
+        data = await file.read()
+        try:
+            img = Image.open(BytesIO(data))
+            img.load()  # force full decode; catches truncated/corrupt payloads
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+            ) from exc
+
+        result = gateway.submit(data, note_text)
+        return {
+            "job_id": result["job_id"],
+            "output_location": result["output_location"],
+            "failure_location": result.get("failure_location"),
+        }
+
+    @app.get("/vlm-status")
+    async def vlm_status(
+        request: Request,
+        response: Response,
+        output_location: str,
+        failure_location: str | None = None,
+    ) -> dict:
+        gateway = _require_gateway(request)
+        state, classes = gateway.status(output_location, failure_location=failure_location)
+        if state == "ready":
+            return {"status": "ready", "classes": classes}
+        if state == "failed":
+            return {"status": "failed", "classes": None}
+        response.status_code = 202  # still warming / running
+        return {"status": "pending"}
 
     @app.get("/health")
     async def health(request: Request) -> dict:

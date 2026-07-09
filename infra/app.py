@@ -38,7 +38,12 @@ env = cdk.Environment(account=ACCOUNT, region=REGION)
 
 app = cdk.App()
 
-api = ApiStack(app, "ApiStack", env=env)
+# GPU async path is off by default (CPU-only demo -> /analyze-vlm returns 503).
+# Enable by redeploying ApiStack with `-c gpu_endpoint_name=defectlens-vlm-async`
+# AFTER GpuStack is deployed; that sets SAGEMAKER_ENDPOINT + the invoke/S3 IAM.
+gpu_endpoint_name = app.node.try_get_context("gpu_endpoint_name")
+
+api = ApiStack(app, "ApiStack", env=env, gpu_endpoint_name=gpu_endpoint_name)
 
 frontend = FrontendStack(
     app,
