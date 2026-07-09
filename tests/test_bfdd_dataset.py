@@ -47,6 +47,15 @@ def test_split_stems_regression_lock_first_members():
     assert s["test"][0] == "s81"
 
 
+def test_class_names_cover_all_ids_and_are_not_placeholders():
+    from defectlens.thermal.bfdd import CLASS_IDS, CLASS_NAMES
+
+    assert set(CLASS_NAMES) == set(CLASS_IDS)
+    assert CLASS_NAMES[0] == "background"
+    for cid in CLASS_IDS[1:]:
+        assert not CLASS_NAMES[cid].startswith("class"), "provisional name left in"
+
+
 @pytest.mark.skipif(not HAVE_DATA, reason="BFDD data not present")
 def test_list_pairs_finds_838_complete_pairs():
     pairs = list_pairs()

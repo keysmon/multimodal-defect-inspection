@@ -72,3 +72,58 @@ via `scripts/normalize_raw.py`. Downloads live outside the repo (in `~/datasets/
     python scripts/verify_raw.py
 
 Prints per-label counts; exits non-zero if a required dataset is missing/empty.
+
+## 5. BFDD — RGB-IR thermal comparison (Phase 5.6, OFFLINE)
+
+Separate from the taxonomy datasets above: BFDD is used only for the offline
+thermal-modality segmentation comparison (`src/defectlens/thermal/`), not the
+serving taxonomy or `normalize_raw.py`/`verify_raw.py` flow.
+
+- Source: https://data.mendeley.com/datasets/9ych7czvyg/1
+  (paper: "BFDD: A Pixel-Level Aligned RGB-IR Image Dataset for Building Façade
+  Defect Segmentation", version 1, published 2026-04-10)
+- License: **CC BY 4.0**
+- Fetch: `scripts/fetch_bfdd.sh` (downloads ~528 MB tarball to `~/datasets/bfdd`,
+  sha256 `43d06305bf3c913f59d52c3ffa10caa0e129b668b7b3c9d8f80d619c6e6e8a7a`,
+  extracts `Dataset_1x/`)
+- Layout: `Dataset_1x/{RGB,IR,Label,Label_color}/<stem>.{JPG,png,png,png}` —
+  838 pixel-aligned triples, 640×512. `RGB` is RGB-mode JPG; `IR` is an
+  RGB-mode (false-color) PNG; `Label` is L-mode ids 0-5; `Label_color` is a
+  colorized mask used here for legend verification. Ignore
+  `Label_backup_7classes_20260125/` (superseded 7-class annotation round).
+- Pixel distribution over all 838 labels: id0 91.96%, id1 1.70%, id2 0.59%,
+  id3 1.11%, id4 2.15%, id5 2.49% — heavy imbalance; report per-class IoU.
+
+### Class-id → name mapping (verified 2026-07-09)
+
+The paper names 5 defect classes (Cracks, Peeling, Hollow Areas, Stains,
+Erosion) but does **not** publish the id→name order, so it was resolved from
+evidence, not the paper's listing order.
+
+| id | name         | Label_color RGB   | evidence |
+|----|--------------|-------------------|----------|
+| 0  | background   | (0, 0, 0)         | unlabeled facade |
+| 1  | crack        | (61, 61, 245)     | mask traces thin dark hairlines in RGB; present in 833/838 images (near-ubiquitous), most single-defect examples |
+| 2  | hollow_area  | (169, 36, 191)    | near-invisible in RGB (featureless wall) but clear thermal-contrast patches in IR at the masked regions — matches the description's "sub-surface delamination (hollows)… invisible in the RGB spectrum"; rarest class (188 images, 0.59% px) |
+| 3  | peeling      | (174, 79, 13)     | masks rounded blisters / bumps where the render/paint coating bubbles up and detaches (material bulging outward); consistent across 2 inspected images |
+| 4  | erosion      | (36, 179, 83)     | masks regions where the surface finish is worn/spalled away exposing the darker rough substrate (material loss); consistent across 3 inspected images |
+| 5  | stain        | (203, 253, 0)     | masks broad dark vertical discoloration streaks (water/dirt run-off) with the surface otherwise intact |
+
+**Evidence tiers / confidence.** The id→color RGB tuples above are reproducible
+(the dominant `Label_color` color at pixels where `Label==id`, consistent across
+every image containing that id). crack, hollow_area, and stain are corroborated
+by the Mendeley description and IR behavior and are high-confidence. peeling vs
+erosion rests on visual inference — the discriminator is *material bulging
+outward* (blisters → peeling, id3) vs *material removed* (worn/spalled loss →
+erosion, id4), which are opposite processes; consistent across multiple examples
+but not confirmed against a published color legend (the linked article is
+paywalled). No id was left `unverified_<id>`.
+
+**Recorded discrepancies (do not affect the mapping):**
+- The Mendeley description says **788** aligned pairs, but the shipped
+  `Dataset_1x/` contains **838** complete RGB/IR/Label triples (all used).
+- The dataset ships its own `train.txt`/`test.txt` split. The thermal comparison
+  intentionally ignores these and uses a frozen seed-42 70/15/15 split
+  (`split_stems`) so the three input variants (rgb/ir/rgbir) share one split;
+  matching the paper's official partition is not a goal of this internal
+  controlled comparison.

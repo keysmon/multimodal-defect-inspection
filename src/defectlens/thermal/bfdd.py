@@ -18,15 +18,17 @@ from PIL import Image
 BFDD_ROOT = Path.home() / "datasets" / "bfdd" / "Dataset_1x"
 
 CLASS_IDS = (0, 1, 2, 3, 4, 5)
-# PROVISIONAL until Task 2 verifies the id->name order against Label_color
-# and the Mendeley description; Task 2 replaces this dict and this comment.
+# Verified 2026-07-09 against the Label_color legend + Mendeley description +
+# per-id RGB/IR inspection; evidence recorded in docs/datasets.md. crack/
+# hollow_area/stain are corroborated by the description and IR behavior;
+# peeling vs erosion rests on visual inference (blistering vs material loss).
 CLASS_NAMES = {
     0: "background",
-    1: "class1",
-    2: "class2",
-    3: "class3",
-    4: "class4",
-    5: "class5",
+    1: "crack",
+    2: "hollow_area",
+    3: "peeling",
+    4: "erosion",
+    5: "stain",
 }
 
 VAL_FRAC = 0.15
