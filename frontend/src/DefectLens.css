@@ -74,6 +74,13 @@
   cursor: not-allowed;
 }
 
+.analyze-status {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e67e22;
+}
+
 .analyze-button:hover:not(:disabled),
 .search-button:hover:not(:disabled),
 .export-button:hover:not(:disabled) {

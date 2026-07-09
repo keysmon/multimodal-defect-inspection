@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import axios from "axios";
 import DefectLens from "./DefectLens";
@@ -215,6 +215,37 @@ test("selecting a new image resets the inspector note", () => {
   });
 
   expect(screen.getByPlaceholderText(/optional inspector note/i).value).toBe("");
+});
+
+test("auto-retries once on a cold-start timeout, then succeeds", async () => {
+  jest.useFakeTimers();
+  axios.post
+    .mockRejectedValueOnce({ response: { status: 504 } })
+    .mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  // First attempt rejected -> warming status shown while the retry is pending.
+  await act(async () => {});
+  expect(screen.getByText(/Model warming up - retrying/i)).toBeInTheDocument();
+  expect(axios.post).toHaveBeenCalledTimes(1);
+
+  // Advance past the 3s backoff -> the single retry fires and succeeds.
+  await act(async () => {
+    jest.advanceTimersByTime(3000);
+  });
+  expect(axios.post).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  expect(
+    screen.queryByText(/Model warming up - retrying/i)
+  ).not.toBeInTheDocument();
+
+  jest.useRealTimers();
 });
 
 test("shows an error banner when the analyze request fails", async () => {

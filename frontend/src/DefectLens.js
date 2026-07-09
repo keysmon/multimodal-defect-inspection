@@ -5,6 +5,27 @@ import "./DefectLens.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
+// Cold-start retry: the live demo scales to zero, so the first analyze after an
+// idle period commonly fails while the model warms. We retry once after a short
+// backoff before surfacing an error.
+const RETRY_DELAY_MS = 3000;
+const RETRY_STATUS = "Model warming up - retrying...";
+const ANALYZE_ERROR = "Analysis failed — is the API running?";
+const COLD_START_HINT =
+  "The demo scales to zero when idle - the first analysis can take a minute. Please try again.";
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A cold first request typically fails as an API Gateway 504 (integration
+// timeout past the 29s cap), a 503 from a warming instance, or a dropped
+// connection (ERR_NETWORK / ECONNABORTED). Those warrant one automatic retry;
+// a plain application error (e.g. a 4xx/5xx bug) does not, so it is NOT retried.
+function isColdStartError(err) {
+  const status = err?.response?.status;
+  if (status === 503 || status === 504) return true;
+  return err?.code === "ERR_NETWORK" || err?.code === "ECONNABORTED";
+}
+
 // Severity band -> display styling (spec: structural/urgent/monitor/cosmetic).
 const SEVERITY_STYLES = {
   structural: { background: "#c0392b", color: "#fff", label: "Structural" },
@@ -122,6 +143,7 @@ function DefectLens() {
   const [selectedAudio, setSelectedAudio] = useState(null);
   const [note, setNote] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState("");
   const [analyzeResult, setAnalyzeResult] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -158,23 +180,38 @@ function DefectLens() {
     }
     setIsAnalyzing(true);
     setError("");
+    setAnalyzeStatus("");
 
     const formData = new FormData();
     formData.append("file", selectedFile);
     if (note.trim()) formData.append("note", note.trim());
     if (selectedAudio) formData.append("audio", selectedAudio);
 
-    try {
-      const response = await axios.post(`${API}/analyze`, formData, {
+    const postAnalyze = () =>
+      axios.post(`${API}/analyze`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
+    let retried = false;
+    try {
+      let response;
+      try {
+        response = await postAnalyze();
+      } catch (err) {
+        if (!isColdStartError(err)) throw err;
+        retried = true;
+        setAnalyzeStatus(RETRY_STATUS);
+        await sleep(RETRY_DELAY_MS);
+        response = await postAnalyze();
+      }
       setAnalyzeResult({ ...response.data, filename: selectedFile.name });
     } catch (err) {
       console.error("Error during analyze:", err);
-      setError("Analysis failed — is the API running?");
+      setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
       setAnalyzeResult(null);
     } finally {
       setIsAnalyzing(false);
+      setAnalyzeStatus("");
     }
   };
 
@@ -279,6 +316,7 @@ function DefectLens() {
         >
           {isAnalyzing ? "Analyzing..." : "Analyze"}
         </button>
+        {analyzeStatus && <p className="analyze-status">{analyzeStatus}</p>}
       </section>
 
       {analyzeResult && (
