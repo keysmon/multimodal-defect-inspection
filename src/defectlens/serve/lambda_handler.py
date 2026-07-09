@@ -35,4 +35,6 @@ from mangum import Mangum  # noqa: E402  (after env defaults)
 from defectlens.serve.api import create_app  # noqa: E402
 
 app = create_app()
-handler = Mangum(app)
+# The HTTP API named stage prefixes every path with /api (CloudFront routes
+# /api/* straight through); strip it so FastAPI sees its own routes.
+handler = Mangum(app, api_gateway_base_path=os.environ.get("API_GATEWAY_BASE_PATH", "/api"))

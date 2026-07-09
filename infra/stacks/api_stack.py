@@ -28,6 +28,8 @@ from aws_cdk import (
 from aws_cdk import aws_apigatewayv2 as apigwv2
 from aws_cdk import aws_apigatewayv2_integrations as apigwv2_integrations
 from aws_cdk import aws_ecr_assets as ecr_assets
+from aws_cdk import aws_events as events
+from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
@@ -130,6 +132,38 @@ class ApiStack(Stack):
 
         self.http_api = http_api
         self.stage_name = STAGE_NAME
+
+        # Keep-warm: invoke the function every 5 minutes with a synthetic /health
+        # HTTP-API event so the ~55s model load (3008MB account quota) almost
+        # never lands on a real visitor. ~$0.04/mo of invocations.
+        events.Rule(
+            self,
+            "KeepWarm",
+            schedule=events.Schedule.rate(Duration.minutes(5)),
+            targets=[
+                targets.LambdaFunction(
+                    fn,
+                    event=events.RuleTargetInput.from_object(
+                        {
+                            "version": "2.0",
+                            "routeKey": "GET /health",
+                            "rawPath": "/api/health",
+                            "rawQueryString": "",
+                            "headers": {"host": "keepwarm"},
+                            "requestContext": {
+                                "http": {
+                                    "method": "GET",
+                                    "path": "/api/health",
+                                    "protocol": "HTTP/1.1",
+                                    "sourceIp": "127.0.0.1",
+                                }
+                            },
+                            "isBase64Encoded": False,
+                        }
+                    ),
+                )
+            ],
+        )
 
         CfnOutput(self, "ApiEndpoint", value=http_api.api_endpoint)
         CfnOutput(self, "ApiStageUrl", value=f"{http_api.api_endpoint}/{STAGE_NAME}")
