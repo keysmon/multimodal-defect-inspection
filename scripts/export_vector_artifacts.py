@@ -6,7 +6,9 @@ tables and writes that npz in exactly the ArrayVectorStore format:
 
 - card_vectors        -> visual_ids / visual_tags_json / visual_embeddings_text
                          / visual_embeddings_centroid (one text + one centroid
-                         vector per card, pivoted from the two `kind` rows)
+                         vector per card, pivoted from the two `kind` rows; a
+                         card missing either kind is dropped by design — the
+                         npz format requires both, and the pipeline writes both)
 - audio_card_vectors  -> audio_ids / audio_tags_json / audio_embeddings
 
 The other cloud-serving needs are corpus-independent of this export and are

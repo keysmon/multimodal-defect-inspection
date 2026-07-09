@@ -24,10 +24,13 @@ DEFECTLENS_BEDROCK_MODEL / DEFECTLENS_BEDROCK_REGION.
 """
 from __future__ import annotations
 
+import logging
 import os
 from io import BytesIO
 
 from defectlens.serve.describer import build_prompt
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 DEFAULT_REGION = "ca-central-1"
@@ -102,5 +105,8 @@ class BedrockDescriber:
             return self.converse(image, top_classes, audio_band)
         except Exception:
             # Description is optional — a Bedrock outage/throttle must not fail
-            # the analysis; classification + RAG cards still return.
+            # the analysis; classification + RAG cards still return. Log at
+            # warning so a persistent misconfig (bad model id, missing IAM/model
+            # access) is visible in CloudWatch instead of silently empty.
+            logger.warning("Bedrock describe failed", exc_info=True)
             return ""

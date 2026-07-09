@@ -250,6 +250,42 @@ def test_search_happy_path_returns_cards():
     assert text_searcher.calls == [("dark stain under window", 5)]
 
 
+def test_search_cloud_mode_no_db_returns_cards(monkeypatch):
+    """Regression (H1): /search must not 500 when serving from a vector_store
+    with no pgvector conn. Drives the real route -> TextSearcher ->
+    Recognizer.search_text -> ArrayVectorStore (conn is None in cloud mode)."""
+    import numpy as np
+
+    from defectlens.rag.vector_store import ArrayVectorStore
+    from defectlens.serve import recognizer as recognizer_mod
+    from defectlens.serve.api import TextSearcher
+    from defectlens.serve.recognizer import Recognizer
+
+    card = make_card("s1", ["water_damage"])
+    text = np.eye(1, 4, dtype=np.float32)  # one card, text vector [1,0,0,0]
+    store = ArrayVectorStore(
+        visual_ids=["s1"], visual_tags=[["water_damage"]],
+        visual_text=text, visual_centroid=text,
+        audio_ids=[], audio_tags=[], audio_emb=np.zeros((0, 4), np.float32),
+    )
+    rec = Recognizer(vector_store=store)
+    rec.lookup = {"s1": card}
+    rec.device = "cpu"
+    rec.model = object()
+    rec.processor = object()
+    assert rec.conn is None  # cloud mode: no DB
+    monkeypatch.setattr(
+        recognizer_mod, "embed_texts", lambda *a, **k: np.ones((1, 4), dtype=np.float32)
+    )
+
+    app = create_app(recognizer=rec, text_searcher=TextSearcher(rec))
+    client = TestClient(app)
+    resp = client.post("/search", json={"query": "dark stain under window"})
+
+    assert resp.status_code == 200  # not 500
+    assert resp.json()["cards"][0]["id"] == "s1"
+
+
 # ---------------------------------------------------------------------------
 # GET /health
 # ---------------------------------------------------------------------------

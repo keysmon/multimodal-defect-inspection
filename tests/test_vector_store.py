@@ -253,3 +253,66 @@ def test_audio_analyzer_top_k_empty_without_store_or_conn():
 
     a = AudioAnalyzer()  # no store, conn stays None
     assert a._audio_top_k([0.0], 5) == []
+
+
+def test_search_text_routes_through_injected_store(monkeypatch):
+    """/search (via Recognizer.search_text) must query the vector_store, not the
+    pgvector conn — the regression that 500'd the cloud search box when conn is
+    None. Queries the 'text' kind, returns metadata-joined hits."""
+    import numpy as _np
+
+    from defectlens.serve import recognizer as recognizer_mod
+    from defectlens.serve.recognizer import Recognizer
+
+    cards = [_make_card("v_a", ["crack"]), _make_card("v_b", ["spalling"])]
+    spy = _SpyStore(cards)
+
+    def _boom(*a, **k):
+        raise AssertionError("db.top_k must not be called when a store is injected")
+
+    monkeypatch.setattr(recognizer_mod.db, "top_k", _boom)
+    monkeypatch.setattr(
+        recognizer_mod, "embed_texts", lambda *a, **k: _np.ones((1, 4), dtype=_np.float32)
+    )
+
+    rec = Recognizer(vector_store=spy)
+    rec.lookup = {c.id: c for c in cards}
+    rec.device = "cpu"
+    rec.model = object()
+    rec.processor = object()
+    assert rec.conn is None
+
+    hits = rec.search_text("musty smell near shower", k=2)
+    assert spy.visual_kinds == [("text",)]  # queried the text vectors
+    assert [h.card.id for h in hits] == ["v_a", "v_b"]
+
+
+def test_search_text_uses_db_conn_when_no_store(monkeypatch):
+    """Local pgvector path unchanged: search_text routes to db.top_k('text')."""
+    import numpy as _np
+
+    from defectlens.serve import recognizer as recognizer_mod
+    from defectlens.serve.recognizer import Recognizer
+
+    cards = [_make_card("v_a", ["crack"])]
+    captured = []
+
+    def fake_top_k(conn, emb, k, kinds):
+        captured.append((conn, kinds))
+        return [(c.id, c.class_tags, 0.0) for c in cards]
+
+    monkeypatch.setattr(recognizer_mod.db, "top_k", fake_top_k)
+    monkeypatch.setattr(
+        recognizer_mod, "embed_texts", lambda *a, **k: _np.ones((1, 4), dtype=_np.float32)
+    )
+
+    rec = Recognizer()  # no store
+    rec.lookup = {c.id: c for c in cards}
+    rec.device = "cpu"
+    rec.model = object()
+    rec.processor = object()
+    rec.conn = object()
+
+    hits = rec.search_text("query", k=3)
+    assert captured == [(rec.conn, ("text",))]
+    assert [h.card.id for h in hits] == ["v_a"]

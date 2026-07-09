@@ -18,6 +18,13 @@ from __future__ import annotations
 import os
 
 # Defaults for the cloud shape; a real env value always wins (setdefault).
+# CARD_VECTORS_PATH / AUDIO_BANK_DIR here are RELATIVE, and so are the corpus/
+# configs paths Recognizer defaults to (Path("corpus"), Path("configs/...")).
+# They resolve against the process cwd, which is /var/task (LAMBDA_TASK_ROOT) in
+# Lambda — where deploy/Dockerfile.lambda COPYs the artifacts. The Dockerfile
+# also sets these two vars to absolute /var/task paths, so in-container these
+# relative defaults are overridden; they only apply to a non-container run
+# started from the repo root.
 os.environ.setdefault("DEFECTLENS_NO_VLM", "1")
 os.environ.setdefault("DEFECTLENS_DESCRIBER", "bedrock")
 os.environ.setdefault("CARD_VECTORS_PATH", "models/cloud_artifacts/card_vectors.npz")

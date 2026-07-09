@@ -94,6 +94,7 @@ class ArrayVectorStore:
     ) -> None:
         self.visual_ids = list(visual_ids)
         self.visual_tags = list(visual_tags)
+        self._visual_tag_by_id = dict(zip(self.visual_ids, self.visual_tags))
         self._visual = {
             "text": _normalize_rows(visual_text),
             "image_centroid": _normalize_rows(visual_centroid),
@@ -135,8 +136,7 @@ class ArrayVectorStore:
                 d = float(dists[i])
                 if cid not in best or d < best[cid]:
                     best[cid] = d
-        tag_by_id = dict(zip(self.visual_ids, self.visual_tags))
-        rows = [(cid, tag_by_id[cid], dist) for cid, dist in best.items()]
+        rows = [(cid, self._visual_tag_by_id[cid], dist) for cid, dist in best.items()]
         rows.sort(key=lambda r: r[2])
         return rows[:k]
 

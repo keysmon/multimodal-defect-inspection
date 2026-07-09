@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel
 
-from defectlens.rag.retrieve import Hit, query_by_text
+from defectlens.rag.retrieve import Hit
 from defectlens.serve.audio_analyzer import combine_severity
 from defectlens.train.qlora import MAX_NOTE_CHARS
 
@@ -34,23 +34,22 @@ MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is gene
 
 class TextSearcher:
     """Text-vector retrieval that reuses the Recognizer's already-loaded CLIP
-    model/processor/device and DB connection.
+    model/processor/device.
 
-    /search needs the same CLIP text-encoding path the Recognizer used to
-    build its prompt features at load() time — rather than loading a second
-    CLIP instance just to serve text queries, TextSearcher wraps the already
-    loaded Recognizer and delegates to rag.retrieve.query_by_text. Production
-    wiring constructs it in the lifespan handler after Recognizer.load();
-    tests bypass it entirely by injecting a stub with a `.search(query, k)`
-    method.
+    /search needs the same CLIP text-encoding path the Recognizer used to build
+    its prompt features at load() time — rather than loading a second CLIP
+    instance, TextSearcher wraps the Recognizer and delegates to its
+    search_text, which routes through the shared retrieval seam (pgvector conn
+    locally, injected vector_store in the no-DB cloud path). Production wiring
+    constructs it in the lifespan handler after Recognizer.load(); tests bypass
+    it entirely by injecting a stub with a `.search(query, k)` method.
     """
 
     def __init__(self, recognizer: Any) -> None:
         self._recognizer = recognizer
 
     def search(self, query: str, k: int = 5) -> list[Hit]:
-        r = self._recognizer
-        return query_by_text(r.conn, r.lookup, r.model, r.processor, r.device, query, k=k)
+        return self._recognizer.search_text(query, k=k)
 
 
 class SearchRequest(BaseModel):

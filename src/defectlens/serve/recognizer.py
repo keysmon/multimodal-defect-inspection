@@ -166,6 +166,19 @@ class Recognizer:
             return self.vector_store.visual_top_k(embedding, k, kinds)
         return db.top_k(self.conn, embedding, k, kinds)
 
+    def search_text(self, query: str, k: int = 5) -> list[Hit]:
+        """Text-query the card index, routed through the same seam as retrieval.
+
+        Serves the /search box. Must go through _visual_top_k (not the pgvector
+        conn directly) so it works in the no-DB cloud path where conn is None —
+        the previous rag.retrieve.query_by_text(conn, ...) 500s there. Reuses the
+        already-loaded CLIP model/processor; identical to the pgvector path
+        locally (_visual_top_k -> db.top_k on the same 'text' kind).
+        """
+        emb = normalize(embed_texts(self.model, self.processor, [query], self.device))[0]
+        rows = self._visual_top_k(emb, k, ("text",))
+        return hits_from_rows(rows, self.lookup)
+
     def analyze_image_bytes(
         self, data: bytes, k: int = 5, note: str | None = None
     ) -> RecognitionResult:
