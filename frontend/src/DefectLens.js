@@ -14,6 +14,14 @@ const ANALYZE_ERROR = "Analysis failed — is the API running?";
 const COLD_START_HINT =
   "The demo scales to zero when idle - the first analysis can take a minute. Please try again.";
 
+// GPU async path (fine-tuned VLM on a scale-to-zero SageMaker endpoint): submit
+// once, then poll /vlm-status until the S3 result lands. The endpoint sleeps at
+// zero instances, so the FIRST run pays a ~5 min cold start while it wakes.
+const VLM_POLL_MS = 10000; // poll every 10s
+const VLM_MAX_POLLS = 42; // ~7 min ceiling before giving up
+const VLM_WARMING =
+  "Fine-tuned model warming up on GPU - the first run can take ~5 minutes...";
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // A cold first request typically fails as an API Gateway 504 (integration
@@ -182,6 +190,12 @@ function DefectLens() {
   const [analyzeStatus, setAnalyzeStatus] = useState("");
   const [analyzeResult, setAnalyzeResult] = useState(null);
 
+  // GPU (fine-tuned VLM) re-run of the just-analyzed image.
+  const [isVlmRunning, setIsVlmRunning] = useState(false);
+  const [vlmStatus, setVlmStatus] = useState("");
+  const [vlmResult, setVlmResult] = useState(null);
+  const [vlmError, setVlmError] = useState("");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [searchResult, setSearchResult] = useState(null);
@@ -193,6 +207,13 @@ function DefectLens() {
   // change event and the file is silently dropped. Reset the element too.
   const audioInputRef = useRef(null);
 
+  const resetVlm = () => {
+    setIsVlmRunning(false);
+    setVlmStatus("");
+    setVlmResult(null);
+    setVlmError("");
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setSelectedFile(file || null);
@@ -201,6 +222,7 @@ function DefectLens() {
     setSelectedAudio(null);
     if (audioInputRef.current) audioInputRef.current.value = "";
     setAnalyzeResult(null);
+    resetVlm();
     setError("");
   };
 
@@ -222,6 +244,7 @@ function DefectLens() {
     setIsAnalyzing(true);
     setError("");
     setAnalyzeStatus("");
+    resetVlm(); // a fresh analysis invalidates any prior GPU re-run
 
     const formData = new FormData();
     formData.append("file", file);
@@ -253,6 +276,60 @@ function DefectLens() {
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStatus("");
+    }
+  };
+
+  const handleRunGpu = async () => {
+    // Re-run the just-analyzed image through the fine-tuned VLM on the GPU async
+    // endpoint. Submit once, then poll /vlm-status until the S3 result lands.
+    if (!selectedFile || isVlmRunning) return;
+    setIsVlmRunning(true);
+    setVlmError("");
+    setVlmResult(null);
+    setVlmStatus(VLM_WARMING);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    if (note.trim()) formData.append("note", note.trim());
+
+    try {
+      const submit = await axios.post(`${API}/analyze-vlm`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const { output_location, failure_location } = submit.data;
+
+      let settled = false;
+      for (let i = 0; i < VLM_MAX_POLLS && !settled; i++) {
+        const params = { output_location };
+        if (failure_location) params.failure_location = failure_location;
+        // axios treats 202 (pending) as success, so only ready/failed bodies
+        // resolve the loop; anything else means "still warming, keep polling".
+        const poll = await axios.get(`${API}/vlm-status`, { params });
+        if (poll.data.status === "ready") {
+          setVlmResult({ classes: poll.data.classes });
+          settled = true;
+        } else if (poll.data.status === "failed") {
+          setVlmError("The fine-tuned model run failed. Please try again.");
+          settled = true;
+        } else if (i < VLM_MAX_POLLS - 1) {
+          await sleep(VLM_POLL_MS);
+        }
+      }
+      if (!settled) {
+        setVlmError(
+          "The fine-tuned model is taking longer than expected. Please try again."
+        );
+      }
+    } catch (err) {
+      console.error("Error during GPU analyze:", err);
+      if (err?.response?.status === 503) {
+        setVlmError("The fine-tuned GPU model isn't deployed for this demo.");
+      } else {
+        setVlmError("Fine-tuned model request failed. Please try again.");
+      }
+    } finally {
+      setIsVlmRunning(false);
+      setVlmStatus("");
     }
   };
 
@@ -479,6 +556,40 @@ function DefectLens() {
               <CardList cards={analyzeResult.audio.cards} />
             </div>
           )}
+
+          <div className="gpu-panel">
+            <button
+              onClick={handleRunGpu}
+              disabled={isVlmRunning}
+              className="gpu-button"
+            >
+              {isVlmRunning
+                ? "Running fine-tuned model..."
+                : "Run fine-tuned model (GPU, ~5 min cold)"}
+            </button>
+            {vlmStatus && <p className="analyze-status">{vlmStatus}</p>}
+            {vlmError && <p className="vlm-error">{vlmError}</p>}
+            {vlmResult && (
+              <div className="rank-chips vlm-chips">
+                {vlmResult.classes.slice(0, 3).map((c, i) => (
+                  <span key={c.label} className="rank-chip">
+                    {`${i + 1}. ${c.label.replace(/_/g, " ")}`}
+                    {typeof c.score === "number" && (
+                      <span className="rank-score">
+                        {`${Math.round(c.score * 100)}%`}
+                      </span>
+                    )}
+                  </span>
+                ))}
+                <span
+                  className="classifier-badge"
+                  title="Classified by the fine-tuned Qwen2.5-VL model on the GPU async endpoint (macro top-1 0.851 on the frozen test split)"
+                >
+                  fine-tuned VLM (GPU)
+                </span>
+              </div>
+            )}
+          </div>
         </section>
       )}
 

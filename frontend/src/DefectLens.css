@@ -354,3 +354,45 @@
   color: #444;
   font-variant-numeric: tabular-nums;
 }
+
+.gpu-panel {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+/* Indigo to match the "fine-tuned VLM" badge, distinct from the primary blue
+   Analyze action - this is the secondary "re-run on the GPU model" step. */
+.gpu-button {
+  padding: 10px 20px;
+  background-color: #4338ca;
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.gpu-button:hover:not(:disabled) {
+  background-color: #3730a3;
+}
+
+.gpu-button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.vlm-chips {
+  margin-top: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.vlm-error {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c0392b;
+}

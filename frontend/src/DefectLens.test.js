@@ -293,3 +293,67 @@ test("shows an error banner when the analyze request fails", async () => {
     ).toBeInTheDocument()
   );
 });
+
+test("GPU button submits to the fine-tuned model and renders its result", async () => {
+  const mockVlmSubmit = {
+    data: {
+      job_id: "job-1",
+      output_location: "s3://b/async-out/job-1.out",
+      failure_location: "s3://b/async-fail/job-1.out",
+    },
+  };
+  // First poll returns "ready" (200), so no polling delay is exercised here.
+  const mockVlmReady = {
+    status: 200,
+    data: {
+      status: "ready",
+      classes: [
+        { label: "exposed_rebar", score: 0.88 },
+        { label: "spalling", score: 0.09 },
+        { label: "crack", score: 0.03 },
+      ],
+    },
+  };
+  axios.post
+    .mockResolvedValueOnce(mockAnalyzeResponse) // /analyze reveals the GPU button
+    .mockResolvedValueOnce(mockVlmSubmit); // /analyze-vlm submit
+  axios.get.mockResolvedValueOnce(mockVlmReady); // /vlm-status ready on first poll
+
+  render(<DefectLens />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  // The GPU button only appears once there is an analysis result.
+  const gpuButton = await screen.findByRole("button", {
+    name: /run fine-tuned model/i,
+  });
+  fireEvent.click(gpuButton);
+
+  // It submits the image to /analyze-vlm...
+  await waitFor(() =>
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("/analyze-vlm"),
+      expect.any(FormData),
+      expect.anything()
+    )
+  );
+
+  // ...polls /vlm-status with the returned output location...
+  await waitFor(() =>
+    expect(screen.getByText("fine-tuned VLM (GPU)")).toBeInTheDocument()
+  );
+  expect(axios.get).toHaveBeenCalledWith(
+    expect.stringContaining("/vlm-status"),
+    expect.objectContaining({
+      params: expect.objectContaining({
+        output_location: "s3://b/async-out/job-1.out",
+      }),
+    })
+  );
+  // ...and renders the fine-tuned model's top class.
+  expect(screen.getByText("1. exposed rebar")).toBeInTheDocument();
+});
