@@ -96,6 +96,10 @@ def main(argv: list[str] | None = None) -> None:
     test_paths, test_labels = select_test_clips(
         scan_machine_dir, args.audio_root, args.machines, args.limit
     )
+    if not train_paths:
+        raise SystemExit(f"no train normals under {args.audio_root} — check --audio-root/--machines")
+    if not test_paths:
+        raise SystemExit(f"no test clips under {args.audio_root} — check --audio-root/--machines")
     print(f"train normals: {len(train_paths)}; test clips: {len(test_paths)}")
 
     device = pick_device()

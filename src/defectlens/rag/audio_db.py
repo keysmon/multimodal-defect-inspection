@@ -55,6 +55,8 @@ def upsert(conn, card_id: str, class_tags: list[str], embedding) -> None:
 
 def top_k(conn, embedding, k: int) -> list[tuple[str, list[str], float]]:
     """Return [(card_id, class_tags, cosine_distance)] nearest-first."""
+    # ORDER BY <=> uses the HNSW index: approximate NN, but effectively exact at
+    # the corpus's ~50 cards. Revisit (exact scan / ef_search tuning) if it grows.
     return conn.execute(
         """
         SELECT card_id, class_tags, embedding <=> %s AS dist

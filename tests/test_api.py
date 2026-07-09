@@ -33,6 +33,16 @@ def make_png_bytes() -> bytes:
     return buf.getvalue()
 
 
+def make_wav_bytes() -> bytes:
+    """A short, valid PCM wav that passes the /analyze decode-check."""
+    import numpy as np
+    import soundfile as sf
+
+    buf = BytesIO()
+    sf.write(buf, np.zeros(16000, dtype="float32"), 16000, format="WAV")
+    return buf.getvalue()
+
+
 class StubRecognizer:
     """Fixed-result stand-in for Recognizer — no model, no DB."""
 
@@ -462,7 +472,7 @@ def test_analyze_note_sanitized_and_capped_at_boundary():
 def _wav_files():
     return {
         "file": ("t.png", make_png_bytes(), "image/png"),
-        "audio": ("clip.wav", b"RIFFfakewavbytes", "audio/wav"),
+        "audio": ("clip.wav", make_wav_bytes(), "audio/wav"),
     }
 
 
@@ -558,3 +568,23 @@ def test_analyze_no_escalation_when_visual_below_monitor():
     assert body["audio"]["severity"] == "urgent"
     # worst-of = urgent; no escalation because visual is below monitor
     assert body["combined_severity"] == "urgent"
+
+
+def test_analyze_unreadable_audio_returns_400():
+    result = _analyze_result()
+    analyzer = StubAudioAnalyzer(AudioFinding(0.1, "normal_operation", "cosmetic"))
+    app = create_app(
+        recognizer=StubRecognizer(result), describer=StubDescriber(), audio_analyzer=analyzer
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze",
+        files={
+            "file": ("t.png", make_png_bytes(), "image/png"),
+            "audio": ("bad.wav", b"not a wav at all", "audio/wav"),
+        },
+    )
+    assert resp.status_code == 400
+    assert "audio" in resp.json()["detail"].lower()
+    assert analyzer.calls == []  # decode-check 400s before analyze() is reached

@@ -50,8 +50,8 @@ def main(argv: list[str] | None = None) -> None:
 
     try:
         conn = audio_db.connect()
-    except Exception:
-        raise SystemExit("pgvector DB unreachable — docker compose up -d db")
+    except Exception as e:
+        raise SystemExit("pgvector DB unreachable — docker compose up -d db") from e
     audio_db.ensure_schema(conn)
 
     device = pick_device()

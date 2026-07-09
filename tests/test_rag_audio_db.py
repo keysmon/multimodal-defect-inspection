@@ -35,6 +35,13 @@ def unit(i: int) -> np.ndarray:
     return v
 
 
+def at_45deg() -> np.ndarray:
+    """Unit vector 45° from unit(0): [1/√2, 1/√2, 0, ...]."""
+    v = np.zeros(audio_db.DIM, dtype=np.float32)
+    v[0] = v[1] = 1.0
+    return v / np.linalg.norm(v)
+
+
 def test_upsert_and_topk_roundtrip():
     audio_db.upsert(conn, "hvac-1", ["fan_imbalance"], unit(0))
     hits = audio_db.top_k(conn, unit(0), k=1)
@@ -57,3 +64,21 @@ def test_upsert_replaces_on_primary_key():
     hits = audio_db.top_k(conn, unit(2), k=5)
     assert [h[0] for h in hits] == ["a"]  # single row per card_id (PK)
     assert hits[0][1] == ["bearing_wear"]
+
+
+def test_topk_truncates_to_k():
+    audio_db.upsert(conn, "a", ["fan_imbalance"], unit(0))
+    audio_db.upsert(conn, "b", ["bearing_wear"], unit(1))
+    audio_db.upsert(conn, "c", ["pump_cavitation"], unit(2))
+    hits = audio_db.top_k(conn, unit(0), k=2)
+    assert len(hits) == 2
+
+
+def test_topk_uses_cosine_distance_operator():
+    # Two unit vectors 45° apart: cosine distance = 1 - cos(45°) ≈ 0.293.
+    # (L2 distance would be ≈ 0.765.) Pins the <=> cosine operator so a future
+    # swap to <-> (L2) or <#> (inner product) fails this test.
+    audio_db.upsert(conn, "a", ["fan_imbalance"], unit(0))
+    hits = audio_db.top_k(conn, at_45deg(), k=1)
+    assert hits[0][0] == "a"
+    assert hits[0][2] == pytest.approx(0.2929, abs=1e-3)

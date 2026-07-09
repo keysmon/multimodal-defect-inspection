@@ -168,7 +168,16 @@ def create_app(
         audio_band = None
         combined_severity = severity
         if audio is not None and analyzer is not None and getattr(analyzer, "enabled", False):
-            finding = analyzer.analyze(await audio.read())
+            audio_bytes = await audio.read()
+            try:
+                import soundfile as sf
+
+                sf.read(BytesIO(audio_bytes))  # decode-check, mirrors img.load() above
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400, detail=f"Uploaded audio is not a readable wav: {exc}"
+                ) from exc
+            finding = analyzer.analyze(audio_bytes)
             audio_band = finding.band
             audio_payload = {
                 "score": finding.score,
