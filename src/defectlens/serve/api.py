@@ -90,9 +90,18 @@ def create_app(
             r.load()
             app.state.recognizer = r
         if app.state.describer is None:
-            from defectlens.serve.describer import Describer
+            from defectlens.serve.bedrock_describer import describer_is_bedrock
 
-            d = Describer()
+            if describer_is_bedrock():
+                # Cloud path: Claude Haiku on Bedrock writes the description
+                # (DEFECTLENS_NO_VLM=1, no local torch model in the image).
+                from defectlens.serve.bedrock_describer import BedrockDescriber
+
+                d = BedrockDescriber()
+            else:
+                from defectlens.serve.describer import Describer
+
+                d = Describer()
             d.load()
             app.state.describer = d
         if app.state.text_searcher is None:
