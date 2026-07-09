@@ -12,3 +12,4 @@
 models/*
 !models/cloud_artifacts
 !models/audio_bank
+!deploy
