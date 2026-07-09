@@ -5,6 +5,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -83,10 +84,21 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        # Cloud/no-DB path: when CARD_VECTORS_PATH points at a baked npz, load
+        # it once and inject one ArrayVectorStore into both Recognizer and
+        # AudioAnalyzer (they fall back to the pgvector conn when it's absent,
+        # keeping local dev unchanged). See rag.vector_store.
+        vector_store = None
+        card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
+        if card_vectors_path:
+            from defectlens.rag.vector_store import ArrayVectorStore
+
+            vector_store = ArrayVectorStore.load(card_vectors_path)
+
         if app.state.recognizer is None:
             from defectlens.serve.recognizer import Recognizer
 
-            r = Recognizer()
+            r = Recognizer(vector_store=vector_store)
             r.load()
             app.state.recognizer = r
         if app.state.describer is None:
@@ -109,7 +121,11 @@ def create_app(
         if app.state.audio_analyzer is None:
             from defectlens.serve.audio_analyzer import AudioAnalyzer
 
-            a = AudioAnalyzer()
+            audio_kwargs: dict[str, Any] = {"vector_store": vector_store}
+            audio_bank_dir = os.environ.get("AUDIO_BANK_DIR")
+            if audio_bank_dir:
+                audio_kwargs["bank_dir"] = Path(audio_bank_dir)
+            a = AudioAnalyzer(**audio_kwargs)
             a.load()
             app.state.audio_analyzer = a
         yield
