@@ -1,0 +1,69 @@
+"""Variant wiring for the BFDD SegFormer comparison. No real training here.
+
+Exception: test_build_model_backward_runs_on_mps does one real backward pass at
+the production feature size to lock the MPS BatchNorm2d contiguity workaround;
+it is skipped where MPS is unavailable (e.g. CI).
+"""
+from __future__ import annotations
+
+import numpy as np
+import pytest
+import torch
+import torch.nn.functional as F
+
+from defectlens.thermal.train_seg import (
+    VARIANT_CHANNELS,
+    build_model,
+    compose_input,
+    iou_from_confusion,
+)
+
+
+def test_variant_channels():
+    assert VARIANT_CHANNELS == {"rgb": 3, "ir": 3, "rgbir": 6}
+
+
+def test_compose_input_shapes_and_variant_selection():
+    rgb = np.zeros((512, 640, 3), dtype=np.uint8)
+    ir = np.full((512, 640, 3), 255, dtype=np.uint8)
+    x_rgb = compose_input(rgb, ir, "rgb")
+    x_ir = compose_input(rgb, ir, "ir")
+    x_fused = compose_input(rgb, ir, "rgbir")
+    assert x_rgb.shape == (3, 512, 640) and x_fused.shape == (6, 512, 640)
+    # normalized IR (all-255) has strictly larger mean than all-0 rgb
+    assert x_ir.mean() > x_rgb.mean()
+    # fusion stacks rgb first, ir second
+    assert torch.allclose(x_fused[:3], x_rgb) and torch.allclose(x_fused[3:], x_ir)
+
+
+def test_build_model_in_channels_and_labels():
+    m3 = build_model("ir", num_labels=6)
+    m6 = build_model("rgbir", num_labels=6)
+    assert m3.config.num_channels == 3 and m6.config.num_channels == 6
+    assert m3.config.num_labels == 6
+    x = torch.zeros(1, 6, 128, 160)
+    out = m6(pixel_values=x)
+    assert out.logits.shape[1] == 6  # (B, num_labels, H/4, W/4)
+
+
+def test_iou_from_confusion_known_values():
+    conf = np.array([[2, 1], [1, 2]], dtype=np.int64)
+    ious = iou_from_confusion(conf)
+    assert np.allclose(ious, [2 / 4, 2 / 4])
+
+
+@pytest.mark.skipif(
+    not torch.backends.mps.is_available(), reason="MPS-specific backward regression"
+)
+def test_build_model_backward_runs_on_mps():
+    """Regression lock for the decode-head BatchNorm2d contiguity workaround:
+    without it, backward at the real 512x640 feature size crashes on MPS with a
+    view/stride error. One tiny (batch-2) step proves the loop trains on MPS."""
+    model = build_model("rgbir", num_labels=6).to("mps")
+    x = torch.randn(2, 6, 512, 640, device="mps")
+    y = torch.randint(0, 6, (2, 512, 640), device="mps")
+    logits = model(pixel_values=x).logits
+    logits = F.interpolate(logits, size=(512, 640), mode="bilinear", align_corners=False)
+    loss = F.cross_entropy(logits, y.to("mps"))
+    loss.backward()  # must not raise
+    assert torch.isfinite(loss).item()
