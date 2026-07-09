@@ -119,10 +119,17 @@ class BedrockDescriber:
     def describe(self, image, top_classes, audio_band=None) -> str:
         try:
             return self.converse(image, top_classes, audio_band)
-        except Exception:
+        except Exception as exc:
             # Description is optional — a Bedrock outage/throttle must not fail
             # the analysis; classification + RAG cards still return. Log at
             # warning so a persistent misconfig (bad model id, missing IAM/model
             # access) is visible in CloudWatch instead of silently empty.
-            logger.warning("Bedrock describe failed", exc_info=True)
+            if exc.__class__.__name__ == "ThrottlingException":
+                # Known-expected while the account's Bedrock quota activates:
+                # the fail-fast client turns this into one throttle per
+                # /analyze, so a full traceback per request would flood
+                # CloudWatch. One line carries the same signal.
+                logger.warning("Bedrock describe throttled: %s", exc)
+            else:
+                logger.warning("Bedrock describe failed", exc_info=True)
             return ""

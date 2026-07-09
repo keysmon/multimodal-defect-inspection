@@ -100,6 +100,31 @@ def test_describe_swallows_bedrock_errors_and_returns_empty():
     assert d.describe(_png_image(), ["crack"]) == ""
 
 
+def test_describe_logs_throttle_as_one_line_without_traceback(caplog):
+    """Zero-quota accounts throttle EVERY Converse call; with the fail-fast
+    client that is one warning per /analyze, so throttles must log a single
+    line (no exc_info traceback) while unexpected errors keep the traceback."""
+
+    class ThrottlingException(Exception):
+        pass
+
+    d = BedrockDescriber()
+    d._client = FakeBedrockClient(raises=ThrottlingException("Too many tokens"))
+    with caplog.at_level("WARNING"):
+        assert d.describe(_png_image(), ["crack"]) == ""
+    throttle_records = [r for r in caplog.records if "throttled" in r.message]
+    assert len(throttle_records) == 1
+    assert throttle_records[0].exc_info is None
+
+    caplog.clear()
+    d._client = FakeBedrockClient(raises=RuntimeError("boom"))
+    with caplog.at_level("WARNING"):
+        assert d.describe(_png_image(), ["crack"]) == ""
+    failed_records = [r for r in caplog.records if "failed" in r.message]
+    assert len(failed_records) == 1
+    assert failed_records[0].exc_info is not None
+
+
 def test_converse_surfaces_errors_for_the_smoke_test():
     """The non-swallowing path used by the smoke test must raise, so a wrong
     model id / access issue is visible instead of masked as ''."""
