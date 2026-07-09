@@ -92,6 +92,31 @@ Zero-shot CLIP is strong on commodity classes (crack 0.85, mold/algae 0.80,
 peeling paint 0.77 top-1) but fails on exactly the fine-grained distinctions an
 inspector needs — spalling 0.15, no-defect 0.17, exposed rebar 0.25, corrosion
 stain 0.33 — which is the measured gap the Phase 3 fine-tune exists to close.
+### Cross-dataset generalization (Phase 5.4)
+
+Does the fine-tune survive buildings it has never seen? Evaluated zero-shot
+(no re-training) on 400 images sampled from an independently collected
+dataset - Ozgenel & Gonenc Sorguc's METU campus crack corpus (Mendeley
+5y9wdsg2zt, CC BY 4.0; different continent, photographer, and buildings
+from all three training sources) - covering the crack/no-defect axis where
+65% of in-distribution errors live:
+
+| Class | In-distribution | METU (OOD) |
+|---|---|---|
+| crack | 0.818 | **0.990** |
+| no_defect | 0.884 | 0.764 |
+| macro (2 classes) | 0.851 | **0.877** |
+
+Macro accuracy is fully maintained under the shift; what changes is the
+error direction - the model becomes more crack-sensitive, catching nearly
+every crack while false-alarming more on unfamiliar clean concrete. For an
+inspection assistant this is the safer failure mode (a false alarm costs a
+glance; a miss costs a defect). No recovery round was run: the pre-agreed
+trigger imagined a macro drop that did not materialize. Scope honesty: the
+other seven classes lack independent labeled sources at usable scale, so
+this measures the dominant-error axis only. Reproduce:
+`python -m defectlens.eval.vlm_topk --test-manifest data/manifests/ood_test.csv --adapter models/qwen25vl-lora-v1`.
+
 ### Audio in the product (Phase 5.3)
 
 ![Trimodal analysis](docs/images/defectlens-trimodal.png)
