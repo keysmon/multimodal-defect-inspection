@@ -23,6 +23,7 @@ import aws_cdk as cdk
 from stacks.api_stack import ApiStack
 from stacks.frontend_stack import FrontendStack
 from stacks.github_oidc_stack import GitHubOidcStack
+from stacks.gpu_stack import GpuStack
 from stacks.ops_stack import OpsStack
 
 # Pinned, NOT read from CDK_DEFAULT_ACCOUNT: this app is the defectlens account's
@@ -60,5 +61,10 @@ OpsStack(
 
 # Authored for CI wiring; intentionally not part of the demo deploy.
 GitHubOidcStack(app, "GitHubOidcStack", env=env, github_repo=GITHUB_REPO)
+
+# Phase 5.5c GPU async path. Authored + synth-validated, but NOT auto-deployed:
+# deploy explicitly (`cdk deploy GpuStack`) after the user signs off on the first
+# GPU bill. No cross-stack ref to Api/Frontend/Ops, so it deploys standalone.
+GpuStack(app, "GpuStack", env=env)
 
 app.synth()
