@@ -1,5 +1,5 @@
 // src/DefectLens.js
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import axios from "axios";
 import "./DefectLens.css";
 
@@ -130,12 +130,18 @@ function DefectLens() {
 
   const [error, setError] = useState("");
 
+  // The audio <input> is uncontrolled: clearing selectedAudio state on image
+  // change does NOT reset the DOM value, so re-picking the same wav fires no
+  // change event and the file is silently dropped. Reset the element too.
+  const audioInputRef = useRef(null);
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setSelectedFile(file || null);
     setImagePreview(file ? URL.createObjectURL(file) : null);
     setNote("");
     setSelectedAudio(null);
+    if (audioInputRef.current) audioInputRef.current.value = "";
     setAnalyzeResult(null);
     setError("");
   };
@@ -257,6 +263,7 @@ function DefectLens() {
         <input
           type="file"
           accept=".wav,audio/wav"
+          ref={audioInputRef}
           onChange={handleAudioChange}
           className="audio-input"
           data-testid="audio-input"

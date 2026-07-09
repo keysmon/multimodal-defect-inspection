@@ -184,6 +184,24 @@ test("analyze with audio shows the combined severity banner and audio panel", as
   expect(screen.getByText("Bearing wear rumble")).toBeInTheDocument();
 });
 
+test("selecting a new image clears a previously chosen audio file", () => {
+  // Observable half of the stale-input fix: the chosen-audio filename display
+  // disappears when a new image is picked. (The DOM input.value reset that
+  // makes re-picking the SAME wav work is not observable in jsdom — file input
+  // .value is always "" — so that half rides on the useRef idiom + Task 7 E2E.)
+  render(<DefectLens />);
+
+  const img1 = new File(["a"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [img1] } });
+  const wav = new File(["RIFF"], "fan.wav", { type: "audio/wav" });
+  fireEvent.change(screen.getByTestId("audio-input"), { target: { files: [wav] } });
+  expect(screen.getByText("fan.wav")).toBeInTheDocument();
+
+  const img2 = new File(["b"], "wall2.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [img2] } });
+  expect(screen.queryByText("fan.wav")).not.toBeInTheDocument();
+});
+
 test("selecting a new image resets the inspector note", () => {
   render(<DefectLens />);
 
