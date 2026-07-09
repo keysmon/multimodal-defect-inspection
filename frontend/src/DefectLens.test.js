@@ -217,6 +217,35 @@ test("selecting a new image resets the inspector note", () => {
   expect(screen.getByPlaceholderText(/optional inspector note/i).value).toBe("");
 });
 
+test("clicking a gallery example populates the note and runs the analyze flow", async () => {
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      blob: () =>
+        Promise.resolve(new Blob(["img-bytes"], { type: "image/jpeg" })),
+    })
+  );
+  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  render(<DefectLens />);
+
+  const tiles = screen.getAllByRole("button", { name: /load example:/i });
+  expect(tiles).toHaveLength(6);
+  fireEvent.click(tiles[0]);
+
+  // The example's note is loaded into the inspector-note field...
+  const noteField = screen.getByPlaceholderText(/optional inspector note/i);
+  await waitFor(() => expect(noteField.value).not.toBe(""));
+
+  // ...and the analyze flow runs, posting that note in the form data.
+  await waitFor(() => expect(axios.post).toHaveBeenCalled());
+  const formData = axios.post.mock.calls[0][1];
+  expect(formData.get("note")).toBe(noteField.value.trim());
+  expect(formData.get("file")).toBeInstanceOf(File);
+
+  await waitFor(() =>
+    expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument()
+  );
+});
+
 test("auto-retries once on a cold-start timeout, then succeeds", async () => {
   jest.useFakeTimers();
   axios.post

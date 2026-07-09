@@ -26,6 +26,42 @@ function isColdStartError(err) {
   return err?.code === "ERR_NETWORK" || err?.code === "ECONNABORTED";
 }
 
+// One-click example gallery. Assets live in public/gallery/ (built by
+// scripts/build_gallery_assets.py from CC BY datasets; see that folder's
+// ATTRIBUTION.md). Each entry loads its image + inspector note and runs analyze.
+const GALLERY_EXAMPLES = [
+  {
+    image: "sdnet-wall-crack.jpg",
+    caption: "Concrete wall - crack",
+    note: "Diagonal hairline crack on an exterior concrete wall; checking whether it is active.",
+  },
+  {
+    image: "sdnet-pavement-crack.jpg",
+    caption: "Pavement - crack",
+    note: "Transverse crack across a concrete slab near an expansion joint.",
+  },
+  {
+    image: "metu-crack.jpg",
+    caption: "Facade - crack",
+    note: "Vertical crack on a campus building facade; width not yet measured.",
+  },
+  {
+    image: "sdnet-wall-clean.jpg",
+    caption: "Concrete wall - no defect",
+    note: "Baseline concrete wall section with no visible cracking.",
+  },
+  {
+    image: "sdnet-deck-clean.jpg",
+    caption: "Bridge deck - no defect",
+    note: "Concrete bridge deck, routine condition check.",
+  },
+  {
+    image: "metu-clean.jpg",
+    caption: "Facade - no defect",
+    note: "Clean facade panel used as a reference image.",
+  },
+];
+
 // Severity band -> display styling (spec: structural/urgent/monitor/cosmetic).
 const SEVERITY_STYLES = {
   structural: { background: "#c0392b", color: "#fff", label: "Structural" },
@@ -173,8 +209,13 @@ function DefectLens() {
     setSelectedAudio(file || null);
   };
 
-  const handleAnalyze = async () => {
-    if (!selectedFile) {
+  const handleAnalyze = async (overrides = {}) => {
+    // Overrides let the gallery run analyze with a freshly-fetched file/note
+    // synchronously, without waiting for the async state updates to flush.
+    const file = overrides.file ?? selectedFile;
+    const noteText = overrides.note ?? note;
+    const audioFile = "audio" in overrides ? overrides.audio : selectedAudio;
+    if (!file) {
       setError("Please select an image first.");
       return;
     }
@@ -183,9 +224,9 @@ function DefectLens() {
     setAnalyzeStatus("");
 
     const formData = new FormData();
-    formData.append("file", selectedFile);
-    if (note.trim()) formData.append("note", note.trim());
-    if (selectedAudio) formData.append("audio", selectedAudio);
+    formData.append("file", file);
+    if (noteText.trim()) formData.append("note", noteText.trim());
+    if (audioFile) formData.append("audio", audioFile);
 
     const postAnalyze = () =>
       axios.post(`${API}/analyze`, formData, {
@@ -204,7 +245,7 @@ function DefectLens() {
         await sleep(RETRY_DELAY_MS);
         response = await postAnalyze();
       }
-      setAnalyzeResult({ ...response.data, filename: selectedFile.name });
+      setAnalyzeResult({ ...response.data, filename: file.name });
     } catch (err) {
       console.error("Error during analyze:", err);
       setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
@@ -213,6 +254,31 @@ function DefectLens() {
       setIsAnalyzing(false);
       setAnalyzeStatus("");
     }
+  };
+
+  const handleGalleryExample = async (example) => {
+    setError("");
+    let file;
+    try {
+      const response = await fetch(
+        `${process.env.PUBLIC_URL}/gallery/${example.image}`
+      );
+      const blob = await response.blob();
+      file = new File([blob], example.image, {
+        type: blob.type || "image/jpeg",
+      });
+    } catch (err) {
+      console.error("Error loading gallery example:", err);
+      setError("Couldn't load the example image. Please try uploading one.");
+      return;
+    }
+    setSelectedFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setNote(example.note);
+    setSelectedAudio(null);
+    if (audioInputRef.current) audioInputRef.current.value = "";
+    setAnalyzeResult(null);
+    await handleAnalyze({ file, note: example.note, audio: null });
   };
 
   const handleSearch = async () => {
@@ -273,6 +339,34 @@ function DefectLens() {
 
       {error && <div className="error-banner">{error}</div>}
 
+      <section className="gallery-section">
+        <h2 className="gallery-title">Try an example</h2>
+        <p className="gallery-subtitle">
+          One click loads a sample photo and inspector note, then runs the
+          analysis.
+        </p>
+        <div className="gallery-grid">
+          {GALLERY_EXAMPLES.map((example) => (
+            <button
+              key={example.image}
+              type="button"
+              className="gallery-tile"
+              onClick={() => handleGalleryExample(example)}
+              disabled={isAnalyzing}
+              aria-label={`Load example: ${example.caption}`}
+            >
+              <img
+                src={`${process.env.PUBLIC_URL}/gallery/${example.image}`}
+                alt={example.caption}
+                className="gallery-thumb"
+                loading="lazy"
+              />
+              <span className="gallery-caption">{example.caption}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="upload-section">
         <input
           type="file"
@@ -310,7 +404,7 @@ function DefectLens() {
           <span className="audio-filename">{selectedAudio.name}</span>
         )}
         <button
-          onClick={handleAnalyze}
+          onClick={() => handleAnalyze()}
           disabled={isAnalyzing}
           className="analyze-button"
         >
