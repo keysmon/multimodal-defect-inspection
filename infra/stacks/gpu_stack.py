@@ -73,6 +73,14 @@ class GpuStack(Stack):
                 },
             ),
         )
+        # SageMaker validates S3 access to the model artifact AT CREATE TIME,
+        # but CFN sees no edge between the Model and the role's DefaultPolicy
+        # (add_to_policy statements) - the first deploy raced and failed with
+        # "Could not access model data". Make the edge explicit.
+        default_policy = role.node.try_find_child("DefaultPolicy")
+        if default_policy is not None:
+            model.node.add_dependency(default_policy)
+
 
         endpoint_config = sagemaker.CfnEndpointConfig(
             self,
@@ -126,6 +134,11 @@ class GpuStack(Stack):
         # Read the model artifact + async inputs; write async results + failures.
         role.add_to_policy(
             iam.PolicyStatement(
+                # SageMaker's Endpoint-creation validation (observed 2026-07-09)
+                # requires bucket-level s3:ListBucket AND broad PutObject on the
+                # bucket, beyond the per-prefix grants - narrow grants fail with
+                # "The provided role ... is invalid ... has s3:ListBucket and
+                # s3:PutObject permissions for bucket".
                 actions=["s3:GetObject"],
                 resources=[
                     f"arn:aws:s3:::{gpu.BUCKET}/{gpu.MODEL_KEY}",
@@ -136,14 +149,17 @@ class GpuStack(Stack):
         role.add_to_policy(
             iam.PolicyStatement(
                 actions=["s3:PutObject"],
-                resources=[
-                    f"arn:aws:s3:::{gpu.BUCKET}/{gpu.ASYNC_OUT_PREFIX}*",
-                    f"arn:aws:s3:::{gpu.BUCKET}/{gpu.ASYNC_FAIL_PREFIX}*",
-                ],
+                resources=[f"arn:aws:s3:::{gpu.BUCKET}/*"],
             )
         )
         # Pull the DLC image. GetAuthorizationToken has no resource scope; the
         # layer/image pulls are scoped to the DLC repo in the AWS-owned account.
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket"],
+                resources=[f"arn:aws:s3:::{gpu.BUCKET}"],
+            )
+        )
         role.add_to_policy(
             iam.PolicyStatement(actions=["ecr:GetAuthorizationToken"], resources=["*"])
         )

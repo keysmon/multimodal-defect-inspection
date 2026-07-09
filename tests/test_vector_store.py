@@ -1,9 +1,10 @@
 """ArrayVectorStore: no-DB serving path (Phase 5.5a).
 
-Synthetic vectors only — no CLIP/CLAP, no DB. Locks the two behaviours the
-cloud Lambda depends on: brute-force cosine that matches pgvector's `<=>`
-distance and DISTINCT-ON-per-card dedup, and the two query shapes the
-Recognizer and AudioAnalyzer call.
+Synthetic vectors only — no CLIP/CLAP, no DB. Locks the behaviours the cloud
+Lambda depends on: brute-force cosine that matches pgvector's `<=>` distance and
+DISTINCT-ON-per-card dedup, and the three query shapes (visual/audio/search) the
+Recognizer and AudioAnalyzer call — including the search index that covers hvac
+audio cards absent from the visual index.
 """
 from __future__ import annotations
 
@@ -21,11 +22,11 @@ def _unit(i: int, dim: int) -> np.ndarray:
     return v
 
 
-def _write_npz(tmp_path, *, visual, audio):
-    """visual/audio are lists of (id, tags, text_vec/centroid_vec/emb_vec) tuples."""
+def _write_npz(tmp_path, *, visual, audio, search, version=2):
+    """visual/audio/search are lists of tuples; version omits keys when < 2 to
+    simulate a stale (v1) artifact."""
     path = tmp_path / "card_vectors.npz"
-    np.savez(
-        path,
+    arrays = dict(
         visual_ids=np.array([v[0] for v in visual]),
         visual_tags_json=np.array([json.dumps(v[1]) for v in visual]),
         visual_embeddings_text=np.stack([v[2] for v in visual]).astype(np.float32),
@@ -34,6 +35,11 @@ def _write_npz(tmp_path, *, visual, audio):
         audio_tags_json=np.array([json.dumps(a[1]) for a in audio]),
         audio_embeddings=np.stack([a[2] for a in audio]).astype(np.float32),
     )
+    if version >= 2:
+        arrays["search_ids"] = np.array([s[0] for s in search])
+        arrays["search_embeddings_text"] = np.stack([s[1] for s in search]).astype(np.float32)
+        arrays["format_version"] = np.array(version)
+    np.savez(path, **arrays)
     return path
 
 
@@ -48,7 +54,14 @@ def _sample_store(tmp_path):
         ("h_a", ["bearing_wear"], _unit(0, 3)),
         ("h_b", ["fan_imbalance"], _unit(1, 3)),
     ]
-    path = _write_npz(tmp_path, visual=visual, audio=audio)
+    # search index covers ALL cards: the 3 visual + one hvac audio card (dim 4).
+    search = [
+        ("v_a", _unit(0, 4)),
+        ("v_b", _unit(1, 4)),
+        ("v_c", _unit(2, 4)),
+        ("hvac-1", _unit(3, 4)),
+    ]
+    path = _write_npz(tmp_path, visual=visual, audio=audio, search=search)
     return ArrayVectorStore.load(path)
 
 
@@ -148,12 +161,15 @@ def test_query_is_normalized_before_cosine(tmp_path):
 
 
 class _SpyStore:
-    """Records queries; returns the fixed cards it was built with."""
+    """Records queries; returns the fixed cards it was built with. search_cards
+    (defaults to cards) stands in for the all-cards search index."""
 
-    def __init__(self, cards):
+    def __init__(self, cards, search_cards=None):
         self.cards = cards
+        self.search_cards = cards if search_cards is None else search_cards
         self.visual_kinds = []
         self.audio_calls = 0
+        self.search_calls = 0
 
     def visual_top_k(self, embedding, k, kinds):
         self.visual_kinds.append(kinds)
@@ -162,6 +178,10 @@ class _SpyStore:
     def audio_top_k(self, embedding, k):
         self.audio_calls += 1
         return [(c.id, c.class_tags, 0.0) for c in self.cards]
+
+    def search_top_k(self, embedding, k):
+        self.search_calls += 1
+        return [(c.id, [], 0.0) for c in self.search_cards]
 
     def visual_count(self):
         return len(self.cards)
@@ -256,16 +276,19 @@ def test_audio_analyzer_top_k_empty_without_store_or_conn():
 
 
 def test_search_text_routes_through_injected_store(monkeypatch):
-    """/search (via Recognizer.search_text) must query the vector_store, not the
-    pgvector conn — the regression that 500'd the cloud search box when conn is
-    None. Queries the 'text' kind, returns metadata-joined hits."""
+    """Cloud /search (Recognizer.search_text) must query the store's search
+    index — which covers hvac audio cards absent from the visual index — and
+    join full Card metadata via search_lookup, NOT the pgvector conn and NOT the
+    visual index. Regression for the E2E finding that equipment queries never
+    returned hvac guidance."""
     import numpy as _np
 
     from defectlens.serve import recognizer as recognizer_mod
     from defectlens.serve.recognizer import Recognizer
 
-    cards = [_make_card("v_a", ["crack"]), _make_card("v_b", ["spalling"])]
-    spy = _SpyStore(cards)
+    visual = [_make_card("v_a", ["crack"])]
+    hvac = _make_card("hvac-001", ["bearing_wear"])
+    spy = _SpyStore(visual, search_cards=[hvac])  # search returns the hvac card
 
     def _boom(*a, **k):
         raise AssertionError("db.top_k must not be called when a store is injected")
@@ -276,15 +299,18 @@ def test_search_text_routes_through_injected_store(monkeypatch):
     )
 
     rec = Recognizer(vector_store=spy)
-    rec.lookup = {c.id: c for c in cards}
+    rec.lookup = {"v_a": visual[0]}          # visual-only (fusion)
+    rec.search_lookup = {"hvac-001": hvac}   # all cards incl. hvac (/search)
     rec.device = "cpu"
     rec.model = object()
     rec.processor = object()
     assert rec.conn is None
 
-    hits = rec.search_text("musty smell near shower", k=2)
-    assert spy.visual_kinds == [("text",)]  # queried the text vectors
-    assert [h.card.id for h in hits] == ["v_a", "v_b"]
+    hits = rec.search_text("pump making grinding noise", k=5)
+    assert spy.search_calls == 1
+    assert spy.visual_kinds == []  # did NOT use the visual index
+    assert [h.card.id for h in hits] == ["hvac-001"]
+    assert hits[0].card.class_tags == ["bearing_wear"]  # full Card metadata joined
 
 
 def test_search_text_uses_db_conn_when_no_store(monkeypatch):
@@ -316,3 +342,91 @@ def test_search_text_uses_db_conn_when_no_store(monkeypatch):
     hits = rec.search_text("query", k=3)
     assert captured == [(rec.conn, ("text",))]
     assert [h.card.id for h in hits] == ["v_a"]
+
+
+# ---------------------------------------------------------------------------
+# search_top_k + format version
+# ---------------------------------------------------------------------------
+
+
+def test_search_top_k_returns_hvac_card_nearest_its_vector(tmp_path):
+    """The whole point of the search index: an hvac card (absent from the visual
+    index) is retrievable when the query is nearest its search vector."""
+    store = _sample_store(tmp_path)
+    assert store.search_count() == 4  # 3 visual + 1 hvac
+    rows = store.search_top_k(_unit(3, 4), k=1)  # hvac-1's search vector is unit(3)
+    assert rows[0][0] == "hvac-1"
+    assert rows[0][2] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_search_top_k_orders_by_cosine_and_caps_at_k(tmp_path):
+    store = _sample_store(tmp_path)
+    rows = store.search_top_k(_unit(0, 4), k=2)  # nearest v_a (unit0), then ties
+    assert rows[0][0] == "v_a"
+    assert len(rows) == 2
+
+
+def test_load_rejects_stale_v1_npz_loudly(tmp_path):
+    """A pre-search (v1) artifact lacking the search keys must fail loudly, not
+    silently serve a search index that can't see hvac cards."""
+    visual = [("v_a", ["crack"], _unit(0, 4), _unit(1, 4))]
+    audio = [("h_a", ["bearing_wear"], _unit(0, 3))]
+    path = _write_npz(tmp_path, visual=visual, audio=audio, search=[], version=1)
+    with pytest.raises(ValueError, match="format v1|export_vector_artifacts"):
+        ArrayVectorStore.load(path)
+
+
+def test_fusion_never_returns_hvac_even_with_search_index(tmp_path):
+    """Regression: hvac cards live only in the search index, never the visual
+    fusion path. analyze_image_bytes must return visual cards only — the
+    KeyError guard (fusion lookup is visual-only) holds under the v2 npz."""
+    from io import BytesIO
+
+    import numpy as _np
+    import torch
+    from PIL import Image
+
+    from defectlens.serve.recognizer import Recognizer
+    from defectlens.taxonomy import UNIFIED_CLASSES
+
+    visual = [
+        ("v_a", ["crack"], _unit(0, 4), _unit(1, 4)),
+        ("v_b", ["spalling"], _unit(1, 4), _unit(2, 4)),
+    ]
+    audio = [("h_a", ["bearing_wear"], _unit(0, 3))]
+    # search index deliberately includes an hvac card absent from the visual set.
+    search = [("v_a", _unit(0, 4)), ("v_b", _unit(1, 4)), ("hvac-9", _unit(3, 4))]
+    store = ArrayVectorStore.load(
+        _write_npz(tmp_path, visual=visual, audio=audio, search=search)
+    )
+
+    cards = [_make_card("v_a", ["crack"]), _make_card("v_b", ["spalling"])]
+
+    class _FakeInputs(dict):
+        def to(self, device):
+            return self
+
+    class _FakeProcessor:
+        def __call__(self, images=None, return_tensors=None, **kwargs):
+            return _FakeInputs()
+
+    class _FakeCLIP:
+        def get_image_features(self, **kwargs):
+            return torch.ones(1, 4)
+
+    rec = Recognizer(vector_store=store)
+    rec.cards = cards
+    rec.lookup = {c.id: c for c in cards}  # visual-only — no hvac
+    rec.device = "cpu"
+    rec.prompt_feats = _np.zeros((len(UNIFIED_CLASSES), 4), dtype=_np.float32)
+    rec.processor = _FakeProcessor()
+    rec.model = _FakeCLIP()
+
+    buf = np.zeros((8, 8, 3), dtype=np.uint8)
+    png = BytesIO()
+    Image.fromarray(buf).save(png, "PNG")
+
+    result = rec.analyze_image_bytes(png.getvalue())  # must not KeyError
+    hit_ids = [h.card.id for h in result.hits]
+    assert all(not cid.startswith("hvac") for cid in hit_ids)
+    assert set(hit_ids) <= {"v_a", "v_b"}

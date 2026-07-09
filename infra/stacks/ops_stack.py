@@ -48,7 +48,7 @@ class OpsStack(Stack):
         distribution: cloudfront.Distribution,
         http_api: apigwv2.HttpApi,
         api_stage_name: str,
-        daily_limit_usd: str = "2",
+        daily_limit_usd: str = "5",
         monthly_budget_usd: int = 15,
         **kwargs,
     ) -> None:
