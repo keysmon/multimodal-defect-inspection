@@ -1,0 +1,75 @@
+# DefectLens CPU serving image for AWS Lambda (Phase 5.5, spec decision 7).
+#
+# One container image holds the whole instant CPU path: CLIP ViT-L/14 (fused
+# classifier) + CLAP (audio) weights baked into an offline HF cache, the card
+# vectors (npz -> ArrayVectorStore, no DB), the guidance corpus, the audio bank
+# + calibration, and the severity rules (in code). Descriptions come from Claude
+# Haiku on Bedrock (DEFECTLENS_NO_VLM=1 — no torch VLM in the image).
+#
+# Prerequisites (both COPY'd artifacts are gitignored under models/, so a fresh
+# clone must produce them first):
+#   python scripts/export_vector_artifacts.py   # -> models/cloud_artifacts/card_vectors.npz
+#   python scripts/build_audio_bank.py           # -> models/audio_bank/{bank.npz,calibration.json}
+#
+# Build (native arm64 on Apple Silicon; Lambda runs Graviton):
+#   docker build -f deploy/Dockerfile.lambda -t defectlens-lambda .
+# Local check via the Lambda Runtime Interface Emulator: see deploy notes.
+#
+# Python 3.12 base = Amazon Linux 2023 (glibc 2.34) — supports manylinux_2_28/34
+# aarch64 wheels, so numpy 2.x / Pillow 11 / scipy install as wheels with no C
+# compiler and no source builds. (The 3.11 base is AL2 / glibc 2.26, where those
+# fall back to a failing source build.)
+FROM public.ecr.aws/lambda/python:3.12
+
+ENV PIP_NO_CACHE_DIR=1
+RUN pip install --upgrade pip
+
+# Torch + torchvision CPU-only, from the PyTorch CPU index (own layer for
+# caching). The CPU index is required on BOTH arches: recent aarch64 torch
+# wheels on PyPI declare ~2GB of unused CUDA (nvidia_*_cu13) deps, whereas the
+# +cpu wheels declare none. Installing them here first means the later
+# `pip install .` finds torch/torchvision already satisfied and does not re-pull
+# the CUDA build.
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Project + its remaining deps (transformers, pillow, numpy, scipy,
+# scikit-learn, soundfile, pyyaml, fastapi, python-multipart, mangum, psycopg,
+# pgvector — the last two only because rag.db imports psycopg at module load,
+# never used in the no-DB cloud path). boto3 (Bedrock) is not a project dep.
+COPY pyproject.toml ${LAMBDA_TASK_ROOT}/
+COPY src ${LAMBDA_TASK_ROOT}/src
+RUN pip install "${LAMBDA_TASK_ROOT}" boto3
+
+# Pre-download CLIP + CLAP into a baked HF cache so cold start does zero network
+# (Lambda's filesystem is read-only outside /tmp — weights must ship in-image).
+# This ~2.5GB step is placed BEFORE the corpus/artifact COPYs so that iterating
+# on those small, frequently-changing files reuses this cached layer instead of
+# re-downloading the weights.
+ENV HF_HOME=${LAMBDA_TASK_ROOT}/hf_cache
+RUN python -c "from transformers import CLIPModel, CLIPProcessor, ClapModel, ClapProcessor; \
+CLIPModel.from_pretrained('openai/clip-vit-large-patch14'); \
+CLIPProcessor.from_pretrained('openai/clip-vit-large-patch14'); \
+ClapModel.from_pretrained('laion/clap-htsat-unfused'); \
+ClapProcessor.from_pretrained('laion/clap-htsat-unfused')"
+
+# Corpus-independent baked needs: guidance corpus, CLIP prompt templates, the
+# exported card vectors, and the audio bank + calibration. COPY'd into
+# ${LAMBDA_TASK_ROOT} (/var/task), which is the Lambda process cwd — the
+# corpus/configs relative paths the app defaults to resolve against it.
+COPY configs ${LAMBDA_TASK_ROOT}/configs
+COPY corpus ${LAMBDA_TASK_ROOT}/corpus
+COPY models/cloud_artifacts ${LAMBDA_TASK_ROOT}/models/cloud_artifacts
+COPY models/audio_bank ${LAMBDA_TASK_ROOT}/models/audio_bank
+
+# Cloud serving config. Weights are baked, so run fully offline. CARD_VECTORS_PATH
+# / AUDIO_BANK_DIR are absolute so those two are cwd-independent; corpus/configs
+# still rely on cwd=/var/task (see COPY note above). OFFLINE flags stay AFTER the
+# HF download so the build can fetch, but runtime never hits the network.
+ENV DEFECTLENS_NO_VLM=1 \
+    DEFECTLENS_DESCRIBER=bedrock \
+    CARD_VECTORS_PATH=${LAMBDA_TASK_ROOT}/models/cloud_artifacts/card_vectors.npz \
+    AUDIO_BANK_DIR=${LAMBDA_TASK_ROOT}/models/audio_bank \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
+CMD ["defectlens.serve.lambda_handler.handler"]

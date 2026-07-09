@@ -78,6 +78,7 @@ class AudioAnalyzer:
         self,
         bank_dir: Path = Path("models/audio_bank"),
         corpus_dir: Path = Path("corpus"),
+        vector_store=None,
     ) -> None:
         self.bank_dir = Path(bank_dir)
         self.corpus_dir = Path(corpus_dir)
@@ -88,6 +89,9 @@ class AudioAnalyzer:
         self.p50: float | None = None
         self.p90: float | None = None
         self.p99: float | None = None
+        # Injected vector_store (cloud/no-DB path) takes over card retrieval and
+        # conn stays None; otherwise audio_db's pgvector conn is the default.
+        self.vector_store = vector_store
         self.conn = None
         self.lookup: dict = {}
         self.enabled = False
@@ -121,12 +125,14 @@ class AudioAnalyzer:
 
         # Card metadata for retrieval joins. DB or corpus trouble degrades
         # retrieval to empty hits (band still drives severity); it must not
-        # block audio scoring from being enabled.
-        try:
-            self.conn = audio_db.connect()
-            audio_db.ensure_schema(self.conn)
-        except Exception:
-            self.conn = None
+        # block audio scoring from being enabled. The injected store, when
+        # present, replaces the pgvector conn for retrieval.
+        if self.vector_store is None:
+            try:
+                self.conn = audio_db.connect()
+                audio_db.ensure_schema(self.conn)
+            except Exception:
+                self.conn = None
         try:
             from defectlens.corpus import load_corpus_dir
 
@@ -153,9 +159,8 @@ class AudioAnalyzer:
         band, severity = band_for_score(score, self.p90, self.p99)
 
         hits: list[Hit] = []
-        if self.conn is not None and self.lookup:
-            # top_k([]) on an empty table returns [] -> hits_from_rows -> [].
-            rows = audio_db.top_k(self.conn, emb[0], 5)
+        rows = self._audio_top_k(emb[0], 5)
+        if rows and self.lookup:
             try:
                 hits = hits_from_rows(rows, self.lookup)
             except KeyError:
@@ -163,3 +168,16 @@ class AudioAnalyzer:
                 # degrade to score-only; re-run defectlens.rag.audio_embed_cards.
                 hits = []
         return AudioFinding(score=score, band=band, severity=severity, hits=hits)
+
+    def _audio_top_k(self, embedding, k: int):
+        """Dispatch to the injected vector_store, else the pgvector conn.
+
+        Returns [] when neither is available so retrieval degrades to
+        score-only (the band still drives severity).
+        """
+        if self.vector_store is not None:
+            return self.vector_store.audio_top_k(embedding, k)
+        if self.conn is not None:
+            # top_k([]) on an empty table returns [] -> hits_from_rows -> [].
+            return audio_db.top_k(self.conn, embedding, k)
+        return []

@@ -25,6 +25,7 @@ dependencies = [
     "uvicorn>=0.30",
     "python-multipart>=0.0.9",
     "peft>=0.14",
+    "mangum>=0.17",  # ASGI -> AWS Lambda adapter (cloud deploy, Phase 5.5)
 ]
 
 [project.optional-dependencies]

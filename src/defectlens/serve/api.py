@@ -5,6 +5,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -12,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel
 
-from defectlens.rag.retrieve import Hit, query_by_text
+from defectlens.rag.retrieve import Hit
 from defectlens.serve.audio_analyzer import combine_severity
 from defectlens.train.qlora import MAX_NOTE_CHARS
 
@@ -33,23 +34,22 @@ MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is gene
 
 class TextSearcher:
     """Text-vector retrieval that reuses the Recognizer's already-loaded CLIP
-    model/processor/device and DB connection.
+    model/processor/device.
 
-    /search needs the same CLIP text-encoding path the Recognizer used to
-    build its prompt features at load() time — rather than loading a second
-    CLIP instance just to serve text queries, TextSearcher wraps the already
-    loaded Recognizer and delegates to rag.retrieve.query_by_text. Production
-    wiring constructs it in the lifespan handler after Recognizer.load();
-    tests bypass it entirely by injecting a stub with a `.search(query, k)`
-    method.
+    /search needs the same CLIP text-encoding path the Recognizer used to build
+    its prompt features at load() time — rather than loading a second CLIP
+    instance, TextSearcher wraps the Recognizer and delegates to its
+    search_text, which routes through the shared retrieval seam (pgvector conn
+    locally, injected vector_store in the no-DB cloud path). Production wiring
+    constructs it in the lifespan handler after Recognizer.load(); tests bypass
+    it entirely by injecting a stub with a `.search(query, k)` method.
     """
 
     def __init__(self, recognizer: Any) -> None:
         self._recognizer = recognizer
 
     def search(self, query: str, k: int = 5) -> list[Hit]:
-        r = self._recognizer
-        return query_by_text(r.conn, r.lookup, r.model, r.processor, r.device, query, k=k)
+        return self._recognizer.search_text(query, k=k)
 
 
 class SearchRequest(BaseModel):
@@ -83,16 +83,36 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        # Cloud/no-DB path: when CARD_VECTORS_PATH points at a baked npz, load
+        # it once and inject one ArrayVectorStore into both Recognizer and
+        # AudioAnalyzer (they fall back to the pgvector conn when it's absent,
+        # keeping local dev unchanged). See rag.vector_store.
+        vector_store = None
+        card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
+        if card_vectors_path:
+            from defectlens.rag.vector_store import ArrayVectorStore
+
+            vector_store = ArrayVectorStore.load(card_vectors_path)
+
         if app.state.recognizer is None:
             from defectlens.serve.recognizer import Recognizer
 
-            r = Recognizer()
+            r = Recognizer(vector_store=vector_store)
             r.load()
             app.state.recognizer = r
         if app.state.describer is None:
-            from defectlens.serve.describer import Describer
+            from defectlens.serve.bedrock_describer import describer_is_bedrock
 
-            d = Describer()
+            if describer_is_bedrock():
+                # Cloud path: Claude Haiku on Bedrock writes the description
+                # (DEFECTLENS_NO_VLM=1, no local torch model in the image).
+                from defectlens.serve.bedrock_describer import BedrockDescriber
+
+                d = BedrockDescriber()
+            else:
+                from defectlens.serve.describer import Describer
+
+                d = Describer()
             d.load()
             app.state.describer = d
         if app.state.text_searcher is None:
@@ -100,7 +120,11 @@ def create_app(
         if app.state.audio_analyzer is None:
             from defectlens.serve.audio_analyzer import AudioAnalyzer
 
-            a = AudioAnalyzer()
+            audio_kwargs: dict[str, Any] = {"vector_store": vector_store}
+            audio_bank_dir = os.environ.get("AUDIO_BANK_DIR")
+            if audio_bank_dir:
+                audio_kwargs["bank_dir"] = Path(audio_bank_dir)
+            a = AudioAnalyzer(**audio_kwargs)
             a.load()
             app.state.audio_analyzer = a
         yield
@@ -218,24 +242,34 @@ def create_app(
         recognizer = request.app.state.recognizer
         describer = request.app.state.describer
 
+        # "db" is an honest pgvector-reachability flag — legitimately false in
+        # the cloud/no-DB path, where the baked npz vector_store is the index.
+        # "status" keys on servability (DB reachable OR a store is loaded), so
+        # the 5.5b canary must check "status", not "db".
         db_ok = False
+        store_ok = False
         cards_indexed = 0
         if recognizer is not None:
-            try:
-                row = recognizer.conn.execute(
-                    "SELECT count(*) FROM card_vectors"
-                ).fetchone()
-                cards_indexed = row[0]
-                db_ok = True
-            except Exception:
-                db_ok = False
-                cards_indexed = 0
+            store = getattr(recognizer, "vector_store", None)
+            if store is not None:
+                cards_indexed = store.visual_count()
+                store_ok = True
+            else:
+                try:
+                    row = recognizer.conn.execute(
+                        "SELECT count(*) FROM card_vectors"
+                    ).fetchone()
+                    cards_indexed = row[0]
+                    db_ok = True
+                except Exception:
+                    db_ok = False
+                    cards_indexed = 0
 
         vlm_loaded = bool(describer is not None and getattr(describer, "model", None) is not None)
         adapter_loaded = bool(getattr(describer, "adapter_loaded", False))
 
         return {
-            "status": "ok" if db_ok else "degraded",
+            "status": "ok" if (db_ok or store_ok) else "degraded",
             "db": db_ok,
             "cards_indexed": cards_indexed,
             "vlm_loaded": vlm_loaded,

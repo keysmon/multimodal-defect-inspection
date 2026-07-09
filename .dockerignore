@@ -1,0 +1,15 @@
+# Keep the Lambda build context (deploy/Dockerfile.lambda, context = repo root)
+# minimal and hash-stable. The Dockerfile only COPYs pyproject.toml, src/,
+# configs/, corpus/, models/cloud_artifacts/, and models/audio_bank/ - exclude
+# everything else, especially the 114MB LoRA adapter under models/, the venv,
+# node_modules, datasets, and results.
+*
+!pyproject.toml
+!src
+!configs
+!corpus
+!models
+models/*
+!models/cloud_artifacts
+!models/audio_bank
+!deploy

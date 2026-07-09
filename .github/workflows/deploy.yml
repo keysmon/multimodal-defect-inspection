@@ -1,0 +1,66 @@
+name: deploy
+
+# CI (pytest + cdk synth) runs on every push to main and validates the infra.
+# The actual deploy is a SEPARATE job gated on a manual workflow_dispatch - this
+# is the user's demo on the user's bill, so nothing deploys automatically.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # for the OIDC role assumption in the deploy job
+  contents: read
+
+jobs:
+  test-and-synth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend + test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -e .
+          pip install pytest
+      - name: pytest
+        run: pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: cdk synth
+        run: |
+          pip install -r infra/requirements.txt
+          cd infra
+          npx --yes aws-cdk@2 synth
+
+  deploy:
+    needs: test-and-synth
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials (OIDC, keyless)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::002559670021:role/defectlens-github-deploy
+          aws-region: ca-central-1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build frontend (single-origin, relative /api)
+        run: |
+          cd frontend
+          npm ci
+          REACT_APP_API_URL=/api npm run build
+      - name: cdk deploy (Api, Frontend, Ops)
+        run: |
+          pip install -r infra/requirements.txt
+          cd infra
+          npx --yes aws-cdk@2 deploy ApiStack FrontendStack OpsStack --require-approval never
