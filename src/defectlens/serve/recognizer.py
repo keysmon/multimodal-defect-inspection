@@ -14,7 +14,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from defectlens.corpus import Card, load_corpus_dir
+from defectlens.corpus import Card, is_audio_card, load_corpus_dir
 from defectlens.eval.clip_zeroshot import _features, pick_device
 from defectlens.eval.rag_recall import rrf_fuse
 from defectlens.rag import db
@@ -123,7 +123,9 @@ class Recognizer:
 
         from defectlens.rag.embed import CLIP_MODEL
 
-        cards = load_corpus_dir(self.corpus_dir)
+        # Visual pipeline only: audio guidance cards (hvac-*) carry tags outside
+        # the 9-class prompt-similarity dict and belong to AudioAnalyzer's lookup.
+        cards = [c for c in load_corpus_dir(self.corpus_dir) if not is_audio_card(c)]
         if not cards:
             raise RuntimeError(f"no cards found in {self.corpus_dir}")
         self.cards = cards

@@ -223,3 +223,16 @@ def test_note_adds_third_ranking_to_card_fusion(monkeypatch):
     assert captured_ranking_counts == [2, 3]
     # the note retrieval must query the text-vector kind, not image centroids
     assert ("text",) in captured_kinds
+
+
+def test_fused_card_ranking_rejects_unknown_tags_loudly():
+    """Regression lock for the E2E-found KeyError: an audio-tagged card in the
+    visual fusion dict must never occur — Recognizer.load() filters hvac-*
+    cards; this asserts the failure mode stays loud if that filter regresses."""
+    import pytest
+
+    from defectlens.serve.recognizer import fused_card_ranking
+
+    audio_card = make_card("hvac-999", ["fan_imbalance"])
+    with pytest.raises(KeyError):
+        fused_card_ranking(["hvac-999"], {"crack": 0.5}, {"hvac-999": audio_card})
