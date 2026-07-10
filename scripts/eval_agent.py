@@ -210,6 +210,19 @@ def main() -> int:
         except Exception as exc:
             per_property[pid] = {"error": f"{type(exc).__name__}: {exc}"}
             print(f"{pid}: FAILED - {type(exc).__name__}: {exc}", file=sys.stderr)
+        finally:
+            # MPS allocations fragment across ~35 generate() calls per property;
+            # a 15-property run swap-thrashed and was jetsam-killed on an 18GB
+            # machine (observed 2026-07-10: 4min/property degrading to 19min,
+            # then killed on the last property). Numerically a no-op.
+            try:
+                import torch
+
+                if torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
+            except ImportError:
+                pass
+        print(f"{pid}: done in {time.perf_counter() - t0:.0f}s", flush=True)
 
     try:
         metrics = aggregate_metrics(per_property)
