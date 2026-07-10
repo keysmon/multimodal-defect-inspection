@@ -110,11 +110,19 @@ def observe_image(provider, image, trace: Trace) -> list[dict]:
 
 
 def retrieve_guidance(recognizer, query: str, trace: Trace, k: int = 3) -> list[dict]:
-    """Cited cards for a finding via the existing text retrieval."""
+    """Cited cards for a finding via the existing text retrieval.
+
+    Recognizer.search_text returns rag.retrieve.Hit objects: Card metadata
+    lives behind ``hit.card`` (``id``, ``title``, ``class_tags``).
+    """
     with trace.span("retrieve_guidance", {"query": query, "k": k}) as span:
         hits = recognizer.search_text(query, k=k)
         citations = [
-            {"card_id": h.card_id, "title": getattr(h, "title", ""), "class_tags": list(getattr(h, "class_tags", []))}
+            {
+                "card_id": h.card.id,
+                "title": getattr(h.card, "title", ""),
+                "class_tags": list(getattr(h.card, "class_tags", [])),
+            }
             for h in hits
         ]
         span["result_digest"] = [c["card_id"] for c in citations]

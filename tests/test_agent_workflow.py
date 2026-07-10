@@ -9,10 +9,17 @@ class FakeDescriber:
         return [("no_defect", 0.88), ("crack", 0.12)]
 
 
-class FakeHit:
-    card_id = "epa-001"
+class FakeCard:
+    id = "epa-001"
     title = "Crack repair"
     class_tags = ["crack"]
+
+
+class FakeHit:
+    """Mirrors defectlens.rag.retrieve.Hit: a Card behind a .card attribute."""
+
+    card = FakeCard()
+    distance = 0.0
 
 
 class FakeRecognizer:

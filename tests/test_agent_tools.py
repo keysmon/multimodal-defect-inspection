@@ -17,16 +17,26 @@ class FakeDescriber:
         return [("crack", 0.91), ("spalling", 0.05), ("no_defect", 0.04)]
 
 
-class FakeHit:
-    def __init__(self, card_id, title, class_tags):
-        self.card_id = card_id
+class FakeCard:
+    """Mirrors defectlens.corpus.Card's citation-relevant fields."""
+
+    def __init__(self, id, title, class_tags):
+        self.id = id
         self.title = title
         self.class_tags = class_tags
 
 
+class FakeHit:
+    """Mirrors defectlens.rag.retrieve.Hit: a Card behind a .card attribute."""
+
+    def __init__(self, card):
+        self.card = card
+        self.distance = 0.0
+
+
 class FakeRecognizer:
     def search_text(self, query, k=5):
-        return [FakeHit("epa-001", "Crack repair", ["crack"])]
+        return [FakeHit(FakeCard("epa-001", "Crack repair", ["crack"]))]
 
 
 class FakeAudioFinding:
