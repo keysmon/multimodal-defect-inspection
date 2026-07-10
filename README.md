@@ -1,41 +1,56 @@
 # DefectLens
 
-DefectLens is a building-defect inspection assistant: upload a defect photo and it
-returns ranked fine-grained defect classes, a severity band, a natural-language
-condition description, and cited remediation guidance drawn from an inspection-
-standards corpus - with optional equipment-audio anomaly screening in the same
-request. A fine-tuned vision-language model does the classification; a cross-modal
-RAG index over 205 cited guidance cards supplies the remediation advice.
-
-**Live demo:** <https://d2wxjiu5re5mow.cloudfront.net>
+DefectLens is a full-stack, ML-powered building-defect inspection assistant:
+upload a defect photo and get ranked fine-grained defect classes, a severity
+band, a natural-language condition description, and cited remediation guidance
+drawn from an inspection-standards corpus - with optional equipment-audio
+anomaly screening in the same request. Built end to end: data pipeline,
+fine-tuning, retrieval, serving API, web UI, and cloud infrastructure.
 
 | Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
 | :---: | :---: | :---: |
 | **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 |
 
+## Stack
+
+- **ML** - PyTorch + Hugging Face: QLoRA fine-tune of a 3B vision-language
+  model (Qwen2.5-VL) trained on EC2 GPU spot instances with checkpoint
+  auto-resume; CLIP/CLAP embeddings for cross-modal retrieval and unsupervised
+  audio anomaly scoring; SegFormer for a controlled thermal-imaging study;
+  frozen manifest splits and pre-registered evaluation protocols throughout.
+- **Backend** - FastAPI (Python), PostgreSQL + pgvector as the local vector
+  index, and a dependency-free NumPy vector store for the serverless
+  deployment.
+- **Frontend** - React single-page app: image/audio upload, ranked results
+  with severity banding, cited guidance cards, corpus search, report export.
+- **AWS** - CDK (Python) infrastructure as code: CloudFront + S3 static tier,
+  API Gateway + Lambda container for CPU inference, a SageMaker async endpoint
+  autoscaling 0-1 for GPU inference, Bedrock for condition descriptions, a
+  CloudWatch operations dashboard, and GitHub Actions CI/CD with keyless OIDC
+  authentication.
+
 ## Architecture
 
-![DefectLens architecture](docs/images/architecture.png)
+Two tiers sit behind a single CloudFront origin, so the SPA talks to one
+domain with no CORS:
 
-Two tiers sit behind a single CloudFront origin, so the SPA talks to one domain
-with no CORS:
+- **Static tier** - CloudFront serves the React SPA from a private S3 bucket
+  (Origin Access Control; the bucket stays fully private).
+- **Serverless API tier** - CloudFront routes `/api/*` to an API Gateway HTTP
+  API fronting a Lambda container that runs CLIP classification, CLAP
+  equipment-audio scoring, cross-modal RAG retrieval, and severity fusion,
+  with Amazon Bedrock generating the condition description (fail-fast client
+  config so an unavailable describer degrades gracefully instead of adding
+  retry latency).
+- **Async GPU path** - a separate route hands the image to a SageMaker async
+  endpoint running the fine-tuned VLM, with S3 for async input/output. The
+  endpoint autoscales 0-1 on queue backlog and drains to zero when idle,
+  trading a cold-start wait for zero always-on GPU cost; the UI polls a
+  status route while it runs.
 
-- **Static tier** - CloudFront serves the React single-page app from a private S3
-  bucket (Origin Access Control; the bucket stays fully private).
-- **Serverless API tier** (ca-central-1) - CloudFront routes `/api/*` to an API
-  Gateway HTTP API (named stage, 29s integration cap) fronting a CPU Lambda
-  container. The Lambda runs CLIP classification, CLAP equipment-audio anomaly
-  scoring, 205-card cross-modal RAG retrieval, and severity fusion, and calls
-  Amazon Bedrock (Claude Haiku) for the condition description. (Audio is disabled
-  in the cloud today pending a Lambda memory-quota increase, and descriptions are
-  temporarily empty while the new account's Bedrock quota activates - the client
-  fails fast to a blank description rather than retrying into the throttle.)
-- **Async GPU path** - the `/analyze-vlm` route hands the image to a SageMaker
-  async endpoint (ml.g5.xlarge) running the Qwen2.5-VL-3B QLoRA fine-tune, with S3
-  for async in/out - the 0.851-macro classifier in the cloud with no always-on GPU.
-  The endpoint autoscales 0-1 on queue backlog and drains back to zero when idle
-  (verified), so the first request after an idle period pays an instance spin-up +
-  model load (several minutes); the UI polls `/vlm-status` while it runs.
+Everything is defined in CDK and shipped through GitHub Actions with keyless
+OIDC auth - read-only synth verification on every push, deploys behind a
+manual dispatch with a least-privilege role split.
 
 ## Run locally
 
@@ -45,15 +60,6 @@ with no CORS:
 
 With `DEFECTLENS_NO_VLM=1` (or no adapter present) classification falls back to the
 measured CLIP RRF-fusion pipeline; `/health` reports which classifier is active.
-
-## The cold-start caveat
-
-The demo runs scale-to-zero (no always-on compute). The trade-off is a cold start:
-after an idle period the Lambda has to cold-load its models, which can exceed the
-API Gateway's 29s cap, so the *first* request may fail. A keep-warm ping keeps an
-instance hot most of the time; warm requests return in a few seconds. The UI
-auto-retries once on a cold-start timeout and explains that the demo scales to
-zero, so a second try usually succeeds.
 
 ---
 
