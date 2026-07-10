@@ -1,6 +1,6 @@
 # Gallery image attribution
 
-The example images in this folder ship with the DefectLens frontend so the demo
+The example images in this folder ship with the frontend so the demo
 works without an upload. Each was downscaled to a web-friendly JPEG; no other
 modification was made. Both source datasets are licensed CC BY 4.0
 (https://creativecommons.org/licenses/by/4.0/).

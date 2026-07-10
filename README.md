@@ -1,11 +1,11 @@
-# DefectLens
+# Multimodal Building-Defect Inspection
 
-DefectLens is a full-stack, ML-powered building-defect inspection assistant:
-upload a defect photo and get ranked fine-grained defect classes, a severity
-band, a natural-language condition description, and cited remediation guidance
-drawn from an inspection-standards corpus - with optional equipment-audio
-anomaly screening in the same request. Built end to end: data pipeline,
-fine-tuning, retrieval, serving API, web UI, and cloud infrastructure.
+A full-stack, ML-powered building-defect inspection assistant: upload a defect
+photo and get ranked fine-grained defect classes, a severity band, a
+natural-language condition description, and cited remediation guidance drawn
+from an inspection-standards corpus - with optional equipment-audio anomaly
+screening in the same request. Built end to end: data pipeline, fine-tuning,
+retrieval, serving API, web UI, and cloud infrastructure.
 
 | Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
 | :---: | :---: | :---: |
@@ -78,7 +78,7 @@ Phase 3 (Qwen2.5-VL-3B QLoRA fine-tune on AWS) — **complete**.
 
 ## The Product
 
-![DefectLens analyze view](docs/images/defectlens-analyze.png)
+![Analyze view](docs/images/defectlens-analyze.png)
 
 Upload a defect photo → ranked defect classes, severity band, natural-language
 condition description (Qwen2.5-VL-3B on Apple Silicon; optional), and cited

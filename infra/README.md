@@ -1,4 +1,4 @@
-# DefectLens deployment (CDK, Phase 5.5b)
+# Deployment (CDK, Phase 5.5b)
 
 Standalone CDK v2 (Python) app that deploys the instant CPU-path demo to AWS:
 account `002559670021`, region `ca-central-1`, profile `defectlens`.

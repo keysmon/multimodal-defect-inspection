@@ -1,6 +1,6 @@
 # Guidance Card Corpus
 
-This directory contains YAML-formatted guidance cards for the DefectLens RAG system. Cards encode defect detection, remediation, and inspection guidance indexed by building defect class.
+This directory contains YAML-formatted guidance cards for the RAG system. Cards encode defect detection, remediation, and inspection guidance indexed by building defect class.
 
 ## YAML Schema
 
