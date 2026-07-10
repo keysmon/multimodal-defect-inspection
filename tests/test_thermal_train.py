@@ -102,23 +102,41 @@ def test_iou_from_confusion_known_values():
 def test_build_metrics_schema_records_run_config():
     ious = np.full(len(CLASS_IDS), 0.5)
     m = build_metrics(
-        "rgb", ious, epochs=25, batch_size=4, lr=6e-5, seed=42,
+        "rgb", ious, epochs=25, batch_size=4, lr=6e-5, seed=42, device="cuda",
         steps=3675, train_pairs=586, test_pairs=126, final_train_loss=0.1228,
     )
     expected = {
-        "variant", "epochs", "batch_size", "lr", "seed", "steps",
+        "variant", "epochs", "batch_size", "lr", "seed", "device", "steps",
         "train_pairs", "test_pairs", "final_train_loss", "per_class_iou",
         "mean_defect_iou",
     }
     assert expected <= set(m)
     assert (m["seed"], m["lr"], m["batch_size"], m["epochs"]) == (42, 6e-5, 4, 25)
+    assert m["device"] == "cuda"  # results may come from CUDA/MPS; record which
     assert m["final_train_loss"] == 0.1228
     assert set(m["per_class_iou"]) == set(CLASS_NAMES.values())
     # loss is optional (no training steps) -> null, not a crash.
     assert build_metrics(
-        "rgb", ious, epochs=0, batch_size=4, lr=6e-5, seed=42,
+        "rgb", ious, epochs=0, batch_size=4, lr=6e-5, seed=42, device="cpu",
         steps=0, train_pairs=0, test_pairs=126,
     )["final_train_loss"] is None
+
+
+def test_select_device_precedence(monkeypatch):
+    import defectlens.thermal.train_seg as ts
+
+    # explicit override is honored verbatim
+    assert ts._select_device("cpu") == "cpu"
+    assert ts._select_device("cuda") == "cuda"
+    assert ts._select_device("mps") == "mps"
+    # auto: cuda > mps > cpu
+    monkeypatch.setattr(ts.torch.cuda, "is_available", lambda: True)
+    assert ts._select_device("auto") == "cuda"
+    monkeypatch.setattr(ts.torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(ts.torch.backends.mps, "is_available", lambda: True)
+    assert ts._select_device("auto") == "mps"
+    monkeypatch.setattr(ts.torch.backends.mps, "is_available", lambda: False)
+    assert ts._select_device("auto") == "cpu"
 
 
 def test_per_class_iou_json_absent_class_serializes_as_null():

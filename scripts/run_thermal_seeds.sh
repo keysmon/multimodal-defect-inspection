@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Seed-replicated BFDD comparison: 3 seeds x 3 variants = 9 runs (~4.5-7.5h on
-# M-series MPS; background it). Adds error bars to the Phase 5.6 comparison and
-# tests the hybrid-stem fix for the fusion-init confound.
+# M-series MPS, ~60-90 min on an AWS GPU; background it). Adds error bars to the
+# Phase 5.6 comparison and tests the hybrid-stem fix for the fusion-init confound.
+#
+# DEVICE env var selects the backend, passed through to train_seg as --device
+# (default "auto" = cuda > mps > cpu). The 9-run experiment moved to an AWS GPU,
+# so results in results/thermal_bfdd_seeds.json may come from CUDA rather than
+# MPS; each per-run metrics.json records the "device" it ran on.
 #
 # ir is intentionally EXCLUDED: its single-seed mean-defect IoU (0.156 vs rgb
 # 0.472) is a gap far too large to be seed noise, so replicating it would burn
@@ -17,13 +22,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+DEVICE="${DEVICE:-auto}"
+
 mkdir -p results models/thermal_seeds
 
 for seed in 42 43 44; do
   for v in rgb rgbir rgbir_hybrid; do
-    echo "=== variant $v seed $seed ==="
+    echo "=== variant $v seed $seed (device $DEVICE) ==="
     .venv/bin/python -m defectlens.thermal.train_seg \
       --variant "$v" --seed "$seed" --epochs 25 --batch-size 4 \
+      --device "$DEVICE" \
       --output-dir "models/thermal_seeds/$v-s$seed"
   done
 done
@@ -50,6 +58,7 @@ for v in variants:
         "per_class_iou": per_class,
         "mean_defect_iou": {"mean": float(np.nanmean(md)), "std": float(np.nanstd(md))},
         "final_train_loss_per_seed": {str(s): ms[s]["final_train_loss"] for s in seeds},
+        "device_per_seed": {str(s): ms[s].get("device") for s in seeds},
     }
 
 pathlib.Path("results/thermal_bfdd_seeds.json").write_text(json.dumps(out, indent=2))

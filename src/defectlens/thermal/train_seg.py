@@ -155,13 +155,15 @@ def build_metrics(
     batch_size: int,
     lr: float,
     seed: int,
+    device: str,
     steps: int,
     train_pairs: int,
     test_pairs: int,
     final_train_loss: float | None = None,
 ) -> dict:
     """Assemble the metrics.json payload, including the run config needed to
-    reproduce it (epochs/batch_size/lr/seed), the last training-batch loss, and
+    reproduce it (epochs/batch_size/lr/seed), the compute device the run used
+    (results may come from CUDA or MPS), the last training-batch loss, and
     JSON-safe per-class IoU."""
     defect_ious = np.array([ious[c] for c in CLASS_IDS if c != 0], dtype=float)
     mean_defect = np.nanmean(defect_ious) if np.any(np.isfinite(defect_ious)) else np.nan
@@ -171,6 +173,7 @@ def build_metrics(
         "batch_size": batch_size,
         "lr": lr,
         "seed": seed,
+        "device": device,
         "steps": steps,
         "train_pairs": train_pairs,
         "test_pairs": test_pairs,
@@ -195,6 +198,18 @@ def evaluate(model, loader, device, num_labels: int) -> np.ndarray:
     return conf
 
 
+def _select_device(requested: str = "auto") -> str:
+    """Resolve the compute device. 'auto' prefers cuda > mps > cpu (the 9-run
+    seed experiment moved to an AWS GPU); an explicit choice is honored as-is."""
+    if requested != "auto":
+        return requested
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", choices=sorted(VARIANT_CHANNELS), required=True)
@@ -204,6 +219,10 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--subset", type=int, default=0, help="train on N pairs (smoke)")
     ap.add_argument("--max-steps", type=int, default=0, help="stop early (smoke)")
+    ap.add_argument(
+        "--device", choices=["auto", "cuda", "mps", "cpu"], default="auto",
+        help="compute device; 'auto' picks cuda > mps > cpu",
+    )
     ap.add_argument("--output-dir", type=Path, required=True)
     args = ap.parse_args()
 
@@ -211,7 +230,7 @@ def main() -> None:
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = _select_device(args.device)
     buckets = frozen_split_pairs()  # authoritative committed manifest, NOT args.seed
     # buckets["val"] (126) is intentionally reserved and unused here: the
     # comparison uses fixed hyperparameters with no model selection, so the
@@ -256,6 +275,7 @@ def main() -> None:
         batch_size=args.batch_size,
         lr=args.lr,
         seed=args.seed,
+        device=device,
         steps=step,
         train_pairs=len(train_pairs),
         test_pairs=len(buckets["test"]),
