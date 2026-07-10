@@ -23,20 +23,23 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 DEVICE="${DEVICE:-auto}"
+# PY override: the repo venv on macOS, but a DLAMI GPU box has no .venv - the
+# bootstrap passes the AMI's torch-capable python via PY.
+PY="${PY:-.venv/bin/python}"
 
 mkdir -p results models/thermal_seeds
 
 for seed in 42 43 44; do
   for v in rgb rgbir rgbir_hybrid; do
     echo "=== variant $v seed $seed (device $DEVICE) ==="
-    .venv/bin/python -m defectlens.thermal.train_seg \
+    "$PY" -m defectlens.thermal.train_seg \
       --variant "$v" --seed "$seed" --epochs 25 --batch-size 4 \
       --device "$DEVICE" \
       --output-dir "models/thermal_seeds/$v-s$seed"
   done
 done
 
-.venv/bin/python - <<'EOF'
+"$PY" - <<'EOF'
 import json, pathlib
 import numpy as np
 
