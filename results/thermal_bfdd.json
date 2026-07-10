@@ -1,0 +1,59 @@
+{
+  "run_config": {
+    "epochs": 25,
+    "batch_size": 4,
+    "lr": 6e-05,
+    "seed": 42
+  },
+  "rgb": {
+    "variant": "rgb",
+    "epochs": 25,
+    "steps": 3675,
+    "train_pairs": 586,
+    "test_pairs": 126,
+    "final_train_loss": 0.1228,
+    "per_class_iou": {
+      "background": 0.9604521571805877,
+      "crack": 0.31046063300392984,
+      "hollow_area": 0.5195127581488557,
+      "peeling": 0.4056542370743726,
+      "erosion": 0.6686891453299676,
+      "stain": 0.45493160835519597
+    },
+    "mean_defect_iou": 0.4718496763824643
+  },
+  "ir": {
+    "variant": "ir",
+    "epochs": 25,
+    "steps": 3675,
+    "train_pairs": 586,
+    "test_pairs": 126,
+    "final_train_loss": 0.2548,
+    "per_class_iou": {
+      "background": 0.9367502141428189,
+      "crack": 0.0,
+      "hollow_area": 0.05594097766653691,
+      "peeling": 0.3049820882694967,
+      "erosion": 0.2777531533832666,
+      "stain": 0.14062970675677444
+    },
+    "mean_defect_iou": 0.15586118521521494
+  },
+  "rgbir": {
+    "variant": "rgbir",
+    "epochs": 25,
+    "steps": 3675,
+    "train_pairs": 586,
+    "test_pairs": 126,
+    "final_train_loss": 0.1078,
+    "per_class_iou": {
+      "background": 0.950981078836263,
+      "crack": 0.14435739835100858,
+      "hollow_area": 0.32582726620957075,
+      "peeling": 0.3786987716571255,
+      "erosion": 0.5076107968459618,
+      "stain": 0.37321040323928223
+    },
+    "mean_defect_iou": 0.3459409272605898
+  }
+}
