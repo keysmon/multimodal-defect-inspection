@@ -13,3 +13,4 @@ dist/
 
 # model artifacts live in S3 (s3://defectlens-phase3-ca-002559670021/phase3/checkpoints/adapter/); sync locally, never commit
 models/
+docs-private/

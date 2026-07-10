@@ -114,8 +114,8 @@ automatically and prints both prices before asking for confirmation.
 - `~/.claude/skills/launching-ec2-instance-with-best-practices/references/launch-ec2-instance-with-best-practices.md` —
   official launch mechanics this runbook's scripts implement (IAM,
   security groups, storage, tagging, IMDSv2).
-- `docs/superpowers/plans/2026-07-07-phase3-finetune.md` — the full Phase 3
-  plan (Tasks 1-8); this runbook covers Tasks 4-7's infrastructure only.
+- This runbook covers the Phase 3 fine-tune's infrastructure only (data
+  packaging through adapter landing); training methodology is in the README.
 
 ## Known gotcha (found while testing `launch_gpu.sh --dry-run`)
 

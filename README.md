@@ -9,13 +9,9 @@ RAG index over 205 cited guidance cards supplies the remediation advice.
 
 **Live demo:** <https://d2wxjiu5re5mow.cloudfront.net>
 
-![DefectLens demo: a gallery example runs the full analysis (severity band, ranked defect classes, cited guidance cards), then a text query searches the HVAC audio-fault corpus](docs/images/defectlens-demo.gif)
-
 | Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
 | :---: | :---: | :---: |
 | **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 |
-
-Design spec: `docs/superpowers/specs/2026-07-06-defect-lens-design.md`
 
 ## Architecture
 
@@ -50,15 +46,14 @@ with no CORS:
 With `DEFECTLENS_NO_VLM=1` (or no adapter present) classification falls back to the
 measured CLIP RRF-fusion pipeline; `/health` reports which classifier is active.
 
-## Cost and the cold-start caveat
+## The cold-start caveat
 
-The demo runs scale-to-zero, so idle cost is roughly **$2/month** (S3 + CloudFront +
-CloudWatch; no always-on compute), guarded by a $15/mo budget and a daily
-cost-explorer cutoff. The trade-off is a cold start: after an idle period the Lambda
-has to cold-load its models, which can exceed the API Gateway's 29s cap, so the
-*first* request may fail. A keep-warm ping runs every 5 minutes to keep an instance
-hot; warm requests return in ~2.4s. The UI auto-retries once on a cold-start timeout
-and explains that the demo scales to zero, so a second try usually succeeds.
+The demo runs scale-to-zero (no always-on compute). The trade-off is a cold start:
+after an idle period the Lambda has to cold-load its models, which can exceed the
+API Gateway's 29s cap, so the *first* request may fail. A keep-warm ping keeps an
+instance hot most of the time; warm requests return in a few seconds. The UI
+auto-retries once on a cold-start timeout and explains that the demo scales to
+zero, so a second try usually succeeds.
 
 ---
 
