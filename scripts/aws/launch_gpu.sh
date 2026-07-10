@@ -153,8 +153,16 @@ fi
 echo "VPC ${VPC_ID}, subnet ${SUBNET_ID}, SG ${SG_ID}, instance profile ${ROLE_NAME}"
 
 echo ""
-echo "== building user-data (bootstrap.sh + injected env) =="
+echo "== building user-data (bootstrap + injected env) =="
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# BOOTSTRAP_FILE overrides which bootstrap script is appended (default: the
+# Phase-3 QLoRA bootstrap — zero behavior change for phase-3). Point it at
+# scripts/aws/bootstrap_thermal.sh for the Phase 5.6 thermal seed experiment.
+BOOTSTRAP_FILE="${BOOTSTRAP_FILE:-${SCRIPT_DIR}/bootstrap.sh}"
+if [[ ! -f "$BOOTSTRAP_FILE" ]]; then
+  echo "BOOTSTRAP_FILE not found: ${BOOTSTRAP_FILE}" >&2
+  exit 1
+fi
 USER_DATA_FILE=$(mktemp)
 cleanup() { rm -f "$USER_DATA_FILE"; }
 trap cleanup EXIT
@@ -167,7 +175,7 @@ trap cleanup EXIT
   echo "export EVAL_ARGS=\"${EVAL_ARGS:-}\""
   echo "export SMOKE_RESUME_ARGS=\"${SMOKE_RESUME_ARGS:-}\""
   echo "export CHECKPOINT_SYNC_INTERVAL=\"${CHECKPOINT_SYNC_INTERVAL}\""
-  cat "${SCRIPT_DIR}/bootstrap.sh"
+  cat "${BOOTSTRAP_FILE}"
 } > "$USER_DATA_FILE"
 
 echo ""
@@ -182,6 +190,7 @@ printf " %-20s %s\n" "Instance profile:" "${ROLE_NAME} (S3 ${BUCKET} only)"
 printf " %-20s %s\n" "Root volume:" "${ROOT_VOLUME_GB}GB gp3, encrypted"
 printf " %-20s %s\n" "IMDSv2:" "required"
 printf " %-20s %s\n" "Region / subnet:" "${REGION} / ${SUBNET_ID}"
+printf " %-20s %s\n" "Bootstrap:" "$(basename "${BOOTSTRAP_FILE}")"
 printf " %-20s %s\n" "Train args:" "${TRAIN_ARGS:-<none>}"
 printf " %-20s %s\n" "Idle-safety:" "shutdown after ${IDLE_TIMEOUT_SEC}s with no checkpoint progress"
 echo "=================================================================="

@@ -28,7 +28,7 @@ from defectlens.thermal.bfdd import (
     load_mask,
 )
 
-VARIANT_CHANNELS = {"rgb": 3, "ir": 3, "rgbir": 6}
+VARIANT_CHANNELS = {"rgb": 3, "ir": 3, "rgbir": 6, "rgbir_hybrid": 6}
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
@@ -44,7 +44,7 @@ def compose_input(rgb: np.ndarray, ir: np.ndarray, variant: str) -> torch.Tensor
         x = _norm(rgb)
     elif variant == "ir":
         x = _norm(ir)
-    elif variant == "rgbir":
+    elif variant.startswith("rgbir"):  # rgbir and rgbir_hybrid: same 6-ch input
         x = np.concatenate([_norm(rgb), _norm(ir)], axis=-1)
     else:
         raise ValueError(f"unknown variant {variant!r}")
@@ -72,6 +72,32 @@ def _force_batchnorm_contiguous_input(model) -> None:
             module.register_forward_pre_hook(_to_contiguous)
 
 
+def _init_hybrid_stem(model, num_labels: int) -> None:
+    """Seed the fused 6-channel stem so the RGB half is pretrained and the IR
+    half is zero, i.e. fusion starts as *exactly* the pretrained RGB model plus a
+    learnable IR delta. This removes the fusion-init confound documented in the
+    README Phase 5.6 analysis: the plain `rgbir` stem is fully re-initialized by
+    `ignore_mismatched_sizes`, handicapping fusion vs the pretrained rgb/ir stems.
+    The zero IR half still receives gradient, so it is a learnable delta, not dead.
+    """
+    from transformers import SegformerForSemanticSegmentation
+
+    ref = SegformerForSemanticSegmentation.from_pretrained(  # cached; cheap
+        "nvidia/mit-b0", num_labels=num_labels, ignore_mismatched_sizes=True
+    )
+    stem = model.segformer.stages[0].patch_embeddings.proj  # verified path (transformers 5.x)
+    ref_stem = ref.segformer.stages[0].patch_embeddings.proj
+    if stem.weight.shape[1] != 6 or ref_stem.weight.shape[1] != 3:
+        raise ValueError(
+            f"unexpected stem shapes: fused {tuple(stem.weight.shape)}, "
+            f"ref {tuple(ref_stem.weight.shape)} (expected 6-ch and 3-ch)"
+        )
+    with torch.no_grad():
+        stem.weight[:, :3].copy_(ref_stem.weight)  # RGB half: pretrained
+        stem.weight[:, 3:].zero_()  # IR half: zero (learnable delta)
+        stem.bias.copy_(ref_stem.bias)
+
+
 def build_model(variant: str, num_labels: int = len(CLASS_IDS)):
     from transformers import SegformerForSemanticSegmentation
 
@@ -81,6 +107,8 @@ def build_model(variant: str, num_labels: int = len(CLASS_IDS)):
         num_channels=VARIANT_CHANNELS[variant],
         ignore_mismatched_sizes=True,  # 6-ch stem + fresh head re-init
     )
+    if variant == "rgbir_hybrid":
+        _init_hybrid_stem(model, num_labels)
     _force_batchnorm_contiguous_input(model)
     return model
 
@@ -127,13 +155,15 @@ def build_metrics(
     batch_size: int,
     lr: float,
     seed: int,
+    device: str,
     steps: int,
     train_pairs: int,
     test_pairs: int,
     final_train_loss: float | None = None,
 ) -> dict:
     """Assemble the metrics.json payload, including the run config needed to
-    reproduce it (epochs/batch_size/lr/seed), the last training-batch loss, and
+    reproduce it (epochs/batch_size/lr/seed), the compute device the run used
+    (results may come from CUDA or MPS), the last training-batch loss, and
     JSON-safe per-class IoU."""
     defect_ious = np.array([ious[c] for c in CLASS_IDS if c != 0], dtype=float)
     mean_defect = np.nanmean(defect_ious) if np.any(np.isfinite(defect_ious)) else np.nan
@@ -143,6 +173,7 @@ def build_metrics(
         "batch_size": batch_size,
         "lr": lr,
         "seed": seed,
+        "device": device,
         "steps": steps,
         "train_pairs": train_pairs,
         "test_pairs": test_pairs,
@@ -167,6 +198,18 @@ def evaluate(model, loader, device, num_labels: int) -> np.ndarray:
     return conf
 
 
+def _select_device(requested: str = "auto") -> str:
+    """Resolve the compute device. 'auto' prefers cuda > mps > cpu (the 9-run
+    seed experiment moved to an AWS GPU); an explicit choice is honored as-is."""
+    if requested != "auto":
+        return requested
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", choices=sorted(VARIANT_CHANNELS), required=True)
@@ -176,6 +219,10 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--subset", type=int, default=0, help="train on N pairs (smoke)")
     ap.add_argument("--max-steps", type=int, default=0, help="stop early (smoke)")
+    ap.add_argument(
+        "--device", choices=["auto", "cuda", "mps", "cpu"], default="auto",
+        help="compute device; 'auto' picks cuda > mps > cpu",
+    )
     ap.add_argument("--output-dir", type=Path, required=True)
     args = ap.parse_args()
 
@@ -183,7 +230,7 @@ def main() -> None:
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = _select_device(args.device)
     buckets = frozen_split_pairs()  # authoritative committed manifest, NOT args.seed
     # buckets["val"] (126) is intentionally reserved and unused here: the
     # comparison uses fixed hyperparameters with no model selection, so the
@@ -228,6 +275,7 @@ def main() -> None:
         batch_size=args.batch_size,
         lr=args.lr,
         seed=args.seed,
+        device=device,
         steps=step,
         train_pairs=len(train_pairs),
         test_pairs=len(buckets["test"]),
