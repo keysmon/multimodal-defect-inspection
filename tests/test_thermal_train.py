@@ -23,7 +23,51 @@ from defectlens.thermal.train_seg import (
 
 
 def test_variant_channels():
-    assert VARIANT_CHANNELS == {"rgb": 3, "ir": 3, "rgbir": 6}
+    assert VARIANT_CHANNELS == {"rgb": 3, "ir": 3, "rgbir": 6, "rgbir_hybrid": 6}
+
+
+def _stem(model):
+    """The SegFormer stem patch-embed conv (verified path for transformers 5.x)."""
+    return model.segformer.stages[0].patch_embeddings.proj
+
+
+@pytest.fixture(scope="module")
+def pretrained_stem():
+    """The pretrained 3-channel mit-b0 stem weight/bias, loaded once."""
+    from transformers import SegformerForSemanticSegmentation
+
+    ref = SegformerForSemanticSegmentation.from_pretrained(
+        "nvidia/mit-b0", num_labels=6, ignore_mismatched_sizes=True
+    )
+    proj = _stem(ref)
+    return proj.weight.detach().clone(), proj.bias.detach().clone()
+
+
+def test_hybrid_stem_rgb_half_pretrained_ir_half_zero(pretrained_stem):
+    ref_w, ref_b = pretrained_stem
+    proj = _stem(build_model("rgbir_hybrid", num_labels=6))
+    assert proj.weight.shape[1] == 6
+    assert torch.allclose(proj.weight[:, :3], ref_w)  # RGB half starts pretrained
+    assert torch.count_nonzero(proj.weight[:, 3:]) == 0  # IR half starts at zero
+    assert torch.allclose(proj.bias, ref_b)
+
+
+def test_compose_input_parity_rgbir_and_hybrid():
+    rng = np.random.default_rng(0)
+    rgb = rng.integers(0, 256, (512, 640, 3), dtype=np.uint8)
+    ir = rng.integers(0, 256, (512, 640, 3), dtype=np.uint8)
+    assert torch.allclose(
+        compose_input(rgb, ir, "rgbir"), compose_input(rgb, ir, "rgbir_hybrid")
+    )
+
+
+def test_rgb_stem_stays_pretrained_no_surgery_leak(pretrained_stem):
+    """The hybrid surgery must not leak into other variants: a plain rgb build
+    keeps the pretrained 3-channel stem untouched."""
+    ref_w, _ = pretrained_stem
+    proj = _stem(build_model("rgb", num_labels=6))
+    assert proj.weight.shape[1] == 3
+    assert torch.allclose(proj.weight, ref_w)
 
 
 def test_compose_input_shapes_and_variant_selection():

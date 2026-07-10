@@ -28,7 +28,7 @@ from defectlens.thermal.bfdd import (
     load_mask,
 )
 
-VARIANT_CHANNELS = {"rgb": 3, "ir": 3, "rgbir": 6}
+VARIANT_CHANNELS = {"rgb": 3, "ir": 3, "rgbir": 6, "rgbir_hybrid": 6}
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
@@ -44,7 +44,7 @@ def compose_input(rgb: np.ndarray, ir: np.ndarray, variant: str) -> torch.Tensor
         x = _norm(rgb)
     elif variant == "ir":
         x = _norm(ir)
-    elif variant == "rgbir":
+    elif variant.startswith("rgbir"):  # rgbir and rgbir_hybrid: same 6-ch input
         x = np.concatenate([_norm(rgb), _norm(ir)], axis=-1)
     else:
         raise ValueError(f"unknown variant {variant!r}")
@@ -72,6 +72,32 @@ def _force_batchnorm_contiguous_input(model) -> None:
             module.register_forward_pre_hook(_to_contiguous)
 
 
+def _init_hybrid_stem(model, num_labels: int) -> None:
+    """Seed the fused 6-channel stem so the RGB half is pretrained and the IR
+    half is zero, i.e. fusion starts as *exactly* the pretrained RGB model plus a
+    learnable IR delta. This removes the fusion-init confound documented in the
+    README Phase 5.6 analysis: the plain `rgbir` stem is fully re-initialized by
+    `ignore_mismatched_sizes`, handicapping fusion vs the pretrained rgb/ir stems.
+    The zero IR half still receives gradient, so it is a learnable delta, not dead.
+    """
+    from transformers import SegformerForSemanticSegmentation
+
+    ref = SegformerForSemanticSegmentation.from_pretrained(  # cached; cheap
+        "nvidia/mit-b0", num_labels=num_labels, ignore_mismatched_sizes=True
+    )
+    stem = model.segformer.stages[0].patch_embeddings.proj  # verified path (transformers 5.x)
+    ref_stem = ref.segformer.stages[0].patch_embeddings.proj
+    if stem.weight.shape[1] != 6 or ref_stem.weight.shape[1] != 3:
+        raise ValueError(
+            f"unexpected stem shapes: fused {tuple(stem.weight.shape)}, "
+            f"ref {tuple(ref_stem.weight.shape)} (expected 6-ch and 3-ch)"
+        )
+    with torch.no_grad():
+        stem.weight[:, :3].copy_(ref_stem.weight)  # RGB half: pretrained
+        stem.weight[:, 3:].zero_()  # IR half: zero (learnable delta)
+        stem.bias.copy_(ref_stem.bias)
+
+
 def build_model(variant: str, num_labels: int = len(CLASS_IDS)):
     from transformers import SegformerForSemanticSegmentation
 
@@ -81,6 +107,8 @@ def build_model(variant: str, num_labels: int = len(CLASS_IDS)):
         num_channels=VARIANT_CHANNELS[variant],
         ignore_mismatched_sizes=True,  # 6-ch stem + fresh head re-init
     )
+    if variant == "rgbir_hybrid":
+        _init_hybrid_stem(model, num_labels)
     _force_batchnorm_contiguous_input(model)
     return model
 
