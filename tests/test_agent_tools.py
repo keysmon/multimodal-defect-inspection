@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from defectlens.agent.providers import MockProvider
 from defectlens.agent.tools import (
     Trace,
@@ -46,6 +48,18 @@ def test_trace_records_spans(tmp_path):
     assert "elapsed_ms" in record
 
 
+def test_span_records_error_and_propagates(tmp_path):
+    trace = Trace(tmp_path / "trace.jsonl")
+    with pytest.raises(ValueError, match="bad input"):
+        with trace.span("boom", {"arg": 1}):
+            raise ValueError("bad input")
+    line = (tmp_path / "trace.jsonl").read_text().strip()
+    assert '"error":' in line
+    record = json.loads(line)
+    assert record["error"] == "ValueError: bad input"
+    assert "elapsed_ms" in record
+
+
 def test_classify_image_returns_ranking_and_traces(tmp_path):
     trace = Trace(tmp_path / "t.jsonl")
     ranking = classify_image(FakeDescriber(), image="IMG", trace=trace)
@@ -64,6 +78,13 @@ def test_observe_image_returns_empty_on_unparseable(tmp_path):
     provider = MockProvider(responses=["I see nothing structured"])
     obs = observe_image(provider, image="IMG", trace=Trace(tmp_path / "t.jsonl"))
     assert obs == []
+
+
+def test_observe_image_filters_non_dict_elements(tmp_path):
+    responses = ['["garbage", {"finding": "x", "severity": "moderate"}]']
+    provider = MockProvider(responses=responses)
+    obs = observe_image(provider, image="IMG", trace=Trace(tmp_path / "t.jsonl"))
+    assert obs == [{"finding": "x", "severity": "moderate"}]
 
 
 def test_observe_image_recovers_unclosed_fence(tmp_path):

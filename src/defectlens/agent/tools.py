@@ -80,6 +80,9 @@ class Trace:
         start = time.perf_counter()
         try:
             yield record
+        except Exception as exc:
+            record["error"] = f"{type(exc).__name__}: {exc}"
+            raise
         finally:
             record["elapsed_ms"] = round((time.perf_counter() - start) * 1000, 1)
             with self.path.open("a") as f:

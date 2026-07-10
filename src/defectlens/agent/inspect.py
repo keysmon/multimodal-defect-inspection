@@ -11,7 +11,12 @@ import time
 from pathlib import Path
 
 from defectlens.agent.providers import LLMProvider, Usage
-from defectlens.agent.schema import Citation, Finding, InspectionReport
+from defectlens.agent.schema import (
+    ASSIGNABLE_SEVERITIES,
+    Citation,
+    Finding,
+    InspectionReport,
+)
 from defectlens.agent.tools import (
     Trace,
     classify_image,
@@ -51,48 +56,55 @@ def run_inspection(
 
     findings: list[Finding] = []
     for path in image_paths:
-        image = load_image(path)
+        try:
+            image = load_image(path)
 
-        ranking = classify_image(describer, image, trace)
-        measured_class = None
-        if ranking:
-            top_class, top_prob = ranking[0]
-            if top_prob >= MEASURED_THRESHOLD and top_class != "no_defect":
-                measured_class = top_class
-                citations = retrieve_guidance(
-                    recognizer, f"{top_class} building defect remediation", trace
-                )
+            ranking = classify_image(describer, image, trace)
+            measured_class = None
+            if ranking:
+                top_class, top_prob = ranking[0]
+                if top_prob >= MEASURED_THRESHOLD and top_class != "no_defect":
+                    measured_class = top_class
+                    citations = retrieve_guidance(
+                        recognizer, f"{top_class} building defect remediation", trace
+                    )
+                    findings.append(
+                        Finding(
+                            finding=top_class,
+                            tier="measured",
+                            defect_class=top_class,
+                            severity="unknown",
+                            evidence_photo=str(path),
+                            citations=[Citation(card_id=c["card_id"], title=c["title"]) for c in citations],
+                            notes=f"classifier p={top_prob:.2f}",
+                        )
+                    )
+
+            for obs in observe_image(provider, image, trace):
+                text = str(obs.get("finding", "")).strip()
+                if not text:
+                    continue
+                # Dedup vs. the measured finding; substring match can over-drop distinct observations (e.g. "cracked paint" under "crack") - accepted v1 limitation, only the measured tier is scored.
+                if measured_class and measured_class.replace("_", " ") in text.lower():
+                    continue
+                citations = retrieve_guidance(recognizer, f"{text} remediation", trace)
+                severity = obs.get("severity", "unknown")
                 findings.append(
                     Finding(
-                        finding=top_class,
-                        tier="measured",
-                        defect_class=top_class,
-                        severity="unknown",
+                        finding=text,
+                        tier="observation",
+                        defect_class=None,
+                        severity=severity if severity in ASSIGNABLE_SEVERITIES else "unknown",
                         evidence_photo=str(path),
                         citations=[Citation(card_id=c["card_id"], title=c["title"]) for c in citations],
-                        notes=f"classifier p={top_prob:.2f}",
+                        notes="open-vocabulary VLM observation, not benchmarked",
                     )
                 )
-
-        for obs in observe_image(provider, image, trace):
-            text = str(obs.get("finding", "")).strip()
-            if not text:
-                continue
-            if measured_class and measured_class.replace("_", " ") in text.lower():
-                continue  # dedup against the measured finding for this photo
-            citations = retrieve_guidance(recognizer, f"{text} remediation", trace)
-            severity = obs.get("severity", "unknown")
-            findings.append(
-                Finding(
-                    finding=text,
-                    tier="observation",
-                    defect_class=None,
-                    severity=severity if severity in ("cosmetic", "monitor", "moderate", "structural") else "unknown",
-                    evidence_photo=str(path),
-                    citations=[Citation(card_id=c["card_id"], title=c["title"]) for c in citations],
-                    notes="open-vocabulary VLM observation, not benchmarked",
-                )
-            )
+        except Exception as exc:
+            # One bad image must not sink the report: log and move on.
+            with trace.span("image_error", {"path": str(path)}) as span:
+                span["error"] = f"{type(exc).__name__}: {exc}"
+            continue
 
     audio_band = None
     if audio_analyzer is not None and audio_bytes:
@@ -105,9 +117,15 @@ def run_inspection(
     summary = ""
     for _attempt in range(2):
         with trace.span("synthesize_summary", {"findings": len(findings)}) as span:
-            summary = provider.complete(
-                SUMMARY_PROMPT.format(findings=findings_json), max_tokens=1024
-            ).strip()
+            try:
+                summary = provider.complete(
+                    SUMMARY_PROMPT.format(findings=findings_json), max_tokens=1024
+                ).strip()
+            except Exception as exc:
+                # A provider failure must not discard the computed findings;
+                # leave summary empty so the deterministic fallback fires.
+                summary = ""
+                span["error"] = f"{type(exc).__name__}: {exc}"
             span["result_digest"] = summary[:80]
         if summary:
             break

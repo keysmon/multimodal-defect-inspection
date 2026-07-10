@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from defectlens.taxonomy import UNIFIED_CLASSES
 
 SEVERITIES = ("cosmetic", "monitor", "moderate", "structural", "unknown")
+# Severities the LLM may assign to an observation; "unknown" is the fallback, not a choice.
+ASSIGNABLE_SEVERITIES = tuple(s for s in SEVERITIES if s != "unknown")
 
 
 class Citation(BaseModel):
