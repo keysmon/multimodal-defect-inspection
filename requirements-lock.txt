@@ -8,7 +8,7 @@ charset-normalizer==3.4.8
 click==8.4.2
 contourpy==1.3.3
 cycler==0.12.1
--e git+https://github.com/keysmon/defect-lens.git@b200190f8417eb25b86a5b391dd84a2928ffba7d#egg=defectlens
+-e git+https://github.com/keysmon/multimodal-defect-inspection.git@b200190f8417eb25b86a5b391dd84a2928ffba7d#egg=defectlens
 fastapi==0.139.0
 fastjsonschema==2.21.2
 filelock==3.29.6

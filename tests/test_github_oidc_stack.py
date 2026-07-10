@@ -35,7 +35,7 @@ from stacks.github_oidc_stack import GitHubOidcStack  # noqa: E402
 
 ACCOUNT = "002559670021"
 REGION = "ca-central-1"
-REPO = "keysmon/defect-lens"
+REPO = "keysmon/multimodal-defect-inspection"
 ARTIFACTS_BUCKET = "defectlens-phase3-ca-002559670021"
 SYNTH_ROLE = "defectlens-github-synth"
 DEPLOY_ROLE = "defectlens-github-deploy"

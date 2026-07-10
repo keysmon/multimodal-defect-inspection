@@ -10,7 +10,7 @@ account `002559670021`, region `ca-central-1`, profile `defectlens`.
 | `ApiStack` | Container Lambda (from `deploy/Dockerfile.lambda`, arm64, 3008 MB - account quota, 120 s) + HTTP API with a named `api` stage (throttle 5/s, burst 10). Bedrock (Haiku) IAM. |
 | `FrontendStack` | Private S3 (OAC) + CloudFront. Default behaviour serves the React build; `/api/*` routes to the `api` stage. |
 | `OpsStack` | SNS + email, `defectlens-deploy-15` Budget ($15/mo, 50/80/100%), 6h health canary, 6h Cost-Explorer `$5/day` kill-switch, `defectlens-ops` CloudWatch dashboard (Lambda/API/SageMaker-async/Bedrock - the scale-to-zero demo view). |
-| `GitHubOidcStack` | GitHub OIDC provider + two keyless CI roles (synth: artifact-read-only; deploy: CDK bootstrap-assume), trust-pinned to `keysmon/defect-lens@main`. Deploy once to activate CI's AWS jobs (see below). |
+| `GitHubOidcStack` | GitHub OIDC provider + two keyless CI roles (synth: artifact-read-only; deploy: CDK bootstrap-assume), trust-pinned to `keysmon/multimodal-defect-inspection@main`. Deploy once to activate CI's AWS jobs (see below). |
 
 ## Single-origin routing (no CORS)
 
@@ -40,7 +40,7 @@ budget for a slow first push.
 ## CI (GitHub Actions, keyless)
 
 `.github/workflows/deploy.yml` runs pytest + `cdk synth` on every push to `main` and keeps `cdk deploy` behind a manual `workflow_dispatch`.
-AWS access is keyless: CI assumes a `GitHubOidcStack` role via GitHub's OIDC provider, trust-pinned to `repo:keysmon/defect-lens:ref:refs/heads/main`.
+AWS access is keyless: CI assumes a `GitHubOidcStack` role via GitHub's OIDC provider, trust-pinned to `repo:keysmon/multimodal-defect-inspection:ref:refs/heads/main`.
 Blast radius is split across two roles: the every-push `synth-api` job assumes `defectlens-github-synth` (prefix-scoped S3 read ONLY), while `defectlens-github-deploy` (CDK bootstrap-role assume, region+account-scoped, 2h max session) is reserved for the manual deploy job.
 No stored keys anywhere; workflow actions are pinned to full commit SHAs.
 

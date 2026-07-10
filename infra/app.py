@@ -33,7 +33,7 @@ from stacks.ops_stack import OpsStack
 ACCOUNT = "002559670021"
 REGION = "ca-central-1"
 ALERT_EMAIL = "hang@homewiseai.org"
-GITHUB_REPO = "keysmon/defect-lens"
+GITHUB_REPO = "keysmon/multimodal-defect-inspection"
 
 env = cdk.Environment(account=ACCOUNT, region=REGION)
 
