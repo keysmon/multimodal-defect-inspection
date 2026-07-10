@@ -7,9 +7,9 @@ account `002559670021`, region `ca-central-1`, profile `defectlens`.
 
 | Stack | What it creates |
 |-------|-----------------|
-| `ApiStack` | Container Lambda (from `deploy/Dockerfile.lambda`, arm64, 6144 MB, 120 s) + HTTP API with a named `api` stage (throttle 5/s, burst 10). Bedrock (Haiku) IAM. |
+| `ApiStack` | Container Lambda (from `deploy/Dockerfile.lambda`, arm64, 3008 MB - account quota, 120 s) + HTTP API with a named `api` stage (throttle 5/s, burst 10). Bedrock (Haiku) IAM. |
 | `FrontendStack` | Private S3 (OAC) + CloudFront. Default behaviour serves the React build; `/api/*` routes to the `api` stage. |
-| `OpsStack` | SNS + email, `defectlens-deploy-15` Budget ($15/mo, 50/80/100%), 6h health canary, 6h Cost-Explorer `$2/day` kill-switch. |
+| `OpsStack` | SNS + email, `defectlens-deploy-15` Budget ($15/mo, 50/80/100%), 6h health canary, 6h Cost-Explorer `$5/day` kill-switch, `defectlens-ops` CloudWatch dashboard (Lambda/API/SageMaker-async/Bedrock - the scale-to-zero demo view). |
 | `GitHubOidcStack` | GitHub OIDC provider + two keyless CI roles (synth: artifact-read-only; deploy: CDK bootstrap-assume), trust-pinned to `keysmon/defect-lens@main`. Deploy once to activate CI's AWS jobs (see below). |
 
 ## Single-origin routing (no CORS)

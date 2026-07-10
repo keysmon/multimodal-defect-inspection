@@ -180,6 +180,8 @@ class ApiStack(Stack):
 
         self.http_api = http_api
         self.stage_name = STAGE_NAME
+        # Consumed by OpsStack's dashboard (cross-stack ref, like http_api).
+        self.serve_fn = fn
 
         # Keep-warm: invoke the function every 5 minutes with a synthetic /health
         # HTTP-API event so the ~55s model load (3008MB account quota) almost
