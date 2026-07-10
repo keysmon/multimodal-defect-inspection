@@ -11,11 +11,14 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from defectlens.thermal.bfdd import CLASS_IDS, CLASS_NAMES
 from defectlens.thermal.train_seg import (
     VARIANT_CHANNELS,
+    build_metrics,
     build_model,
     compose_input,
     iou_from_confusion,
+    per_class_iou_json,
 )
 
 
@@ -50,6 +53,37 @@ def test_iou_from_confusion_known_values():
     conf = np.array([[2, 1], [1, 2]], dtype=np.int64)
     ious = iou_from_confusion(conf)
     assert np.allclose(ious, [2 / 4, 2 / 4])
+
+
+def test_build_metrics_schema_records_run_config():
+    ious = np.full(len(CLASS_IDS), 0.5)
+    m = build_metrics(
+        "rgb", ious, epochs=25, batch_size=4, lr=6e-5, seed=42,
+        steps=3675, train_pairs=586, test_pairs=126,
+    )
+    expected = {
+        "variant", "epochs", "batch_size", "lr", "seed", "steps",
+        "train_pairs", "test_pairs", "per_class_iou", "mean_defect_iou",
+    }
+    assert expected <= set(m)
+    assert (m["seed"], m["lr"], m["batch_size"], m["epochs"]) == (42, 6e-5, 4, 25)
+    assert set(m["per_class_iou"]) == set(CLASS_NAMES.values())
+
+
+def test_per_class_iou_json_absent_class_serializes_as_null():
+    import json
+
+    # Zero a class's row and column -> undefined union -> NaN IoU for that class.
+    n = len(CLASS_IDS)
+    conf = np.eye(n, dtype=np.int64) * 5
+    conf[3, :] = 0
+    conf[:, 3] = 0
+    ious = iou_from_confusion(conf)
+    d = per_class_iou_json(ious)
+    assert d[CLASS_NAMES[3]] is None
+    # The real bug was invalid JSON: bare NaN. Prove the dump is clean.
+    assert "NaN" not in json.dumps(d)
+    assert all(v is None or isinstance(v, float) for v in d.values())
 
 
 @pytest.mark.skipif(

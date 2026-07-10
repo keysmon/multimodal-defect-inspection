@@ -108,6 +108,47 @@ def iou_from_confusion(conf: np.ndarray) -> np.ndarray:
     return np.where(union > 0, inter / np.maximum(union, 1), np.nan)
 
 
+def _finite_or_none(x: float) -> float | None:
+    """NaN/inf -> None so json.dumps emits valid `null`, not bare `NaN`."""
+    return float(x) if np.isfinite(x) else None
+
+
+def per_class_iou_json(ious: np.ndarray) -> dict[str, float | None]:
+    """CLASS_NAMES-keyed IoU; a class absent from the test split has IoU NaN
+    (undefined union) which serializes as null, not an invalid JSON `NaN`."""
+    return {CLASS_NAMES[c]: _finite_or_none(ious[c]) for c in CLASS_IDS}
+
+
+def build_metrics(
+    variant: str,
+    ious: np.ndarray,
+    *,
+    epochs: int,
+    batch_size: int,
+    lr: float,
+    seed: int,
+    steps: int,
+    train_pairs: int,
+    test_pairs: int,
+) -> dict:
+    """Assemble the metrics.json payload, including the run config needed to
+    reproduce it (epochs/batch_size/lr/seed) and JSON-safe per-class IoU."""
+    defect_ious = np.array([ious[c] for c in CLASS_IDS if c != 0], dtype=float)
+    mean_defect = np.nanmean(defect_ious) if np.any(np.isfinite(defect_ious)) else np.nan
+    return {
+        "variant": variant,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "lr": lr,
+        "seed": seed,
+        "steps": steps,
+        "train_pairs": train_pairs,
+        "test_pairs": test_pairs,
+        "per_class_iou": per_class_iou_json(ious),
+        "mean_defect_iou": _finite_or_none(mean_defect),
+    }
+
+
 @torch.no_grad()
 def evaluate(model, loader, device, num_labels: int) -> np.ndarray:
     model.eval()
@@ -141,6 +182,9 @@ def main() -> None:
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     buckets = frozen_split_pairs()  # authoritative committed manifest, NOT args.seed
+    # buckets["val"] (126) is intentionally reserved and unused here: the
+    # comparison uses fixed hyperparameters with no model selection, so the
+    # frozen test split is evaluated and reported directly.
     train_pairs = buckets["train"][: args.subset or None]
     num_labels = len(CLASS_IDS)
 
@@ -172,16 +216,17 @@ def main() -> None:
 
     conf = evaluate(model, test_loader, device, num_labels)
     ious = iou_from_confusion(conf)
-    defect_ids = [c for c in CLASS_IDS if c != 0]
-    metrics = {
-        "variant": args.variant,
-        "epochs": args.epochs,
-        "steps": step,
-        "train_pairs": len(train_pairs),
-        "test_pairs": len(buckets["test"]),
-        "per_class_iou": {CLASS_NAMES[c]: float(ious[c]) for c in CLASS_IDS},
-        "mean_defect_iou": float(np.nanmean([ious[c] for c in defect_ids])),
-    }
+    metrics = build_metrics(
+        args.variant,
+        ious,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        seed=args.seed,
+        steps=step,
+        train_pairs=len(train_pairs),
+        test_pairs=len(buckets["test"]),
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
     model.save_pretrained(args.output_dir / "checkpoint")
