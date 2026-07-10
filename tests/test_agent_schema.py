@@ -52,3 +52,45 @@ def test_parse_report_json_extracts_fenced_json():
 def test_parse_report_json_raises_on_garbage():
     with pytest.raises(ValueError):
         parse_report_json("not json at all")
+
+
+def test_invalid_severity_rejected():
+    with pytest.raises(ValidationError):
+        _finding(severity="catastrophic")
+
+
+def test_parse_report_json_handles_unclosed_fence():
+    raw = 'Here you go:\n```json\n{"property_id": "p1", "findings": [], "summary": "ok"}'
+    report = parse_report_json(raw)
+    assert report.property_id == "p1"
+
+
+def test_parse_report_json_skips_example_block_and_returns_real_report():
+    raw = (
+        'The schema looks like this:\n'
+        '{"property_id": "example", "findings": []}\n'  # no summary: fails validation
+        'Here is the report:\n'
+        '{"property_id": "p2", "findings": [], "summary": "real"}\n'
+    )
+    report = parse_report_json(raw)
+    assert report.property_id == "p2" and report.summary == "real"
+
+
+def test_parse_report_json_handles_nested_braces():
+    raw = (
+        'Report:\n{"property_id": "p1", "findings": [{"finding": "crack", '
+        '"tier": "observation", "severity": "unknown", "evidence_photo": "a.jpg", '
+        '"citations": [{"card_id": "c1", "title": "t"}], "notes": ""}], "summary": "x"}'
+    )
+    report = parse_report_json(raw)
+    assert report.findings[0].citations[0].card_id == "c1"
+    assert report.summary == "x"
+
+
+def test_parse_report_json_ignores_braces_inside_strings():
+    raw = (
+        'Output:\n{"property_id": "p1", "findings": [], '
+        '"summary": "watch the stray } and {not json} here"}'
+    )
+    report = parse_report_json(raw)
+    assert "{not json}" in report.summary

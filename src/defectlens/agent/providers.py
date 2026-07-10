@@ -10,6 +10,7 @@ Token counts are estimates (len/4) for local/mock; Bedrock reports real usage.
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -32,10 +33,19 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+def _image_to_png_bytes(image) -> bytes:
+    """Encode a PIL image as lossless PNG bytes; PNG carries RGBA natively."""
+    import io
+
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 class LLMProvider(Protocol):
     name: str
 
-    def complete(self, prompt: str, image=None) -> str: ...
+    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str: ...
 
     def usage(self) -> Usage: ...
 
@@ -47,7 +57,7 @@ class MockProvider:
     calls: list[ProviderCall] = field(default_factory=list)
     _usage: Usage = field(default_factory=Usage)
 
-    def complete(self, prompt: str, image=None) -> str:
+    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str:
         response = self.responses[len(self.calls)]
         self.calls.append(ProviderCall(prompt=prompt, had_image=image is not None))
         self._usage.calls += 1
@@ -56,7 +66,7 @@ class MockProvider:
         return response
 
     def usage(self) -> Usage:
-        return self._usage
+        return dataclasses.replace(self._usage)
 
 
 class LocalQwenProvider:
@@ -68,15 +78,15 @@ class LocalQwenProvider:
         self._describer = describer
         self._usage = Usage()
 
-    def complete(self, prompt: str, image=None) -> str:
-        response = self._describer.chat(prompt, image=image)
+    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str:
+        response = self._describer.chat(prompt, image=image, max_new_tokens=max_tokens)
         self._usage.calls += 1
         self._usage.input_tokens += _estimate_tokens(prompt)
         self._usage.output_tokens += _estimate_tokens(response)
         return response  # cost stays 0.0: local compute
 
     def usage(self) -> Usage:
-        return self._usage
+        return dataclasses.replace(self._usage)
 
 
 # Haiku 4.5 on-demand pricing (USD per million tokens), for cost-per-report.
@@ -109,19 +119,17 @@ class BedrockHaikuProvider:
             )
         return self._client
 
-    def complete(self, prompt: str, image=None) -> str:
+    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str:
         content: list[dict] = []
         if image is not None:
-            import io
-
-            buf = io.BytesIO()
-            image.save(buf, format="JPEG")
-            content.append({"image": {"format": "jpeg", "source": {"bytes": buf.getvalue()}}})
+            content.append(
+                {"image": {"format": "png", "source": {"bytes": _image_to_png_bytes(image)}}}
+            )
         content.append({"text": prompt})
         resp = self._ensure_client().converse(
             modelId=self._model_id,
             messages=[{"role": "user", "content": content}],
-            inferenceConfig={"maxTokens": 1024},
+            inferenceConfig={"maxTokens": max_tokens},
         )
         u = resp.get("usage", {})
         self._usage.calls += 1
@@ -134,4 +142,4 @@ class BedrockHaikuProvider:
         return resp["output"]["message"]["content"][0]["text"]
 
     def usage(self) -> Usage:
-        return self._usage
+        return dataclasses.replace(self._usage)
