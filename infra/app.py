@@ -12,9 +12,10 @@ Three deploy stacks (all ca-central-1, account 002559670021):
                  Cost-Explorer guard that throttles the API stage to zero if
                  spend crosses $2/day.
 
-GitHubOidcStack backs the keyless CI in .github/workflows/deploy.yml. It is not
-part of the demo deploy: deploy it once (`cdk deploy GitHubOidcStack`) and set
-the AWS_OIDC_ROLE_ARN repo variable to activate CI's AWS jobs (infra/README.md).
+GitHubOidcStack backs the keyless CI in .github/workflows/deploy.yml (split
+synth/deploy roles). It is not part of the demo deploy: deploy it once
+(`cdk deploy GitHubOidcStack`) and set the AWS_OIDC_SYNTH_ROLE_ARN +
+AWS_OIDC_ROLE_ARN repo variables to activate CI's AWS jobs (infra/README.md).
 """
 from __future__ import annotations
 

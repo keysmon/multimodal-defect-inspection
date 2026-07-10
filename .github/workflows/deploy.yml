@@ -4,18 +4,23 @@ name: deploy
 # The actual deploy is a SEPARATE job gated on a manual workflow_dispatch - this
 # is the user's demo on the user's bill, so nothing deploys automatically.
 #
-# Keyless AWS access (no stored keys): jobs that need AWS assume the
-# GitHubOidcStack role via GitHub's OIDC provider. The wiring is gated on the
-# AWS_OIDC_ROLE_ARN repository variable so this workflow stays green before the
-# stack exists:
+# Keyless AWS access (no stored keys): jobs that need AWS assume a
+# GitHubOidcStack role via GitHub's OIDC provider. Blast radius is split across
+# two roles - the every-push synth job holds only prefix-scoped S3 read, while
+# the admin-capable CDK-bootstrap-assume role is reserved for the manual deploy
+# job. The wiring is gated on repository variables so this workflow stays green
+# before the stack exists:
 #
 #   1. Deploy the stack once:
 #        cd infra && npx aws-cdk@2 deploy GitHubOidcStack --profile defectlens
-#   2. Publish the role ARN (from the stack's DeployRoleArn output):
+#   2. Publish the role ARNs (from the stack's SynthRoleArn / DeployRoleArn
+#      outputs):
+#        gh variable set AWS_OIDC_SYNTH_ROLE_ARN \
+#          --body arn:aws:iam::002559670021:role/defectlens-github-synth
 #        gh variable set AWS_OIDC_ROLE_ARN \
 #          --body arn:aws:iam::002559670021:role/defectlens-github-deploy
 #
-# While the variable is unset, `synth-api` is skipped (workflow still green)
+# While the variables are unset, `synth-api` is skipped (workflow still green)
 # and a manual `deploy` dispatch fails loudly with instructions. Once set, every
 # push additionally synths ApiStack against the real model artifacts.
 #
@@ -28,6 +33,9 @@ name: deploy
 #     --profile defectlens
 #   aws s3 sync models/audio_bank/ \
 #     s3://defectlens-phase3-ca-002559670021/phase5/audio_bank/ --profile defectlens
+#
+# Actions are pinned to full commit SHAs (supply-chain hardening; the version
+# comment is informational - bump by replacing the SHA).
 on:
   push:
     branches: [main]
@@ -51,8 +59,8 @@ jobs:
   test-and-synth:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
       - name: Install backend + test deps
@@ -64,7 +72,7 @@ jobs:
           pip install -r infra/requirements.txt pytest
       - name: pytest
         run: pytest -q
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
       - name: Build frontend (FrontendStack synth needs frontend/build)
@@ -78,20 +86,22 @@ jobs:
           npx --yes aws-cdk@2 synth FrontendStack OpsStack GpuStack GitHubOidcStack --exclusively
 
   # ApiStack synth against the REAL model artifacts, pulled from S3 via the
-  # keyless OIDC role. Skipped (not failed) until GitHubOidcStack is deployed
-  # and AWS_OIDC_ROLE_ARN is set - see the header comment.
+  # keyless OIDC role. This job runs on every push, so it assumes the
+  # artifact-read-ONLY synth role - never the deploy role. Skipped (not failed)
+  # until GitHubOidcStack is deployed and AWS_OIDC_SYNTH_ROLE_ARN is set - see
+  # the header comment.
   synth-api:
-    if: vars.AWS_OIDC_ROLE_ARN != ''
+    if: vars.AWS_OIDC_SYNTH_ROLE_ARN != ''
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Configure AWS credentials (OIDC, keyless)
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Configure AWS credentials (OIDC, keyless, read-only role)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
-          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_OIDC_SYNTH_ROLE_ARN }}
           role-session-name: defectlens-ci-synth
           aws-region: ${{ env.AWS_REGION }}
       - name: Sync model artifacts from S3
@@ -106,10 +116,10 @@ jobs:
               exit 1
             fi
           done
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
       - name: cdk synth ApiStack
@@ -130,18 +140,21 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - name: Require the deployed OIDC role
+      - name: Require the deployed OIDC deploy role
         if: vars.AWS_OIDC_ROLE_ARN == ''
         run: |
           echo "::error::AWS_OIDC_ROLE_ARN repository variable is not set. Deploy GitHubOidcStack and set it (see the header comment in this workflow)."
           exit 1
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - name: Configure AWS credentials (OIDC, keyless)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
           role-session-name: defectlens-ci-deploy
           aws-region: ${{ env.AWS_REGION }}
+          # 2h session (role MaxSessionDuration matches): the QEMU-emulated
+          # image build can outlast the default 1h.
+          role-duration-seconds: 7200
       - name: Sync model artifacts from S3 (baked into the ApiStack image)
         run: |
           aws s3 sync "$ARTIFACTS_S3/cloud_artifacts/" models/cloud_artifacts/
@@ -160,13 +173,13 @@ jobs:
       # image build). If it becomes painful, deploy ApiStack from an Apple
       # Silicon machine instead and let CI deploy the rest.
       - name: Set up QEMU (arm64 image build on x86 runner)
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
         with:
           platforms: arm64
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
       - name: Build frontend (single-origin, relative /api)

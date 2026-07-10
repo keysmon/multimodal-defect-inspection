@@ -10,7 +10,7 @@ account `002559670021`, region `ca-central-1`, profile `defectlens`.
 | `ApiStack` | Container Lambda (from `deploy/Dockerfile.lambda`, arm64, 6144 MB, 120 s) + HTTP API with a named `api` stage (throttle 5/s, burst 10). Bedrock (Haiku) IAM. |
 | `FrontendStack` | Private S3 (OAC) + CloudFront. Default behaviour serves the React build; `/api/*` routes to the `api` stage. |
 | `OpsStack` | SNS + email, `defectlens-deploy-15` Budget ($15/mo, 50/80/100%), 6h health canary, 6h Cost-Explorer `$2/day` kill-switch. |
-| `GitHubOidcStack` | GitHub OIDC provider + keyless CI role, trust-pinned to `keysmon/defect-lens@main`. Deploy once to activate CI's AWS jobs (see below). |
+| `GitHubOidcStack` | GitHub OIDC provider + two keyless CI roles (synth: artifact-read-only; deploy: CDK bootstrap-assume), trust-pinned to `keysmon/defect-lens@main`. Deploy once to activate CI's AWS jobs (see below). |
 
 ## Single-origin routing (no CORS)
 
@@ -40,18 +40,20 @@ budget for a slow first push.
 ## CI (GitHub Actions, keyless)
 
 `.github/workflows/deploy.yml` runs pytest + `cdk synth` on every push to `main` and keeps `cdk deploy` behind a manual `workflow_dispatch`.
-AWS access is keyless: CI assumes `defectlens-github-deploy` via GitHub's OIDC provider (`GitHubOidcStack`), trust-pinned to `repo:keysmon/defect-lens:ref:refs/heads/main`.
-The role may only assume the CDK bootstrap roles and read the two model-artifact S3 prefixes - no stored keys anywhere.
+AWS access is keyless: CI assumes a `GitHubOidcStack` role via GitHub's OIDC provider, trust-pinned to `repo:keysmon/defect-lens:ref:refs/heads/main`.
+Blast radius is split across two roles: the every-push `synth-api` job assumes `defectlens-github-synth` (prefix-scoped S3 read ONLY), while `defectlens-github-deploy` (CDK bootstrap-role assume, region+account-scoped, 2h max session) is reserved for the manual deploy job.
+No stored keys anywhere; workflow actions are pinned to full commit SHAs.
 
 Activate once:
 
 ```bash
 cd infra
 npx aws-cdk@2 deploy GitHubOidcStack --profile defectlens
+gh variable set AWS_OIDC_SYNTH_ROLE_ARN --body arn:aws:iam::002559670021:role/defectlens-github-synth
 gh variable set AWS_OIDC_ROLE_ARN --body arn:aws:iam::002559670021:role/defectlens-github-deploy
 ```
 
-Until the variable is set, the AWS-touching jobs are skipped (CI stays green) and a manual deploy dispatch fails with instructions.
+Until the variables are set, the AWS-touching jobs are skipped (CI stays green) and a manual deploy dispatch fails with instructions.
 ApiStack's gitignored image artifacts are synced by CI from `s3://defectlens-phase3-ca-002559670021/phase5/{cloud_artifacts,audio_bank}/`; publish/refresh them from a dev machine:
 
 ```bash
