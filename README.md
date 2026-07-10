@@ -165,6 +165,71 @@ stain 0.33 — which is the measured gap the Phase 3 fine-tune exists to close.
 </details>
 
 <details>
+<summary><b>Phase 5.6 - thermal scout and controlled negative result (BFDD)</b></summary>
+
+Does a thermal (IR) channel earn a place as a fourth modality? To find out, a
+controlled three-way segmentation comparison was run on BFDD (Building Facade
+Defect Dataset: 838 pixel-aligned RGB+IR pairs, 6 classes, CC BY 4.0):
+SegFormer-b0 fine-tuned separately on **RGB-only**, **IR-only**, and **RGB+IR
+early fusion**, with everything else held identical - the same frozen seed-42
+split, model, 25-epoch schedule, learning rate, and seed; only the input
+channels differ.
+
+Per-class test IoU (higher is better; background reported but not the point):
+
+| Class | RGB-only | IR-only | RGB+IR fusion |
+|---|---|---|---|
+| background | 0.960 | 0.937 | 0.951 |
+| crack | 0.310 | 0.000 | 0.144 |
+| hollow_area | 0.520 | 0.056 | 0.326 |
+| peeling | 0.406 | 0.305 | 0.379 |
+| erosion | 0.669 | 0.278 | 0.508 |
+| stain | 0.455 | 0.141 | 0.373 |
+| **mean defect** | **0.472** | **0.156** | **0.346** |
+
+![BFDD hollow_area: RGB-only vs IR-only predictions on the largest-modality-gap class](docs/images/thermal-comparison.png)
+
+**Finding, stated plainly:** on BFDD with SegFormer-b0, RGB-only beats both
+IR-only and naive RGB+IR early fusion on every class, background included.
+Thermal did not earn a modality slot under this recipe. That is the measured
+result and it is reported as-is, not spun into a win.
+
+**Why (analysis):**
+
+- Fusion is handicapped at initialization, not merely outperformed. The fusion
+  variant's 6-channel patch-embed stem is randomly re-initialized
+  (`ignore_mismatched_sizes`) while RGB and IR keep their pretrained 3-channel
+  stems. Fusion reached the lowest training loss (0.108, vs RGB 0.123 and IR
+  0.255) yet worse test IoU than RGB - an overfitting signature consistent with
+  a weaker-initialized stem. The documented follow-up is a hybrid stem: copy the
+  pretrained 3-channel weights into the RGB half and zero-initialize the IR half
+  instead of re-initializing the whole stem.
+- IR's near-zero crack IoU (0.000) is physically plausible: cracks are thin,
+  roughly sub-pixel structures below the thermal sensor's effective spatial
+  resolution, so they are largely not present to segment in the IR image.
+- RGB's strong hollow_area score (0.520) is likely leaning on visible
+  co-occurring cues (staining, surface texture at the annotated regions) even
+  though hollow areas are an IR-defined defect. This is an inference from the
+  imagery, not a measured claim.
+
+**Honesty caveats:**
+
+- One run per variant, no error bars; the MPS backend is non-deterministic, so
+  small gaps may be run-to-run noise (the large RGB-vs-IR gaps are not).
+- The class-id to name mapping was verified from evidence, not the source
+  paper's listing order; crack/hollow_area/stain are high-confidence while
+  peeling vs erosion rests on visual inference - provenance in
+  [docs/datasets.md](docs/datasets.md).
+- BFDD is 838 images from a single publication (one region and campaign), so
+  scene diversity is limited.
+
+Reproduce: `bash scripts/fetch_bfdd.sh`, then `bash scripts/run_thermal_comparison.sh`
+(writes `results/thermal_bfdd.json`); regenerate the figure with
+`python scripts/make_thermal_figure.py`.
+
+</details>
+
+<details>
 <summary><b>Cross-dataset generalization (Phase 5.4)</b></summary>
 
 Does the fine-tune survive buildings it has never seen? Evaluated zero-shot
