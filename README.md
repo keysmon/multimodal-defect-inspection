@@ -202,9 +202,8 @@ result and it is reported as-is, not spun into a win.
   stems. Fusion reached the lowest training loss (0.108, vs RGB 0.123 and IR
   0.255; `final_train_loss` committed per variant in `results/thermal_bfdd.json`)
   yet worse test IoU than RGB - an overfitting signature consistent with a
-  weaker-initialized stem. The documented follow-up is a hybrid stem: copy the
-  pretrained 3-channel weights into the RGB half and zero-initialize the IR half
-  instead of re-initializing the whole stem.
+  weaker-initialized stem. This hypothesis was then tested directly with a
+  hybrid stem - see the seed-replicated follow-up below.
 - IR's near-zero crack IoU (0.000) is physically plausible: cracks are thin,
   roughly sub-pixel structures below the thermal sensor's effective spatial
   resolution, so they are largely not present to segment in the IR image.
@@ -213,10 +212,55 @@ result and it is reported as-is, not spun into a win.
   though hollow areas are an IR-defined defect. This is an inference from the
   imagery, not a measured claim.
 
+**Follow-up: hybrid stem, replicated across seeds (AWS GPU):**
+
+The initialization hypothesis was tested with a **hybrid stem**: the pretrained
+3-channel patch-embed weights are copied into the RGB half of the 6-channel
+stem and the IR half is zero-initialized, so fusion starts as "the pretrained
+RGB model plus a learnable IR delta" instead of a randomly re-initialized stem.
+Each fusion variant was then run at 3 seeds (42/43/44) on CUDA (g5.xlarge spot
+instance, 1.7 h ≈ $1 of compute, self-terminating), same frozen split and
+schedule; IR-only was not replicated because its gap is far larger than any
+plausible seed noise.
+
+Per-class test IoU, mean ± std over 3 seeds:
+
+| Class | RGB-only | RGB+IR naive fusion | RGB+IR hybrid stem |
+|---|---|---|---|
+| background | 0.959 ± 0.001 | 0.953 ± 0.000 | 0.960 ± 0.000 |
+| crack | 0.303 ± 0.005 | 0.141 ± 0.008 | 0.299 ± 0.009 |
+| hollow_area | 0.510 ± 0.017 | 0.279 ± 0.092 | 0.498 ± 0.007 |
+| peeling | 0.413 ± 0.011 | 0.361 ± 0.019 | 0.461 ± 0.014 |
+| erosion | 0.656 ± 0.012 | 0.565 ± 0.011 | 0.664 ± 0.004 |
+| stain | 0.432 ± 0.018 | 0.386 ± 0.008 | 0.436 ± 0.005 |
+| **mean defect** | **0.463 ± 0.008** | **0.346 ± 0.017** | **0.472 ± 0.004** |
+
+What the replication shows:
+
+- **The naive-fusion deficit is real, and it is an initialization artifact.**
+  Naive fusion's deficit replicates across all seeds (0.346 ± 0.017 vs RGB's
+  0.463 ± 0.008), and the hybrid stem eliminates it entirely (0.472 ± 0.004) -
+  the IR channels were never hurting; the randomly re-initialized stem was.
+- **Fusion reaches parity with RGB, not a clear win.** Hybrid fusion's +0.009
+  mean-defect edge over RGB is about one standard deviation - within noise.
+- **Peeling is the one clear per-class IR gain**: 0.461 ± 0.014 vs
+  0.413 ± 0.011, a gap larger than the combined error bars and consistent
+  across seeds.
+- **The subsurface hypothesis remains unsupported**: hollow_area, the class
+  where thermal was expected to help most, shows no gain (0.498 ± 0.007 vs
+  0.510 ± 0.017).
+
+**Verdict, now confound-controlled:** thermal still does not earn a modality
+slot on this dataset and recipe - but the claim is now clean. The original
+"fusion loses by 0.13" was an initialization artifact; the controlled result is
+parity overall with one genuine per-class gain (peeling).
+
 **Honesty caveats:**
 
-- One run per variant, no error bars; the MPS backend is non-deterministic, so
-  small gaps may be run-to-run noise (the large RGB-vs-IR gaps are not).
+- The scout table above is one run per variant on the MPS backend; the
+  follow-up table is 3 seeds per variant on CUDA. Small differences between
+  the two tables (e.g. RGB mean defect 0.472 vs 0.463 ± 0.008) are seed and
+  backend effects. The replication is single-backend (CUDA only).
 - The class-id to name mapping was verified from evidence, not the source
   paper's listing order; crack/hollow_area/stain are high-confidence while
   peeling vs erosion rests on visual inference - provenance in
@@ -226,7 +270,11 @@ result and it is reported as-is, not spun into a win.
 
 Reproduce: `bash scripts/fetch_bfdd.sh`, then `bash scripts/run_thermal_comparison.sh`
 (writes `results/thermal_bfdd.json`); regenerate the figure with
-`python scripts/make_thermal_figure.py`.
+`python scripts/make_thermal_figure.py`. Seed replication:
+`bash scripts/run_thermal_seeds.sh` (writes `results/thermal_bfdd_seeds.json`);
+on an AWS GPU, `scripts/aws/launch_gpu.sh` with
+`BOOTSTRAP_FILE=scripts/aws/bootstrap_thermal.sh` runs the full 9-run matrix
+unattended and self-terminates.
 
 </details>
 
