@@ -158,7 +158,13 @@ def test_bedrock_client_fails_fast_no_retries():
     """Regression lock: with zero applied Bedrock quota every Converse call
     throttles, and boto3's default retries (initial + 4 backoff attempts) were
     adding ~10s to every /analyze. describe()'s ""-fallback is the retry
-    strategy — the client itself must make exactly one attempt."""
+    strategy — the client itself must make exactly one attempt.
+
+    Skips where boto3 is absent (CI): this suite keeps boto3 optional by
+    design, and the config only matters in environments that have it."""
+    import pytest
+
+    pytest.importorskip("boto3")
     d = BedrockDescriber()
     client = d._bedrock_client()  # builds the client; no network call
     cfg = client.meta.config
