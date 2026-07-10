@@ -10,7 +10,7 @@ account `002559670021`, region `ca-central-1`, profile `defectlens`.
 | `ApiStack` | Container Lambda (from `deploy/Dockerfile.lambda`, arm64, 6144 MB, 120 s) + HTTP API with a named `api` stage (throttle 5/s, burst 10). Bedrock (Haiku) IAM. |
 | `FrontendStack` | Private S3 (OAC) + CloudFront. Default behaviour serves the React build; `/api/*` routes to the `api` stage. |
 | `OpsStack` | SNS + email, `defectlens-deploy-15` Budget ($15/mo, 50/80/100%), 6h health canary, 6h Cost-Explorer `$2/day` kill-switch. |
-| `GitHubOidcStack` | Keyless CI deploy role. **Authored, not deployed** by the demo milestone. |
+| `GitHubOidcStack` | GitHub OIDC provider + keyless CI role, trust-pinned to `keysmon/defect-lens@main`. Deploy once to activate CI's AWS jobs (see below). |
 
 ## Single-origin routing (no CORS)
 
@@ -36,6 +36,32 @@ npx aws-cdk@2 deploy ApiStack FrontendStack OpsStack --require-approval never --
 
 The container image (~8 GB) is built and pushed to ECR inside `cdk deploy ApiStack`;
 budget for a slow first push.
+
+## CI (GitHub Actions, keyless)
+
+`.github/workflows/deploy.yml` runs pytest + `cdk synth` on every push to `main` and keeps `cdk deploy` behind a manual `workflow_dispatch`.
+AWS access is keyless: CI assumes `defectlens-github-deploy` via GitHub's OIDC provider (`GitHubOidcStack`), trust-pinned to `repo:keysmon/defect-lens:ref:refs/heads/main`.
+The role may only assume the CDK bootstrap roles and read the two model-artifact S3 prefixes - no stored keys anywhere.
+
+Activate once:
+
+```bash
+cd infra
+npx aws-cdk@2 deploy GitHubOidcStack --profile defectlens
+gh variable set AWS_OIDC_ROLE_ARN --body arn:aws:iam::002559670021:role/defectlens-github-deploy
+```
+
+Until the variable is set, the AWS-touching jobs are skipped (CI stays green) and a manual deploy dispatch fails with instructions.
+ApiStack's gitignored image artifacts are synced by CI from `s3://defectlens-phase3-ca-002559670021/phase5/{cloud_artifacts,audio_bank}/`; publish/refresh them from a dev machine:
+
+```bash
+aws s3 cp models/cloud_artifacts/card_vectors.npz \
+  s3://defectlens-phase3-ca-002559670021/phase5/cloud_artifacts/card_vectors.npz --profile defectlens
+aws s3 sync models/audio_bank/ \
+  s3://defectlens-phase3-ca-002559670021/phase5/audio_bank/ --profile defectlens
+```
+
+The CI `deploy` job builds the arm64 Lambda image under QEMU emulation on GitHub's x86 runners - budget an hour+ for a cold image build, or deploy `ApiStack` from an Apple Silicon machine and let CI deploy the rest.
 
 ## Known caveats (measured / documented)
 

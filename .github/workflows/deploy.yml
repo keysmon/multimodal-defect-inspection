@@ -3,16 +3,51 @@ name: deploy
 # CI (pytest + cdk synth) runs on every push to main and validates the infra.
 # The actual deploy is a SEPARATE job gated on a manual workflow_dispatch - this
 # is the user's demo on the user's bill, so nothing deploys automatically.
+#
+# Keyless AWS access (no stored keys): jobs that need AWS assume the
+# GitHubOidcStack role via GitHub's OIDC provider. The wiring is gated on the
+# AWS_OIDC_ROLE_ARN repository variable so this workflow stays green before the
+# stack exists:
+#
+#   1. Deploy the stack once:
+#        cd infra && npx aws-cdk@2 deploy GitHubOidcStack --profile defectlens
+#   2. Publish the role ARN (from the stack's DeployRoleArn output):
+#        gh variable set AWS_OIDC_ROLE_ARN \
+#          --body arn:aws:iam::002559670021:role/defectlens-github-deploy
+#
+# While the variable is unset, `synth-api` is skipped (workflow still green)
+# and a manual `deploy` dispatch fails loudly with instructions. Once set, every
+# push additionally synths ApiStack against the real model artifacts.
+#
+# Model artifacts (gitignored, live in S3): the ApiStack Lambda image COPYs
+# models/cloud_artifacts + models/audio_bank. CI syncs them from
+# s3://defectlens-phase3-ca-002559670021/phase5/{cloud_artifacts,audio_bank}/.
+# Publish/refresh them from a dev machine with:
+#   aws s3 cp models/cloud_artifacts/card_vectors.npz \
+#     s3://defectlens-phase3-ca-002559670021/phase5/cloud_artifacts/card_vectors.npz \
+#     --profile defectlens
+#   aws s3 sync models/audio_bank/ \
+#     s3://defectlens-phase3-ca-002559670021/phase5/audio_bank/ --profile defectlens
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege by default; only the AWS jobs add id-token: write (the OIDC
+# token mint permission).
 permissions:
-  id-token: write   # for the OIDC role assumption in the deploy job
   contents: read
 
+env:
+  AWS_REGION: ca-central-1
+  ARTIFACTS_S3: s3://defectlens-phase3-ca-002559670021/phase5
+
 jobs:
+  # Everything that needs NO AWS credentials - stays green with or without the
+  # OIDC stack. ApiStack is excluded here: its synth would "pass" without the
+  # gitignored model artifacts (Docker COPY failures only surface at image
+  # build), so it is validated honestly in synth-api against the real S3
+  # artifacts instead.
   test-and-synth:
     runs-on: ubuntu-latest
     steps:
@@ -25,7 +60,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -e .
-          pip install pytest
+          # infra deps too, so the CDK-assertions tests (trust policy etc.) run
+          pip install -r infra/requirements.txt pytest
       - name: pytest
         run: pytest -q
       - uses: actions/setup-node@v4
@@ -36,27 +72,97 @@ jobs:
         run: |
           npm ci
           REACT_APP_API_URL=/api npm run build
-      - name: cdk synth
+      - name: cdk synth (all stacks except ApiStack)
         run: |
-          pip install -r infra/requirements.txt
           cd infra
-          # ApiStack is excluded: its Docker image COPYs gitignored model
-          # artifacts (models/cloud_artifacts, models/audio_bank) that only
-          # exist locally/S3. Add an OIDC-authenticated S3 sync step before
-          # including it here.
           npx --yes aws-cdk@2 synth FrontendStack OpsStack GpuStack GitHubOidcStack --exclusively
 
-  deploy:
-    needs: test-and-synth
-    if: github.event_name == 'workflow_dispatch'
+  # ApiStack synth against the REAL model artifacts, pulled from S3 via the
+  # keyless OIDC role. Skipped (not failed) until GitHubOidcStack is deployed
+  # and AWS_OIDC_ROLE_ARN is set - see the header comment.
+  synth-api:
+    if: vars.AWS_OIDC_ROLE_ARN != ''
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Configure AWS credentials (OIDC, keyless)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::002559670021:role/defectlens-github-deploy
-          aws-region: ca-central-1
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          role-session-name: defectlens-ci-synth
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Sync model artifacts from S3
+        run: |
+          aws s3 sync "$ARTIFACTS_S3/cloud_artifacts/" models/cloud_artifacts/
+          aws s3 sync "$ARTIFACTS_S3/audio_bank/" models/audio_bank/
+          for f in models/cloud_artifacts/card_vectors.npz \
+                   models/audio_bank/bank.npz \
+                   models/audio_bank/calibration.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$f missing after S3 sync - publish it from a dev machine (see the header comment in this workflow)"
+              exit 1
+            fi
+          done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: cdk synth ApiStack
+        run: |
+          pip install -r infra/requirements.txt
+          # app.py instantiates FrontendStack, whose S3 asset must EXIST even
+          # though only ApiStack is synthed here; the real build is already
+          # validated in test-and-synth, so a stub keeps this job lean.
+          mkdir -p frontend/build && echo 'ci stub' > frontend/build/index.html
+          cd infra
+          npx --yes aws-cdk@2 synth ApiStack --exclusively
+
+  deploy:
+    needs: test-and-synth
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Require the deployed OIDC role
+        if: vars.AWS_OIDC_ROLE_ARN == ''
+        run: |
+          echo "::error::AWS_OIDC_ROLE_ARN repository variable is not set. Deploy GitHubOidcStack and set it (see the header comment in this workflow)."
+          exit 1
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials (OIDC, keyless)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          role-session-name: defectlens-ci-deploy
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Sync model artifacts from S3 (baked into the ApiStack image)
+        run: |
+          aws s3 sync "$ARTIFACTS_S3/cloud_artifacts/" models/cloud_artifacts/
+          aws s3 sync "$ARTIFACTS_S3/audio_bank/" models/audio_bank/
+          for f in models/cloud_artifacts/card_vectors.npz \
+                   models/audio_bank/bank.npz \
+                   models/audio_bank/calibration.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$f missing after S3 sync - publish it from a dev machine (see the header comment in this workflow)"
+              exit 1
+            fi
+          done
+      # The Lambda image is linux/arm64; GitHub's default runners are x86_64,
+      # so the docker build runs under QEMU emulation. It works but is SLOW
+      # (torch install + HF weight bake emulated; budget an hour+ for a cold
+      # image build). If it becomes painful, deploy ApiStack from an Apple
+      # Silicon machine instead and let CI deploy the rest.
+      - name: Set up QEMU (arm64 image build on x86 runner)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

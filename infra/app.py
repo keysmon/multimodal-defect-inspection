@@ -12,9 +12,9 @@ Three deploy stacks (all ca-central-1, account 002559670021):
                  Cost-Explorer guard that throttles the API stage to zero if
                  spend crosses $2/day.
 
-GitHubOidcStack is authored here but NOT deployed by the milestone (synth-only):
-the demo deploy creates only Api/Frontend/Ops. Deploy the OIDC stack later when
-wiring CI.
+GitHubOidcStack backs the keyless CI in .github/workflows/deploy.yml. It is not
+part of the demo deploy: deploy it once (`cdk deploy GitHubOidcStack`) and set
+the AWS_OIDC_ROLE_ARN repo variable to activate CI's AWS jobs (infra/README.md).
 """
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ OpsStack(
     monthly_budget_usd=15,
 )
 
-# Authored for CI wiring; intentionally not part of the demo deploy.
+# Keyless CI (deploy once + set AWS_OIDC_ROLE_ARN; see module docstring).
 GitHubOidcStack(app, "GitHubOidcStack", env=env, github_repo=GITHUB_REPO)
 
 # Phase 5.5c GPU async path. Authored + synth-validated, but NOT auto-deployed:
