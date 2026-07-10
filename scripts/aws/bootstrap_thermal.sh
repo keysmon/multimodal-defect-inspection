@@ -15,6 +15,12 @@
 #   CHECKPOINT_SYNC_INTERVAL  reused as the S3 sync interval (default 120)
 set -euxo pipefail
 
+# cloud-init user-data runs with NO $HOME in the environment (learned live
+# 2026-07-10: fetch_bfdd.sh died on "HOME: unbound variable" under set -u,
+# ~$0.15 lesson). Everything downstream (fetch destination, Path.home() in
+# bfdd.py, pip cache) expects root's home — set it explicitly.
+export HOME=/root
+
 : "${S3_BUCKET:?S3_BUCKET must be set by launch_gpu.sh}"
 : "${AWS_REGION:=ca-central-1}"
 : "${IDLE_TIMEOUT_SEC:=1800}"
