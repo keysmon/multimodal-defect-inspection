@@ -130,9 +130,11 @@ def build_metrics(
     steps: int,
     train_pairs: int,
     test_pairs: int,
+    final_train_loss: float | None = None,
 ) -> dict:
     """Assemble the metrics.json payload, including the run config needed to
-    reproduce it (epochs/batch_size/lr/seed) and JSON-safe per-class IoU."""
+    reproduce it (epochs/batch_size/lr/seed), the last training-batch loss, and
+    JSON-safe per-class IoU."""
     defect_ious = np.array([ious[c] for c in CLASS_IDS if c != 0], dtype=float)
     mean_defect = np.nanmean(defect_ious) if np.any(np.isfinite(defect_ious)) else np.nan
     return {
@@ -144,6 +146,7 @@ def build_metrics(
         "steps": steps,
         "train_pairs": train_pairs,
         "test_pairs": test_pairs,
+        "final_train_loss": None if final_train_loss is None else _finite_or_none(final_train_loss),
         "per_class_iou": per_class_iou_json(ious),
         "mean_defect_iou": _finite_or_none(mean_defect),
     }
@@ -199,6 +202,7 @@ def main() -> None:
     )
 
     step = 0
+    final_train_loss = None
     for epoch in range(args.epochs):
         model.train()
         for x, y in train_loader:
@@ -206,9 +210,10 @@ def main() -> None:
             logits = F.interpolate(logits, size=y.shape[-2:], mode="bilinear", align_corners=False)
             loss = F.cross_entropy(logits, y.to(device))
             opt.zero_grad(); loss.backward(); opt.step()
+            final_train_loss = loss.item()
             step += 1
             if step % 50 == 0:
-                print(f"epoch {epoch} step {step} loss {loss.item():.4f}", flush=True)
+                print(f"epoch {epoch} step {step} loss {final_train_loss:.4f}", flush=True)
             if args.max_steps and step >= args.max_steps:
                 break
         if args.max_steps and step >= args.max_steps:
@@ -226,6 +231,7 @@ def main() -> None:
         steps=step,
         train_pairs=len(train_pairs),
         test_pairs=len(buckets["test"]),
+        final_train_loss=final_train_loss,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))

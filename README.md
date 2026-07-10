@@ -200,8 +200,9 @@ result and it is reported as-is, not spun into a win.
   variant's 6-channel patch-embed stem is randomly re-initialized
   (`ignore_mismatched_sizes`) while RGB and IR keep their pretrained 3-channel
   stems. Fusion reached the lowest training loss (0.108, vs RGB 0.123 and IR
-  0.255) yet worse test IoU than RGB - an overfitting signature consistent with
-  a weaker-initialized stem. The documented follow-up is a hybrid stem: copy the
+  0.255; `final_train_loss` committed per variant in `results/thermal_bfdd.json`)
+  yet worse test IoU than RGB - an overfitting signature consistent with a
+  weaker-initialized stem. The documented follow-up is a hybrid stem: copy the
   pretrained 3-channel weights into the RGB half and zero-initialize the IR half
   instead of re-initializing the whole stem.
 - IR's near-zero crack IoU (0.000) is physically plausible: cracks are thin,

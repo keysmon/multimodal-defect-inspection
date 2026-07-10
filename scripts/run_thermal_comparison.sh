@@ -17,6 +17,8 @@ done
 import json, pathlib
 # run_config pins the shared schedule (matches the per-variant train invocations
 # above + train_seg defaults for lr/seed) so results are reproducible on their own.
+# Per-variant blocks are copied whole from each metrics.json, so build_metrics
+# fields (per_class_iou, mean_defect_iou, final_train_loss, ...) carry over as-is.
 out = {"run_config": {"epochs": 25, "batch_size": 4, "lr": 6e-5, "seed": 42}}
 out.update({v: json.loads((pathlib.Path("models/thermal_bfdd")/v/"metrics.json").read_text())
             for v in ("rgb", "ir", "rgbir")})

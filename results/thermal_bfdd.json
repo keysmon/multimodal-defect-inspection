@@ -11,6 +11,7 @@
     "steps": 3675,
     "train_pairs": 586,
     "test_pairs": 126,
+    "final_train_loss": 0.1228,
     "per_class_iou": {
       "background": 0.9604521571805877,
       "crack": 0.31046063300392984,
@@ -27,6 +28,7 @@
     "steps": 3675,
     "train_pairs": 586,
     "test_pairs": 126,
+    "final_train_loss": 0.2548,
     "per_class_iou": {
       "background": 0.9367502141428189,
       "crack": 0.0,
@@ -43,6 +45,7 @@
     "steps": 3675,
     "train_pairs": 586,
     "test_pairs": 126,
+    "final_train_loss": 0.1078,
     "per_class_iou": {
       "background": 0.950981078836263,
       "crack": 0.14435739835100858,

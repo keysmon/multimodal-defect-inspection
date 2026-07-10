@@ -59,15 +59,22 @@ def test_build_metrics_schema_records_run_config():
     ious = np.full(len(CLASS_IDS), 0.5)
     m = build_metrics(
         "rgb", ious, epochs=25, batch_size=4, lr=6e-5, seed=42,
-        steps=3675, train_pairs=586, test_pairs=126,
+        steps=3675, train_pairs=586, test_pairs=126, final_train_loss=0.1228,
     )
     expected = {
         "variant", "epochs", "batch_size", "lr", "seed", "steps",
-        "train_pairs", "test_pairs", "per_class_iou", "mean_defect_iou",
+        "train_pairs", "test_pairs", "final_train_loss", "per_class_iou",
+        "mean_defect_iou",
     }
     assert expected <= set(m)
     assert (m["seed"], m["lr"], m["batch_size"], m["epochs"]) == (42, 6e-5, 4, 25)
+    assert m["final_train_loss"] == 0.1228
     assert set(m["per_class_iou"]) == set(CLASS_NAMES.values())
+    # loss is optional (no training steps) -> null, not a crash.
+    assert build_metrics(
+        "rgb", ious, epochs=0, batch_size=4, lr=6e-5, seed=42,
+        steps=0, train_pairs=0, test_pairs=126,
+    )["final_train_loss"] is None
 
 
 def test_per_class_iou_json_absent_class_serializes_as_null():
