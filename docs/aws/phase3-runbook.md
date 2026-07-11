@@ -1,9 +1,8 @@
 # Phase 3 GPU Runbook — QLoRA Fine-Tune on AWS
 
-Launch mechanics follow `~/.claude/skills/launching-ec2-instance-with-best-practices`
-(least-privilege IAM, hardened SG, encrypted gp3, IMDSv2, tagging). Cost/spot
-strategy follows `~/.claude/skills/aws-gpu-training-budget`. Both are $0 to
-read again before a real launch.
+Launch mechanics follow AWS EC2 launch best practices (least-privilege IAM,
+hardened SG, encrypted gp3, IMDSv2, tagging); the cost/spot strategy is
+documented inline below.
 
 **Account:** `002559670021`, profile `defectlens` ONLY, region `us-east-1`.
 **Budget:** ≤$10 total (S3 ~$0.10, smoke ~$0.30, full run ~$2.50, GPU eval
@@ -108,12 +107,9 @@ automatically and prints both prices before asking for confirmation.
 
 ## References
 
-- `~/.claude/skills/aws-gpu-training-budget/SKILL.md` — spot pricing
-  strategy, instance selection (g6 vs g5 vs g4dn), smoke-before-full,
-  checkpoint-to-S3, account guardrails.
-- `~/.claude/skills/launching-ec2-instance-with-best-practices/references/launch-ec2-instance-with-best-practices.md` —
-  official launch mechanics this runbook's scripts implement (IAM,
-  security groups, storage, tagging, IMDSv2).
+- Spot pricing strategy, instance selection (g6 vs g5 vs g4dn),
+  smoke-before-full, and checkpoint-to-S3 are encoded in the scripts under
+  `scripts/aws/` and explained where used.
 - This runbook covers the Phase 3 fine-tune's infrastructure only (data
   packaging through adapter landing); training methodology is in the README.
 

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Idempotent hardened security group for the DefectLens Phase 3 GPU training
-# box: SSH from the CURRENT public IP only, all egress (default). Per
-# ~/.claude/skills/launching-ec2-instance-with-best-practices — least
-# privilege, no 0.0.0.0/0 SSH.
+# box: SSH from the CURRENT public IP only, all egress (default).
+# Least privilege, no 0.0.0.0/0 SSH.
 #
 # Self-healing: if re-run from a different IP (e.g. laptop moved networks),
 # revokes the stale rule and authorizes the new one, so this stays safe to

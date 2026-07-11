@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Idempotent least-privilege IAM role + instance profile for the DefectLens
-# Phase 3 GPU training box. Scoped to ONLY the phase3 S3 bucket, per
-# ~/.claude/skills/launching-ec2-instance-with-best-practices (least privilege)
-# and ~/.claude/skills/aws-gpu-training-budget (data-to-box-via-S3 pattern).
+# Phase 3 GPU training box. Scoped to ONLY the phase3 S3 bucket:
+# least privilege, data-to-box-via-S3 pattern.
 #
 # Usage: scripts/aws/setup_iam.sh
 set -euo pipefail

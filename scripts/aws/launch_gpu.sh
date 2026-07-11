@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Launch ONE spot GPU instance for DefectLens Phase 3 QLoRA training.
 #
-# Guard rails (see also ~/.claude/skills/aws-gpu-training-budget and
-# ~/.claude/skills/launching-ec2-instance-with-best-practices):
+# Guard rails:
 #   - refuses to run if any instance tagged Project=defectlens is already
 #     pending/running (never double-bill)
 #   - re-checks spot price at launch time (prices move) and picks the
