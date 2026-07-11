@@ -27,6 +27,36 @@ class FakeRecognizer:
         return [FakeHit()]
 
 
+class TaggedCard:
+    def __init__(self, card_id, title, class_tags):
+        self.id = card_id
+        self.title = title
+        self.class_tags = class_tags
+
+
+class TaggedHit:
+    def __init__(self, card):
+        self.card = card
+        self.distance = 0.0
+
+
+class MixedTagRecognizer:
+    """One on-class ("crack") hit and one off-class ("mold") hit."""
+
+    def search_text(self, query, k=3):
+        return [
+            TaggedHit(TaggedCard("epa-001", "Crack repair", ["crack"])),
+            TaggedHit(TaggedCard("epa-999", "Mold remediation", ["mold"])),
+        ]
+
+
+class OffClassRecognizer:
+    """No hit matches the measured class."""
+
+    def search_text(self, query, k=3):
+        return [TaggedHit(TaggedCard("epa-999", "Mold remediation", ["mold"]))]
+
+
 class RecordingProvider:
     """Mock that records the max_tokens each call was given."""
 
@@ -47,13 +77,13 @@ class RecordingProvider:
         return Usage(calls=self._calls)
 
 
-def _run(tmp_path, responses, provider=None, describer=None, load_image=None):
+def _run(tmp_path, responses, provider=None, describer=None, load_image=None, recognizer=None):
     provider = provider or MockProvider(responses=responses)
     report, usage, trace_path = run_inspection(
         property_id="p1",
         image_paths=["crack.jpg", "clean.jpg"],
         describer=describer or FakeDescriber(),
-        recognizer=FakeRecognizer(),
+        recognizer=recognizer or FakeRecognizer(),
         provider=provider,
         audio_analyzer=None,
         audio_bytes=None,
@@ -69,6 +99,25 @@ def test_measured_finding_from_confident_classification(tmp_path):
     assert len(measured) == 1
     assert measured[0].defect_class == "crack"
     assert measured[0].citations[0].card_id == "epa-001"
+
+
+def test_measured_citations_filtered_to_on_class(tmp_path):
+    # Measured tier keeps only citations tagged with the measured class;
+    # observation tier keeps unfiltered retrieval (no class to filter on).
+    obs = '[{"finding": "corroded valve", "severity": "moderate"}]'
+    report, _, _ = _run(tmp_path, [obs, "[]", "Summary."], recognizer=MixedTagRecognizer())
+    measured = [f for f in report.findings if f.tier == "measured"]
+    assert len(measured) == 1
+    assert [c.card_id for c in measured[0].citations] == ["epa-001"]
+    observations = [f for f in report.findings if f.tier == "observation"]
+    assert [c.card_id for c in observations[0].citations] == ["epa-001", "epa-999"]
+
+
+def test_measured_citations_empty_when_no_on_class_hit(tmp_path):
+    report, _, _ = _run(tmp_path, ["[]", "[]", "Summary."], recognizer=OffClassRecognizer())
+    measured = [f for f in report.findings if f.tier == "measured"]
+    assert len(measured) == 1
+    assert measured[0].citations == []
 
 
 def test_no_defect_photo_produces_no_measured_finding(tmp_path):

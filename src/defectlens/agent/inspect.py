@@ -68,6 +68,11 @@ def run_inspection(
                     citations = retrieve_guidance(
                         recognizer, f"{top_class} building defect remediation", trace
                     )
+                    # Baseline run measured citation_validity 0.741: text retrieval
+                    # returns semantically-adjacent but off-class cards. The workflow
+                    # knows the measured class, so keep only on-class citations -
+                    # an off-class citation is worse than none.
+                    citations = [c for c in citations if top_class in c.get("class_tags", [])]
                     findings.append(
                         Finding(
                             finding=top_class,
