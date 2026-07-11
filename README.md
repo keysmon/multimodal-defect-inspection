@@ -97,11 +97,14 @@ are known and the metrics are deterministic - no LLM judge required.
 
 The harness earned its keep on day one: the baseline exposed that text
 retrieval attaches semantically-adjacent but off-class guidance cards
-(citation validity 0.741). A one-line workflow fix - filter measured-tier
-citations by the class the workflow already knows - lifted citation validity
-to 1.000, and the regression gate proved recall and precision unchanged.
-Regressed runs cannot overwrite the committed baseline; the gate writes them
-aside and fails loudly.
+(citation validity 0.741). The honest signal is that 0.741 baseline catch. A
+one-line workflow fix - filter measured-tier citations by the class the
+workflow already knows - drops the off-class cards, since an off-class citation
+is worse than none. Because that filter keys on the same class tags the metric
+checks, post-filter on-class validity is enforced by construction: the 1.000 is
+an invariant, not an independently measured score. The regression gate proved
+recall and precision unchanged; regressed runs cannot overwrite the committed
+baseline - the gate writes them aside and fails loudly.
 
 Recall at 0.633 with precision 1.000 is the conservative-threshold trade-off:
 the agent never fabricated a measured finding, and misses track the

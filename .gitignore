@@ -17,3 +17,5 @@ docs-private/
 
 # regressed eval runs (baseline stays in results/agent_eval.json, which is committed)
 results/agent_eval.rejected.json
+# per-run agent reports + JSONL traces (default out_dir); transient, never committed
+results/agent_runs/
