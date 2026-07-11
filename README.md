@@ -28,6 +28,11 @@ retrieval, serving API, web UI, and cloud infrastructure.
   autoscaling 0-1 for GPU inference, Bedrock for condition descriptions, a
   CloudWatch operations dashboard, and GitHub Actions CI/CD with keyless OIDC
   authentication.
+- **Agent + evals** - an LLM-orchestrated inspection workflow (structured
+  tool-use over the classifier, RAG, and audio tools; provider-swappable
+  planner) with an offline eval harness: frozen golden set, deterministic
+  task metrics, per-step tracing, and a regression gate that only promotes
+  passing baselines.
 
 ## Architecture
 
@@ -65,6 +70,54 @@ measured CLIP RRF-fusion pipeline; `/health` reports which classifier is active.
 
 The sections below capture the per-phase methodology and measured results. They are
 collapsed for readability - expand any one for the full write-up.
+
+<details>
+<summary><b>Inspection agent + eval harness (v1)</b></summary>
+
+An LLM planner orchestrates the existing capabilities as tools over a
+multi-photo property batch: `classify_image` (the fine-tuned classifier),
+`observe_image` (open-vocabulary VLM), `retrieve_guidance` (cited RAG cards),
+`score_audio` (CLAP anomaly banding). Findings are assembled deterministically
+in code - the LLM contributes observation and synthesis judgment but can
+neither invent nor drop findings - and every finding carries an evidence-tier
+label: **measured** (benchmarked model, 0.851 macro top-1) vs **observation**
+(open-vocabulary, not benchmarked). Calibrated and uncalibrated claims never
+blend.
+
+The eval harness scores the agent on a frozen golden set: 15 synthetic
+properties bundled from the held-out labeled test split, so expected findings
+are known and the metrics are deterministic - no LLM judge required.
+
+| Metric (local 3B planner) | Baseline | After citation filter |
+|---|---|---|
+| findings recall | 0.633 | 0.633 |
+| findings precision | 1.000 | 1.000 |
+| citation validity | 0.741 | **1.000** |
+| schema-valid reports | 15/15 | 15/15 |
+
+The harness earned its keep on day one: the baseline exposed that text
+retrieval attaches semantically-adjacent but off-class guidance cards
+(citation validity 0.741). The honest signal is that 0.741 baseline catch. A
+one-line workflow fix - filter measured-tier citations by the class the
+workflow already knows - drops the off-class cards, since an off-class citation
+is worse than none. Because that filter keys on the same class tags the metric
+checks, post-filter on-class validity is enforced by construction: the 1.000 is
+an invariant, not an independently measured score. The regression gate proved
+recall and precision unchanged; regressed runs cannot overwrite the committed
+baseline - the gate writes them aside and fails loudly.
+
+Recall at 0.633 with precision 1.000 is the conservative-threshold trade-off:
+the agent never fabricated a measured finding, and misses track the
+classifier's known accuracy through the 0.5 confidence gate. Per-image and
+per-property failure isolation keep one bad input from sinking a report;
+every tool call is traced to a JSONL span log for replay.
+
+Reproduce: `python scripts/build_agent_golden.py` (frozen manifest committed),
+then `python scripts/eval_agent.py --provider local` (prints the metric diff
+vs the committed baseline in `results/agent_eval.json`). The planner is
+provider-swappable (`--provider bedrock` swaps the reasoning LLM only).
+
+</details>
 
 <details>
 <summary><b>Project status and the product</b></summary>

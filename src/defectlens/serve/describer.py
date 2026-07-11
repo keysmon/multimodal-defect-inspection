@@ -160,3 +160,36 @@ class Describer:
             )
         input_len = inputs.input_ids.shape[1]
         return _decode_tail(self.processor, output_ids, input_len)
+
+    def chat(self, prompt: str, image=None, max_new_tokens: int = 400) -> str:
+        """Generic adapter-OFF generation for the agent workflow.
+
+        Unlike describe(), the caller owns the prompt; image is optional so
+        the same model does text-only synthesis steps.
+        """
+        if vlm_disabled() or self.model is None or self.processor is None:
+            return ""
+
+        import torch
+
+        content: list[dict] = []
+        if image is not None:
+            content.append({"type": "image", "image": image})
+        content.append({"type": "text", "text": prompt})
+        messages = [{"role": "user", "content": content}]
+        text = self.processor.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False
+        )
+        kwargs = {"text": [text], "return_tensors": "pt"}
+        if image is not None:
+            kwargs["images"] = [image]
+        inputs = self.processor(**kwargs).to(self.device)
+        from contextlib import nullcontext
+
+        ctx = self.model.disable_adapter() if self.adapter_loaded else nullcontext()
+        with ctx, torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs, max_new_tokens=max_new_tokens, do_sample=False
+            )
+        input_len = inputs.input_ids.shape[1]
+        return _decode_tail(self.processor, output_ids, input_len)
