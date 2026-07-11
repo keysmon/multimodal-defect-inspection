@@ -6,26 +6,26 @@
   "metrics": {
     "findings_recall": 0.6333333333333333,
     "findings_precision": 1.0,
-    "citation_validity": 0.7407407407407408,
+    "citation_validity": 1.0,
     "schema_valid_rate": 1.0,
-    "latency_s_per_report": 317.15,
+    "latency_s_per_report": 318.68,
     "cost_usd_per_report": 0.0
   },
   "per_property": {
     "prop_00": {
       "findings_recall": 1.0,
       "findings_precision": 1.0,
-      "citation_validity": 0.6666666666666666
+      "citation_validity": 1.0
     },
     "prop_01": {
       "findings_recall": 0.5,
       "findings_precision": 1.0,
-      "citation_validity": 0.3333333333333333
+      "citation_validity": 1.0
     },
     "prop_02": {
       "findings_recall": 0.3333333333333333,
       "findings_precision": 1.0,
-      "citation_validity": 0.3333333333333333
+      "citation_validity": 1.0
     },
     "prop_03": {
       "findings_recall": 0.5,
@@ -35,7 +35,7 @@
     "prop_04": {
       "findings_recall": 1.0,
       "findings_precision": 1.0,
-      "citation_validity": 0.7777777777777778
+      "citation_validity": 1.0
     },
     "prop_05": {
       "findings_recall": 0.0,
@@ -50,7 +50,7 @@
     "prop_07": {
       "findings_recall": 1.0,
       "findings_precision": 1.0,
-      "citation_validity": 0.6666666666666666
+      "citation_validity": 1.0
     },
     "prop_08": {
       "findings_recall": 1.0,
@@ -70,17 +70,17 @@
     "prop_11": {
       "findings_recall": 0.5,
       "findings_precision": 1.0,
-      "citation_validity": 0.3333333333333333
+      "citation_validity": 1.0
     },
     "prop_12": {
       "findings_recall": 0.3333333333333333,
       "findings_precision": 1.0,
-      "citation_validity": 0.6666666666666666
+      "citation_validity": 1.0
     },
     "prop_13": {
       "findings_recall": 0.5,
       "findings_precision": 1.0,
-      "citation_validity": 0.3333333333333333
+      "citation_validity": 1.0
     },
     "prop_14": {
       "findings_recall": 0.6666666666666666,
