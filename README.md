@@ -108,7 +108,11 @@ baseline - the gate writes them aside and fails loudly.
 
 Recall at 0.633 with precision 1.000 is the conservative-threshold trade-off:
 the agent never fabricated a measured finding, and misses track the
-classifier's known accuracy through the 0.5 confidence gate. Per-image and
+classifier's known accuracy through the 0.5 confidence gate. With the local
+3B planner the observation tier is similarly conservative - it emitted no
+open-vocabulary findings on the golden set (all findings arrived via the
+measured tier); quantifying that gap across stronger providers is exactly
+what the harness's provider swap is for. Per-image and
 per-property failure isolation keep one bad input from sinking a report;
 every tool call is traced to a JSONL span log for replay.
 
