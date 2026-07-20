@@ -775,3 +775,32 @@ def test_analyze_returns_200_when_description_hangs():
     assert body["classes"][0]["label"] == "crack"  # classification survived
     assert len(body["cards"]) == 2  # cited cards survived
     _time.sleep(1.0)  # drain the abandoned daemon thread
+
+
+def test_analyze_skips_description_on_first_cold_request_cloud_path():
+    """Cloud describer (has describe_budget_s): first request skips desc, warms, then includes it."""
+    result = _analyze_result()
+    describer = _BudgetedDescriber(text="warm description here", budget=5)
+    app = create_app(recognizer=StubRecognizer(result), describer=describer)
+    client = TestClient(app)
+
+    r1 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert r1.status_code == 200
+    assert r1.json()["description"] == ""  # cold: skipped
+    assert r1.json()["classes"][0]["label"] == "crack"  # classification still returned
+
+    r2 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert r2.status_code == 200
+    assert r2.json()["description"] == "warm description here"  # warm: present
+
+
+def test_analyze_local_describer_never_skips_description():
+    """Ungated (local) describer has no budget attr -> description on the very first request."""
+    result = _analyze_result()
+    describer = StubDescriber(text="local desc from the first call")
+    app = create_app(recognizer=StubRecognizer(result), describer=describer)
+    client = TestClient(app)
+
+    r1 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert r1.status_code == 200
+    assert r1.json()["description"] == "local desc from the first call"

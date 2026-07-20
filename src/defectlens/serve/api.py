@@ -292,7 +292,20 @@ def create_app(
             combined_severity = combine_severity(severity, finding.severity)
 
         top_labels = [label for label, _score in classes[:3]]
-        description = describe_with_deadline(describer, img, top_labels, audio_band)
+        # Cold-start relief: the FIRST /analyze on a fresh env already pays the
+        # ~24s in-request model load, which alone nears the 29s gateway cap. On
+        # the cloud path (describer advertises a budget) skip the extra Bedrock
+        # call on that one request so it completes under the cap and warms the
+        # env - classification + cited cards still return; the description
+        # arrives on the next (warm) request. Local/ungated describers and all
+        # subsequent requests are unaffected.
+        served_before = getattr(request.app.state, "served_analyze", False)
+        request.app.state.served_analyze = True
+        is_cloud_describer = bool(getattr(describer, "describe_budget_s", None))
+        if is_cloud_describer and not served_before:
+            description = ""
+        else:
+            description = describe_with_deadline(describer, img, top_labels, audio_band)
 
         return {
             "classes": [{"label": label, "score": score} for label, score in classes],
