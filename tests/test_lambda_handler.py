@@ -48,3 +48,36 @@ def test_lambda_handler_respects_preexisting_env():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "OK"
+
+
+def test_lambda_handler_dispatches_worker_events_to_run_worker():
+    """A worker self-invocation ({'defectlens_job': ...}) runs the CPU worker;
+    any other event goes to Mangum (HTTP). Patches both seams so the routing is
+    tested without a real S3/model round-trip."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import defectlens.serve.lambda_handler as lh\n"
+            "from defectlens.serve import async_jobs\n"
+            "seen = {}\n"
+            "async_jobs.run_worker = lambda app, event: (seen.__setitem__('worker', event), {'ok': True})[1]\n"
+            "lh._mangum = lambda event, context: (seen.__setitem__('mangum', event), {'http': True})[1]\n"
+            # worker event -> run_worker, not Mangum
+            "r1 = lh.handler({'defectlens_job': {'job_id': 'j1'}}, None)\n"
+            "assert r1 == {'ok': True}, r1\n"
+            "assert seen.get('worker') == {'defectlens_job': {'job_id': 'j1'}}\n"
+            "assert 'mangum' not in seen\n"
+            # http event -> Mangum, not run_worker
+            "seen.clear()\n"
+            "r2 = lh.handler({'version': '2.0', 'routeKey': 'GET /health'}, None)\n"
+            "assert r2 == {'http': True}, r2\n"
+            "assert seen.get('mangum') is not None\n"
+            "assert 'worker' not in seen\n"
+            "print('OK')\n",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK"

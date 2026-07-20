@@ -828,3 +828,138 @@ def test_analyze_local_describer_never_skips_description():
     r1 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
     assert r1.status_code == 200
     assert r1.json()["description"] == "local desc from the first call"
+
+
+# ---------------------------------------------------------------------------
+# CPU async path: POST /analyze-jobs (submit) + GET /analyze-jobs/{id} (poll)
+# ---------------------------------------------------------------------------
+
+
+class StubCpuJobStore:
+    """Fixed-behaviour stand-in for CpuJobStore - no AWS."""
+
+    enabled = True
+
+    def __init__(self, status_result=("pending", None)):
+        self.submitted = []
+        self._status = status_result
+        self.polled = None
+
+    def submit(self, data, note, audio_bytes):
+        self.submitted.append((data, note, audio_bytes))
+        return {"job_id": "job-xyz"}
+
+    def status(self, job_id):
+        self.polled = job_id
+        return self._status
+
+
+def test_submit_analyze_job_returns_202_and_job_id():
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze-jobs",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": "musty smell"},
+    )
+    assert resp.status_code == 202
+    assert resp.json() == {"job_id": "job-xyz"}
+    assert len(store.submitted) == 1
+    data, note, audio_bytes = store.submitted[0]
+    assert isinstance(data, bytes)
+    assert note == "musty smell"
+    assert audio_bytes is None
+
+
+def test_submit_analyze_job_rejects_bad_image_400():
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze-jobs", files={"file": ("bad.txt", b"not an image", "text/plain")}
+    )
+    assert resp.status_code == 400
+    assert store.submitted == []  # a bad image is never enqueued
+
+
+def test_submit_analyze_job_captures_audio_ungated():
+    """Submit is model-free (no analyzer loaded), so audio is captured whenever
+    present and forwarded to the worker - NOT gated on analyzer.enabled."""
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)  # no audio_analyzer wired at all
+    client = TestClient(app)
+
+    resp = client.post("/analyze-jobs", files=_wav_files())
+    assert resp.status_code == 202
+    _data, _note, audio_bytes = store.submitted[0]
+    assert isinstance(audio_bytes, bytes) and len(audio_bytes) > 0
+
+
+def test_submit_analyze_job_oversized_audio_413():
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+    oversized = b"\x00" * (10 * 1024 * 1024 + 1)
+    resp = client.post(
+        "/analyze-jobs",
+        files={
+            "file": ("t.png", make_png_bytes(), "image/png"),
+            "audio": ("big.wav", oversized, "audio/wav"),
+        },
+    )
+    assert resp.status_code == 413
+    assert store.submitted == []
+
+
+def test_submit_analyze_job_503_when_not_wired(monkeypatch):
+    monkeypatch.delenv("CPU_JOBS_S3", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    app = create_app()  # no store injected, no env
+    client = TestClient(app)
+    resp = client.post(
+        "/analyze-jobs", files={"file": ("t.png", make_png_bytes(), "image/png")}
+    )
+    assert resp.status_code == 503
+
+
+def test_poll_analyze_job_ready_returns_result():
+    result = {"classes": [{"label": "crack", "score": 0.9}], "cards": []}
+    store = StubCpuJobStore(status_result=("ready", result))
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.get("/analyze-jobs/job-xyz")
+    assert resp.status_code == 200
+    assert resp.json() == result
+    assert store.polled == "job-xyz"
+
+
+def test_poll_analyze_job_pending_returns_202():
+    store = StubCpuJobStore(status_result=("pending", None))
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.get("/analyze-jobs/job-xyz")
+    assert resp.status_code == 202
+    assert resp.json()["status"] == "pending"
+
+
+def test_poll_analyze_job_failed_returns_500():
+    store = StubCpuJobStore(status_result=("failed", {"error": "model exploded"}))
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.get("/analyze-jobs/job-xyz")
+    assert resp.status_code == 500
+
+
+def test_poll_analyze_job_503_when_not_wired(monkeypatch):
+    monkeypatch.delenv("CPU_JOBS_S3", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/analyze-jobs/whatever")
+    assert resp.status_code == 503

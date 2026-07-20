@@ -324,6 +324,7 @@ def create_app(
     text_searcher: Any = None,
     audio_analyzer: Any = None,
     vlm_gateway: Any = None,
+    cpu_job_store: Any = None,
 ) -> FastAPI:
     """App factory. Pass stubs directly for tests (stored on app.state as-is,
     no lifespan-triggered loading needed since TestClient without `with` never
@@ -351,6 +352,7 @@ def create_app(
     app.state.text_searcher = text_searcher
     app.state.audio_analyzer = audio_analyzer
     app.state.vlm_gateway = vlm_gateway
+    app.state.cpu_job_store = cpu_job_store
 
     app.add_middleware(
         CORSMiddleware,
@@ -421,6 +423,62 @@ def create_app(
         text_searcher = request.app.state.text_searcher
         hits = text_searcher.search(payload.query, k=5)
         return {"cards": [_card_to_dict(hit.card) for hit in hits]}
+
+    # -----------------------------------------------------------------------
+    # CPU async path (async /analyze design, Phase 1): removes the 29s gateway
+    # cap for /analyze. POST /analyze-jobs validates the image, writes the job
+    # to S3 and async self-invokes the worker, returning 202 immediately - it is
+    # model-free, so it's fast even on a cold env. GET /analyze-jobs/{job_id}
+    # polls the S3 result. Both 503 when the async path isn't wired (no
+    # CPU_JOBS_S3 / not running in Lambda); local dev uses sync /analyze.
+    # -----------------------------------------------------------------------
+
+    def _require_cpu_jobs(request: Request):
+        store = request.app.state.cpu_job_store
+        if store is None:
+            from defectlens.serve.async_jobs import build_cpu_job_store_from_env
+
+            store = build_cpu_job_store_from_env()
+            request.app.state.cpu_job_store = store  # cache the boto3-backed store
+        if store is None or not getattr(store, "enabled", False):
+            raise HTTPException(status_code=503, detail="Async analyze path not deployed")
+        return store
+
+    @app.post("/analyze-jobs", status_code=202)
+    async def submit_analyze_job(
+        request: Request,
+        file: UploadFile = File(...),
+        note: str = Form(""),
+        audio: UploadFile | None = File(None),
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
+        data = await file.read()
+        try:
+            img = Image.open(BytesIO(data))
+            img.load()  # force full decode; reject a corrupt payload at submit
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+            ) from exc
+        # Model-free route: the analyzer isn't loaded here, so capture audio
+        # whenever present (ungated) and let the worker decide via ``enabled``.
+        audio_bytes = await _read_validated_audio(audio) if audio is not None else None
+        return store.submit(data, note_text, audio_bytes)
+
+    @app.get("/analyze-jobs/{job_id}")
+    async def poll_analyze_job(
+        request: Request, response: Response, job_id: str
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        state, obj = store.status(job_id)
+        if state == "ready":
+            return obj
+        if state == "failed":
+            detail = obj.get("error", "analysis failed") if obj else "analysis failed"
+            raise HTTPException(status_code=500, detail=detail)
+        response.status_code = 202  # still running
+        return {"status": "pending"}
 
     # -----------------------------------------------------------------------
     # GPU async path (Phase 5.5c): the fine-tuned VLM on a scale-to-zero
