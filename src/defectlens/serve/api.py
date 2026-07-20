@@ -131,6 +131,68 @@ def _card_to_dict(card: Any) -> dict:
     }
 
 
+def _lazy_mode() -> bool:
+    """True on the async cloud path: model loading is deferred out of the
+    lifespan to the routes/worker that actually need it."""
+    return os.environ.get("DEFECTLENS_LAZY_LOAD", "").strip() == "1"
+
+
+def ensure_loaded(app: FastAPI) -> None:
+    """Idempotently load the heavyweight components onto app.state.
+
+    Called eagerly by the lifespan (local/default) and lazily by the routes
+    that actually need models (sync /analyze, /search, the async worker). The
+    submit/status/health routes never call it, so they stay fast even on a cold
+    env - the point of the async path. Each block is a no-op when its component
+    is already set (injected stubs in tests, or a prior call), so this is safe
+    to call on every request.
+    """
+    vector_store = None
+    card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
+    if card_vectors_path and (
+        app.state.recognizer is None or app.state.audio_analyzer is None
+    ):
+        from defectlens.rag.vector_store import ArrayVectorStore
+
+        vector_store = ArrayVectorStore.load(card_vectors_path)
+
+    if app.state.recognizer is None:
+        from defectlens.serve.recognizer import Recognizer
+
+        r = Recognizer(vector_store=vector_store)
+        r.load()
+        app.state.recognizer = r
+    if app.state.describer is None:
+        from defectlens.serve.bedrock_describer import describer_is_bedrock
+
+        if describer_is_bedrock():
+            from defectlens.serve.bedrock_describer import BedrockDescriber
+
+            d = BedrockDescriber()
+        else:
+            from defectlens.serve.describer import Describer
+
+            d = Describer()
+        d.load()
+        app.state.describer = d
+    if app.state.text_searcher is None:
+        app.state.text_searcher = TextSearcher(app.state.recognizer)
+    if app.state.audio_analyzer is None:
+        from defectlens.serve.audio_analyzer import AudioAnalyzer
+
+        audio_kwargs: dict[str, Any] = {"vector_store": vector_store}
+        audio_bank_dir = os.environ.get("AUDIO_BANK_DIR")
+        if audio_bank_dir:
+            audio_kwargs["bank_dir"] = Path(audio_bank_dir)
+        a = AudioAnalyzer(**audio_kwargs)
+        a.load()
+        app.state.audio_analyzer = a
+    if app.state.vlm_gateway is None:
+        from defectlens.serve.vlm_gateway import build_gateway_from_env
+
+        app.state.vlm_gateway = build_gateway_from_env()
+
+
 def create_app(
     recognizer: Any = None,
     describer: Any = None,
@@ -150,56 +212,12 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Cloud/no-DB path: when CARD_VECTORS_PATH points at a baked npz, load
-        # it once and inject one ArrayVectorStore into both Recognizer and
-        # AudioAnalyzer (they fall back to the pgvector conn when it's absent,
-        # keeping local dev unchanged). See rag.vector_store.
-        vector_store = None
-        card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
-        if card_vectors_path:
-            from defectlens.rag.vector_store import ArrayVectorStore
-
-            vector_store = ArrayVectorStore.load(card_vectors_path)
-
-        if app.state.recognizer is None:
-            from defectlens.serve.recognizer import Recognizer
-
-            r = Recognizer(vector_store=vector_store)
-            r.load()
-            app.state.recognizer = r
-        if app.state.describer is None:
-            from defectlens.serve.bedrock_describer import describer_is_bedrock
-
-            if describer_is_bedrock():
-                # Cloud path: Claude Haiku on Bedrock writes the description
-                # (DEFECTLENS_NO_VLM=1, no local torch model in the image).
-                from defectlens.serve.bedrock_describer import BedrockDescriber
-
-                d = BedrockDescriber()
-            else:
-                from defectlens.serve.describer import Describer
-
-                d = Describer()
-            d.load()
-            app.state.describer = d
-        if app.state.text_searcher is None:
-            app.state.text_searcher = TextSearcher(app.state.recognizer)
-        if app.state.audio_analyzer is None:
-            from defectlens.serve.audio_analyzer import AudioAnalyzer
-
-            audio_kwargs: dict[str, Any] = {"vector_store": vector_store}
-            audio_bank_dir = os.environ.get("AUDIO_BANK_DIR")
-            if audio_bank_dir:
-                audio_kwargs["bank_dir"] = Path(audio_bank_dir)
-            a = AudioAnalyzer(**audio_kwargs)
-            a.load()
-            app.state.audio_analyzer = a
-        if app.state.vlm_gateway is None:
-            # None unless SAGEMAKER_ENDPOINT is set (5.5c GPU async path); the
-            # CPU-only deploy leaves it None so /analyze-vlm returns 503.
-            from defectlens.serve.vlm_gateway import build_gateway_from_env
-
-            app.state.vlm_gateway = build_gateway_from_env()
+        # Eager load at startup unless DEFECTLENS_LAZY_LOAD=1 (the async cloud
+        # path): lazy mode keeps submit/status/health model-free so they answer
+        # fast on a cold env, and the async worker calls ensure_loaded() itself.
+        # Local uvicorn keeps the eager behavior so the first request is warm.
+        if not _lazy_mode():
+            ensure_loaded(app)
         yield
 
     app = FastAPI(lifespan=lifespan)
@@ -235,6 +253,8 @@ def create_app(
                 status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
             ) from exc
 
+        if _lazy_mode():
+            ensure_loaded(request.app)  # cloud lazy path loads on demand
         recognizer = request.app.state.recognizer
         describer = request.app.state.describer
         analyzer = request.app.state.audio_analyzer
@@ -320,6 +340,8 @@ def create_app(
 
     @app.post("/search")
     async def search(payload: SearchRequest, request: Request) -> dict:
+        if _lazy_mode():
+            ensure_loaded(request.app)  # cloud lazy path loads on demand
         text_searcher = request.app.state.text_searcher
         hits = text_searcher.search(payload.query, k=5)
         return {"cards": [_card_to_dict(hit.card) for hit in hits]}
