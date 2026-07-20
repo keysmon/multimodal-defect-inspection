@@ -36,6 +36,13 @@ DEFAULT_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 DEFAULT_REGION = "ca-central-1"
 MAX_TOKENS = 300
 
+# Wall-clock ceiling the API's describe_with_deadline enforces around this
+# backend. Warm Bedrock converse is ~3-4s; this is a backstop for the case
+# where botocore's read_timeout fails to fire under cold-start memory pressure
+# (root-caused 2026-07-20). Env-overridable; stays well under the 30s Lambda /
+# 29s gateway budget after classification + retrieval.
+DEFAULT_DESCRIBE_BUDGET_S = 12.0
+
 
 def describer_is_bedrock() -> bool:
     """True when the env gate selects the Bedrock backend."""
@@ -62,6 +69,10 @@ class BedrockDescriber:
         self.model = None
         self.adapter_loaded = False
         self._client = None
+        # API-layer wall-clock budget (describe_with_deadline reads this).
+        self.describe_budget_s = float(
+            os.environ.get("DEFECTLENS_DESCRIBE_TIMEOUT_S", DEFAULT_DESCRIBE_BUDGET_S)
+        )
 
     def load(self) -> None:
         # No-op: the boto3 client is built lazily on first describe() so import

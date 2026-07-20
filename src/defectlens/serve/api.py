@@ -1,8 +1,10 @@
 """FastAPI serving app (spec §7). Interim classifier: measured CLIP-fused pipeline."""
 from __future__ import annotations
 
+import logging
 import os
 import re
+import threading
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
@@ -30,6 +32,67 @@ CORS_ORIGINS = [
 ]
 
 MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is generous
+
+logger = logging.getLogger(__name__)
+
+# The condition description is best-effort (describe() returns "" on any
+# failure). A describer MAY advertise a wall-clock budget via a
+# ``describe_budget_s`` attribute; the cloud BedrockDescriber does (a Bedrock
+# call that, under concurrent-cold-start memory pressure, was observed NOT to
+# honor botocore's cooperative read_timeout and ran to the Lambda's 120s
+# ceiling — verified 2026-07-20). Describers WITHOUT the attribute (the local
+# Qwen path, ~15s on MPS and self-bounded by max_new_tokens, no botocore, no
+# gateway) are called directly so a valid slow description is never truncated.
+#
+# When a budget is set, describe runs in a throwaway daemon thread joined for
+# at most the budget; on overrun the request ships classification + cited
+# cards with an empty description instead of hanging past the 29s gateway cap.
+# A bounded semaphore caps concurrently-stalled describe threads per warm
+# process: once that many are stuck (still holding their Bedrock socket), new
+# requests skip description immediately rather than leaking threads unbounded.
+_MAX_INFLIGHT_DESCRIBES = 2
+_DESCRIBE_INFLIGHT = threading.BoundedSemaphore(_MAX_INFLIGHT_DESCRIBES)
+
+
+def _describe_safely(describer: Any, image: Any, top_labels: list[str], audio_band: str | None) -> str:
+    try:
+        return describer.describe(image, top_labels, audio_band=audio_band)
+    except Exception:
+        logger.warning("description failed", exc_info=True)
+        return ""
+
+
+def describe_with_deadline(
+    describer: Any,
+    image: Any,
+    top_labels: list[str],
+    audio_band: str | None,
+) -> str:
+    """Run describer.describe, wall-clock-bounded only if it advertises a budget."""
+    budget = getattr(describer, "describe_budget_s", None)
+    if not budget or budget <= 0:
+        return _describe_safely(describer, image, top_labels, audio_band)
+
+    if not _DESCRIBE_INFLIGHT.acquire(blocking=False):
+        logger.warning("too many stalled descriptions in flight; skipping description")
+        return ""
+
+    result = {"text": ""}
+
+    def _run() -> None:
+        try:
+            result["text"] = _describe_safely(describer, image, top_labels, audio_band)
+        finally:
+            _DESCRIBE_INFLIGHT.release()
+
+    worker = threading.Thread(target=_run, daemon=True)
+    worker.start()
+    worker.join(budget)
+    if worker.is_alive():
+        logger.warning(
+            "description exceeded %.1fs budget; returning without it", budget
+        )
+    return result["text"]
 
 
 class TextSearcher:
@@ -229,7 +292,7 @@ def create_app(
             combined_severity = combine_severity(severity, finding.severity)
 
         top_labels = [label for label, _score in classes[:3]]
-        description = describer.describe(img, top_labels, audio_band=audio_band)
+        description = describe_with_deadline(describer, img, top_labels, audio_band)
 
         return {
             "classes": [{"label": label, "score": score} for label, score in classes],
