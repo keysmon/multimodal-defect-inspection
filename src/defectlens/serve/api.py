@@ -36,14 +36,30 @@ MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is gene
 logger = logging.getLogger(__name__)
 
 # The condition description is best-effort (describe() returns "" on any
-# failure). On the cloud path it is a Bedrock call, and under the CPU/memory
-# pressure of concurrent cold starts botocore's cooperative read_timeout has
-# been observed NOT to fire — a stalled call ran to the Lambda's 120s ceiling
-# (verified 2026-07-20). A wall-clock deadline in a throwaway daemon thread
-# bounds it independently of botocore: if describe() overruns the budget the
-# request returns with classification + cited cards and an empty description,
-# rather than hanging past the 29s API-gateway cap.
-DESCRIBE_TIMEOUT_S = float(os.environ.get("DEFECTLENS_DESCRIBE_TIMEOUT_S", "12"))
+# failure). A describer MAY advertise a wall-clock budget via a
+# ``describe_budget_s`` attribute; the cloud BedrockDescriber does (a Bedrock
+# call that, under concurrent-cold-start memory pressure, was observed NOT to
+# honor botocore's cooperative read_timeout and ran to the Lambda's 120s
+# ceiling — verified 2026-07-20). Describers WITHOUT the attribute (the local
+# Qwen path, ~15s on MPS and self-bounded by max_new_tokens, no botocore, no
+# gateway) are called directly so a valid slow description is never truncated.
+#
+# When a budget is set, describe runs in a throwaway daemon thread joined for
+# at most the budget; on overrun the request ships classification + cited
+# cards with an empty description instead of hanging past the 29s gateway cap.
+# A bounded semaphore caps concurrently-stalled describe threads per warm
+# process: once that many are stuck (still holding their Bedrock socket), new
+# requests skip description immediately rather than leaking threads unbounded.
+_MAX_INFLIGHT_DESCRIBES = 2
+_DESCRIBE_INFLIGHT = threading.BoundedSemaphore(_MAX_INFLIGHT_DESCRIBES)
+
+
+def _describe_safely(describer: Any, image: Any, top_labels: list[str], audio_band: str | None) -> str:
+    try:
+        return describer.describe(image, top_labels, audio_band=audio_band)
+    except Exception:
+        logger.warning("description failed", exc_info=True)
+        return ""
 
 
 def describe_with_deadline(
@@ -51,28 +67,30 @@ def describe_with_deadline(
     image: Any,
     top_labels: list[str],
     audio_band: str | None,
-    timeout_s: float = DESCRIBE_TIMEOUT_S,
 ) -> str:
-    """Run describer.describe under a hard wall-clock deadline.
+    """Run describer.describe, wall-clock-bounded only if it advertises a budget."""
+    budget = getattr(describer, "describe_budget_s", None)
+    if not budget or budget <= 0:
+        return _describe_safely(describer, image, top_labels, audio_band)
 
-    Returns "" if the call raises or overruns timeout_s. The overrunning
-    thread is a daemon and is abandoned (it freezes with the Lambda env);
-    a fresh thread per call means a stuck describe never blocks later ones.
-    """
+    if not _DESCRIBE_INFLIGHT.acquire(blocking=False):
+        logger.warning("too many stalled descriptions in flight; skipping description")
+        return ""
+
     result = {"text": ""}
 
     def _run() -> None:
         try:
-            result["text"] = describer.describe(image, top_labels, audio_band=audio_band)
-        except Exception:
-            logger.warning("description failed", exc_info=True)
+            result["text"] = _describe_safely(describer, image, top_labels, audio_band)
+        finally:
+            _DESCRIBE_INFLIGHT.release()
 
     worker = threading.Thread(target=_run, daemon=True)
     worker.start()
-    worker.join(timeout_s)
+    worker.join(budget)
     if worker.is_alive():
         logger.warning(
-            "description exceeded %.1fs budget; returning without it", timeout_s
+            "description exceeded %.1fs budget; returning without it", budget
         )
     return result["text"]
 
