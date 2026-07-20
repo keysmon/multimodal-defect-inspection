@@ -759,6 +759,30 @@ def test_describe_deadline_does_not_gate_ungated_describer():
     assert out == "a full local description that must survive"
 
 
+def test_describe_deadline_budget_override_beats_attribute():
+    """The async worker has no gateway cap, so it passes a generous
+    budget_override that REPLACES the describer's tight advertised budget - a
+    valid slow description survives instead of being truncated. (The whole
+    point of the async path: description is always included.)"""
+    # Attribute budget 0.05s would truncate the 0.3s call to ""; override 5s
+    # lets it complete.
+    d = _BudgetedDescriber(text="a full bedrock description", delay=0.3, budget=0.05)
+    out = describe_with_deadline(d, "img", ["crack"], None, budget_override=5)
+    assert out == "a full bedrock description"
+
+
+def test_describe_deadline_budget_override_still_bounds_a_hang():
+    """A generous override is still a bound: a true hang returns "" at the
+    override, not the (longer) function timeout."""
+    slow = _BudgetedDescriber(delay=1.0, budget=12, text="never seen")
+    t0 = _time.perf_counter()
+    out = describe_with_deadline(slow, "img", ["crack"], None, budget_override=0.2)
+    elapsed = _time.perf_counter() - t0
+    assert out == ""  # abandoned at the override
+    assert elapsed < 0.9  # bounded near 0.2s, not the 1.0s delay
+    _time.sleep(1.0)  # drain the daemon thread + release the semaphore
+
+
 def test_analyze_returns_200_when_description_hangs():
     """Wired contract: a stalled describer still yields classes + cards, empty desc."""
     result = _analyze_result()

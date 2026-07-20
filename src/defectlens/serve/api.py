@@ -67,9 +67,22 @@ def describe_with_deadline(
     image: Any,
     top_labels: list[str],
     audio_band: str | None,
+    *,
+    budget_override: float | None = None,
 ) -> str:
-    """Run describer.describe, wall-clock-bounded only if it advertises a budget."""
-    budget = getattr(describer, "describe_budget_s", None)
+    """Run describer.describe, wall-clock-bounded when a budget applies.
+
+    The budget is ``budget_override`` when given (the async worker passes a
+    generous one - it has no gateway cap, so a valid slow description is still
+    included while a true hang stays bounded), else the describer's advertised
+    ``describe_budget_s`` (the sync/gateway path), else unbounded (local Qwen,
+    ~15s on MPS and self-bounded by max_new_tokens).
+    """
+    budget = (
+        budget_override
+        if budget_override is not None
+        else getattr(describer, "describe_budget_s", None)
+    )
     if not budget or budget <= 0:
         return _describe_safely(describer, image, top_labels, audio_band)
 
@@ -93,6 +106,28 @@ def describe_with_deadline(
             "description exceeded %.1fs budget; returning without it", budget
         )
     return result["text"]
+
+
+async def _read_validated_audio(audio: UploadFile) -> bytes:
+    """Read an uploaded audio clip, enforcing the 10MB cap (413) and a wav
+    decode-check (400). Pure input validation - it does NOT gate on the
+    analyzer being enabled, so callers decide when to invoke it: the sync
+    /analyze route calls it only when the analyzer is loaded+enabled (behavior
+    unchanged), while the model-free async submit route calls it whenever audio
+    is present and lets the worker decide via ``enabled``.
+    """
+    audio_bytes = await audio.read()
+    if len(audio_bytes) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Uploaded audio exceeds the 10MB limit")
+    try:
+        import soundfile as sf
+
+        sf.read(BytesIO(audio_bytes))  # decode-check, mirrors img.load()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Uploaded audio is not a readable wav: {exc}"
+        ) from exc
+    return audio_bytes
 
 
 class TextSearcher:
@@ -193,6 +228,96 @@ def ensure_loaded(app: FastAPI) -> None:
         app.state.vlm_gateway = build_gateway_from_env()
 
 
+def run_analysis(
+    app: FastAPI,
+    data: bytes,
+    img: Any,
+    note_text: str | None,
+    audio_bytes: bytes | None,
+    *,
+    skip_description: bool = False,
+    describe_budget: float | None = None,
+) -> dict:
+    """The core image (+ optional audio) analysis, shared by the sync /analyze
+    route and the async worker.
+
+    Reads its already-loaded components off ``app.state`` - each caller loads
+    models (``ensure_loaded``) and validates raw inputs (image decode, audio
+    size/decode) at its own boundary first, so this function is pure pipeline:
+    classify (CLIP-fused, or the fine-tuned VLM when the adapter is loaded) ->
+    retrieve cited cards -> optional equipment-audio late fusion -> condition
+    description -> assembled response dict.
+
+    - ``skip_description``: the sync cold-start stopgap sets this so the first
+      cold request warms the env without the extra Bedrock call. The worker
+      never skips (async has no gateway cap).
+    - ``describe_budget``: overrides the describer's advertised wall-clock
+      budget. The worker passes a generous value so a valid slow description is
+      included while a true hang stays bounded; ``None`` keeps the describer's
+      own budget (the sync/gateway behavior).
+    """
+    recognizer = app.state.recognizer
+    describer = app.state.describer
+    analyzer = app.state.audio_analyzer
+
+    result = recognizer.analyze_image_bytes(data, k=5, note=note_text)
+
+    # Phase 3 classifier: fine-tuned VLM ranking (macro top-1 0.851) when the
+    # adapter is loaded; CLIP-fused ranking otherwise. Cards retrieval stays
+    # CLIP-RAG either way; severity re-keys on the final top class.
+    classes = result.classes
+    severity = result.severity
+    classifier = "clip-fused"
+    vlm_classes = getattr(describer, "rank_classes", lambda _img, note=None: [])(
+        img, note=note_text
+    )
+    if vlm_classes:
+        from defectlens.serve.recognizer import severity_for
+
+        classes = vlm_classes
+        classifier = "vlm-qlora"
+        top_class = classes[0][0]
+        top_cards = [
+            hit.card for hit in result.hits if top_class in hit.card.class_tags
+        ]
+        severity = severity_for(top_class, top_cards)
+
+    # Phase 5.3 late fusion: an optional equipment-audio clip adds a second
+    # modality. Audio runs before description so the band can enter the prompt.
+    audio_payload = None
+    audio_band = None
+    combined_severity = severity
+    if audio_bytes is not None and analyzer is not None and getattr(analyzer, "enabled", False):
+        finding = analyzer.analyze(audio_bytes)
+        audio_band = finding.band
+        audio_payload = {
+            "score": finding.score,
+            "band": finding.band,
+            "severity": finding.severity,
+            "cards": [_card_to_dict(hit.card) for hit in finding.hits],
+        }
+        combined_severity = combine_severity(severity, finding.severity)
+
+    top_labels = [label for label, _score in classes[:3]]
+    if skip_description:
+        description = ""
+    else:
+        description = describe_with_deadline(
+            describer, img, top_labels, audio_band, budget_override=describe_budget
+        )
+
+    return {
+        "classes": [{"label": label, "score": score} for label, score in classes],
+        "severity": severity,
+        "combined_severity": combined_severity,
+        "classifier": classifier,
+        "note": note_text,
+        "description": description,
+        "cards": [_card_to_dict(hit.card) for hit in result.hits],
+        "audio": audio_payload,
+    }
+
+
 def create_app(
     recognizer: Any = None,
     describer: Any = None,
@@ -255,88 +380,39 @@ def create_app(
 
         if _lazy_mode():
             ensure_loaded(request.app)  # cloud lazy path loads on demand
-        recognizer = request.app.state.recognizer
-        describer = request.app.state.describer
+
+        # Audio validation stays gated on the analyzer being loaded+enabled here
+        # so the sync path's behavior is unchanged; the async submit route
+        # captures audio ungated (it is model-free, so the analyzer isn't loaded
+        # yet) and lets the worker decide via ``enabled``.
         analyzer = request.app.state.audio_analyzer
-
-        result = recognizer.analyze_image_bytes(data, k=5, note=note_text)
-
-        # Phase 3 classifier: fine-tuned VLM ranking (macro top-1 0.851)
-        # when the adapter is loaded; CLIP-fused ranking otherwise. Cards
-        # retrieval stays CLIP-RAG either way; severity re-keys on the
-        # final top class.
-        classes = result.classes
-        severity = result.severity
-        classifier = "clip-fused"
-        vlm_classes = getattr(describer, "rank_classes", lambda _img, note=None: [])(
-            img, note=note_text
-        )
-        if vlm_classes:
-            from defectlens.serve.recognizer import severity_for
-
-            classes = vlm_classes
-            classifier = "vlm-qlora"
-            top_class = classes[0][0]
-            top_cards = [
-                hit.card for hit in result.hits if top_class in hit.card.class_tags
-            ]
-            severity = severity_for(top_class, top_cards)
-
-        # Phase 5.3 late fusion: an optional equipment-audio clip adds a second
-        # modality. Audio runs before description so the band can enter the prompt.
-        audio_payload = None
-        audio_band = None
-        combined_severity = severity
+        audio_bytes = None
         if audio is not None and analyzer is not None and getattr(analyzer, "enabled", False):
-            audio_bytes = await audio.read()
-            if len(audio_bytes) > MAX_AUDIO_BYTES:
-                raise HTTPException(
-                    status_code=413, detail="Uploaded audio exceeds the 10MB limit"
-                )
-            try:
-                import soundfile as sf
+            audio_bytes = await _read_validated_audio(audio)
 
-                sf.read(BytesIO(audio_bytes))  # decode-check, mirrors img.load() above
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=400, detail=f"Uploaded audio is not a readable wav: {exc}"
-                ) from exc
-            finding = analyzer.analyze(audio_bytes)
-            audio_band = finding.band
-            audio_payload = {
-                "score": finding.score,
-                "band": finding.band,
-                "severity": finding.severity,
-                "cards": [_card_to_dict(hit.card) for hit in finding.hits],
-            }
-            combined_severity = combine_severity(severity, finding.severity)
-
-        top_labels = [label for label, _score in classes[:3]]
-        # Cold-start relief: the FIRST /analyze on a fresh env already pays the
-        # ~24s in-request model load, which alone nears the 29s gateway cap. On
-        # the cloud path (describer advertises a budget) skip the extra Bedrock
-        # call on that one request so it completes under the cap and warms the
-        # env - classification + cited cards still return; the description
-        # arrives on the next (warm) request. Local/ungated describers and all
-        # subsequent requests are unaffected.
+        # Cold-start relief (sync/gateway path only): the FIRST /analyze on a
+        # fresh env already pays the ~24s in-request model load, which alone
+        # nears the 29s gateway cap. On the cloud path (describer advertises a
+        # budget) skip the extra Bedrock call on that one request so it completes
+        # under the cap and warms the env - classification + cited cards still
+        # return; the description arrives on the next (warm) request. The async
+        # worker never skips (it has no gateway cap). Local/ungated describers
+        # and all subsequent requests are unaffected.
+        describer = request.app.state.describer
         served_before = getattr(request.app.state, "served_analyze", False)
         request.app.state.served_analyze = True
-        is_cloud_describer = bool(getattr(describer, "describe_budget_s", None))
-        if is_cloud_describer and not served_before:
-            description = ""
-        else:
-            description = describe_with_deadline(describer, img, top_labels, audio_band)
+        skip_description = (
+            bool(getattr(describer, "describe_budget_s", None)) and not served_before
+        )
 
-        return {
-            "classes": [{"label": label, "score": score} for label, score in classes],
-            "severity": severity,
-            "combined_severity": combined_severity,
-            "classifier": classifier,
-            "note": note_text,
-            "description": description,
-            "cards": [_card_to_dict(hit.card) for hit in result.hits],
-            "audio": audio_payload,
-        }
+        return run_analysis(
+            request.app,
+            data,
+            img,
+            note_text,
+            audio_bytes,
+            skip_description=skip_description,
+        )
 
     @app.post("/search")
     async def search(payload: SearchRequest, request: Request) -> dict:
