@@ -26,6 +26,8 @@ const ANALYZING_STATUS =
 const ANALYZE_TIMEOUT_MSG =
   "Analysis is taking longer than expected. Please try again.";
 const ANALYZE_FAILED_MSG = "Analysis failed. Please try again.";
+const UPLOAD_ERROR =
+  "That file couldn't be read. Please choose a valid image (and a WAV under 10MB for audio).";
 
 // GPU async path (fine-tuned VLM on a scale-to-zero SageMaker endpoint): submit
 // once, then poll /vlm-status until the S3 result lands. The endpoint sleeps at
@@ -220,6 +222,11 @@ function DefectLens() {
   // change event and the file is silently dropped. Reset the element too.
   const audioInputRef = useRef(null);
 
+  // Generation token: bumped whenever a new analysis starts OR the image
+  // changes, so a slow poll from a superseded job drops its result instead of
+  // rendering stale data under the current image.
+  const analyzeGenRef = useRef(0);
+
   const resetVlm = () => {
     setIsVlmRunning(false);
     setVlmStatus("");
@@ -228,6 +235,7 @@ function DefectLens() {
   };
 
   const handleFileChange = (e) => {
+    analyzeGenRef.current += 1; // a new image supersedes any in-flight analysis
     const file = e.target.files[0];
     setSelectedFile(file || null);
     setImagePreview(file ? URL.createObjectURL(file) : null);
@@ -254,6 +262,8 @@ function DefectLens() {
       setError("Please select an image first.");
       return;
     }
+    const gen = ++analyzeGenRef.current; // this analysis supersedes any in-flight one
+    const isCurrent = () => gen === analyzeGenRef.current;
     setIsAnalyzing(true);
     setError("");
     setAnalyzeStatus("");
@@ -297,29 +307,38 @@ function DefectLens() {
           poll = await axios.get(`${API}/analyze-jobs/${jobId}`);
         } catch (pollErr) {
           if (pollErr?.response?.status === 500) throw pollErr; // worker failed
-          if (i === ANALYZE_MAX_POLLS - 1) throw pollErr;
-          await sleep(ANALYZE_POLL_MS);
+          // transient (503/504/network): keep polling; if this was the last
+          // attempt the loop ends and the timeout message shows.
+          if (i < ANALYZE_MAX_POLLS - 1) await sleep(ANALYZE_POLL_MS);
           continue;
         }
         if (poll.status === 200) {
-          setAnalyzeResult({ ...poll.data, filename: file.name });
+          // Drop the result if a newer analysis or a file swap superseded this
+          // job while it polled - otherwise stale data renders under the current
+          // image (a wrong inspection record). settled still stops the loop.
+          if (isCurrent()) setAnalyzeResult({ ...poll.data, filename: file.name });
           settled = true;
         } else if (i < ANALYZE_MAX_POLLS - 1) {
           await sleep(ANALYZE_POLL_MS); // 202 pending
         }
       }
-      if (!settled) {
+      if (!settled && isCurrent()) {
         setError(ANALYZE_TIMEOUT_MSG);
         setAnalyzeResult(null);
       }
     } catch (err) {
       console.error("Error during analyze:", err);
-      if (err?.response?.status === 500) {
-        setError(ANALYZE_FAILED_MSG); // the worker ran and failed
-      } else {
-        setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
+      if (isCurrent()) {
+        const status = err?.response?.status;
+        if (status === 500) {
+          setError(ANALYZE_FAILED_MSG); // the worker ran and failed
+        } else if (status === 400 || status === 413) {
+          setError(err.response?.data?.detail || UPLOAD_ERROR); // bad image/audio
+        } else {
+          setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
+        }
+        setAnalyzeResult(null);
       }
-      setAnalyzeResult(null);
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStatus("");
