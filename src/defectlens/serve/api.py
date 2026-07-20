@@ -1,8 +1,10 @@
 """FastAPI serving app (spec §7). Interim classifier: measured CLIP-fused pipeline."""
 from __future__ import annotations
 
+import logging
 import os
 import re
+import threading
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
@@ -30,6 +32,49 @@ CORS_ORIGINS = [
 ]
 
 MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is generous
+
+logger = logging.getLogger(__name__)
+
+# The condition description is best-effort (describe() returns "" on any
+# failure). On the cloud path it is a Bedrock call, and under the CPU/memory
+# pressure of concurrent cold starts botocore's cooperative read_timeout has
+# been observed NOT to fire — a stalled call ran to the Lambda's 120s ceiling
+# (verified 2026-07-20). A wall-clock deadline in a throwaway daemon thread
+# bounds it independently of botocore: if describe() overruns the budget the
+# request returns with classification + cited cards and an empty description,
+# rather than hanging past the 29s API-gateway cap.
+DESCRIBE_TIMEOUT_S = float(os.environ.get("DEFECTLENS_DESCRIBE_TIMEOUT_S", "12"))
+
+
+def describe_with_deadline(
+    describer: Any,
+    image: Any,
+    top_labels: list[str],
+    audio_band: str | None,
+    timeout_s: float = DESCRIBE_TIMEOUT_S,
+) -> str:
+    """Run describer.describe under a hard wall-clock deadline.
+
+    Returns "" if the call raises or overruns timeout_s. The overrunning
+    thread is a daemon and is abandoned (it freezes with the Lambda env);
+    a fresh thread per call means a stuck describe never blocks later ones.
+    """
+    result = {"text": ""}
+
+    def _run() -> None:
+        try:
+            result["text"] = describer.describe(image, top_labels, audio_band=audio_band)
+        except Exception:
+            logger.warning("description failed", exc_info=True)
+
+    worker = threading.Thread(target=_run, daemon=True)
+    worker.start()
+    worker.join(timeout_s)
+    if worker.is_alive():
+        logger.warning(
+            "description exceeded %.1fs budget; returning without it", timeout_s
+        )
+    return result["text"]
 
 
 class TextSearcher:
@@ -229,7 +274,7 @@ def create_app(
             combined_severity = combine_severity(severity, finding.severity)
 
         top_labels = [label for label, _score in classes[:3]]
-        description = describer.describe(img, top_labels, audio_band=audio_band)
+        description = describe_with_deadline(describer, img, top_labels, audio_band)
 
         return {
             "classes": [{"label": label, "score": score} for label, score in classes],

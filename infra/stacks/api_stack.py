@@ -90,7 +90,15 @@ class ApiStack(Stack):
             # requested; bump to 8192 + re-enable audio when granted). At 3008
             # CLIP fits; CLAP is disabled via DEFECTLENS_NO_AUDIO to stay in RAM.
             memory_size=3008,
-            timeout=Duration.seconds(120),
+            # Match the 29s API-gateway integration cap (+1s slack). A request
+            # that can't beat the gateway is already a client failure; the old
+            # 120s ceiling just let a stalled invocation burn 4x billing and
+            # hold a concurrency slot for 2 minutes, which cascades under
+            # bursts of cold starts. describe_with_deadline() bounds the
+            # optional Bedrock call inside the request; this bounds everything
+            # else. (Hang root-caused 2026-07-20: botocore read_timeout did not
+            # fire under concurrent-cold-start memory pressure.)
+            timeout=Duration.seconds(30),
             environment=environment,
         )
 

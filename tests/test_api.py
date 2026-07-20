@@ -696,3 +696,51 @@ def test_analyze_audio_ignored_when_analyzer_not_wired():
     body = resp.json()
     assert body["audio"] is None
     assert body["combined_severity"] == "urgent"
+
+
+# --- describe_with_deadline: the cloud-path hang guard (added 2026-07-20) ---
+
+import time as _time  # noqa: E402
+
+from defectlens.serve.api import describe_with_deadline  # noqa: E402
+
+
+class _FastDescriber:
+    def describe(self, image, top_labels, audio_band=None):
+        return "a crack runs diagonally across the surface"
+
+
+class _SlowDescriber:
+    def __init__(self, delay):
+        self.delay = delay
+        self.started = False
+
+    def describe(self, image, top_labels, audio_band=None):
+        self.started = True
+        _time.sleep(self.delay)
+        return "should never be seen within the deadline"
+
+
+class _RaisingDescriber:
+    def describe(self, image, top_labels, audio_band=None):
+        raise RuntimeError("bedrock exploded")
+
+
+def test_describe_deadline_returns_fast_result():
+    out = describe_with_deadline(_FastDescriber(), "img", ["crack"], None, timeout_s=5)
+    assert out == "a crack runs diagonally across the surface"
+
+
+def test_describe_deadline_bounds_a_hang():
+    slow = _SlowDescriber(delay=30)
+    t0 = _time.perf_counter()
+    out = describe_with_deadline(slow, "img", ["crack"], None, timeout_s=0.3)
+    elapsed = _time.perf_counter() - t0
+    assert out == ""  # abandoned; empty description, request continues
+    assert slow.started  # it did run, we just stopped waiting
+    assert elapsed < 2  # returned near the 0.3s budget, not the 30s hang
+
+
+def test_describe_deadline_swallows_exceptions():
+    out = describe_with_deadline(_RaisingDescriber(), "img", ["crack"], None, timeout_s=5)
+    assert out == ""
