@@ -947,13 +947,42 @@ def test_poll_analyze_job_pending_returns_202():
     assert resp.json()["status"] == "pending"
 
 
-def test_poll_analyze_job_failed_returns_500():
-    store = StubCpuJobStore(status_result=("failed", {"error": "model exploded"}))
+def test_poll_analyze_job_failed_returns_500_with_generic_detail():
+    # The worker stores the raw error server-side (S3 err/ + CloudWatch); the
+    # poll route must NOT echo it to unauthenticated clients (infra recon leak).
+    leaky = "s3://defectlens-phase3-ca-002559670021 AccessDenied for arn:aws:iam::002559670021:role/x"
+    store = StubCpuJobStore(status_result=("failed", {"error": leaky}))
     app = create_app(cpu_job_store=store)
     client = TestClient(app)
 
     resp = client.get("/analyze-jobs/job-xyz")
     assert resp.status_code == 500
+    detail = resp.json()["detail"]
+    assert detail == "analysis failed"
+    assert "AccessDenied" not in detail and "arn:aws" not in detail and "002559670021" not in detail
+
+
+def test_submit_analyze_job_rejects_oversized_pixels_400(monkeypatch):
+    """A decompression-bomb image (pixel count over the cap) is rejected at the
+    submit boundary (400) so it never reaches the worker to OOM it."""
+    monkeypatch.setattr("defectlens.serve.api.MAX_IMAGE_PIXELS", 10, raising=False)
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+    resp = client.post(
+        "/analyze-jobs", files={"file": ("t.png", make_png_bytes(), "image/png")}
+    )
+    assert resp.status_code == 400
+    assert store.submitted == []  # bomb never enqueued
+
+
+def test_analyze_rejects_oversized_pixels_400(monkeypatch):
+    """The shared image validator guards sync /analyze too (8x8=64px > cap 10)."""
+    monkeypatch.setattr("defectlens.serve.api.MAX_IMAGE_PIXELS", 10, raising=False)
+    app = create_app(recognizer=StubRecognizer(_analyze_result()), describer=StubDescriber())
+    client = TestClient(app)
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert resp.status_code == 400
 
 
 def test_poll_analyze_job_503_when_not_wired(monkeypatch):

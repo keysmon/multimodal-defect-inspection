@@ -32,9 +32,12 @@ from defectlens.serve.vlm_gateway import _is_missing, split_s3_uri
 logger = logging.getLogger(__name__)
 
 # The worker has no gateway cap, so it uses a generous describe budget (the point
-# of the async path: description is always included), still bounded so a stalled
-# Bedrock call can't burn the whole function timeout.
-_DEFAULT_WORKER_DESCRIBE_BUDGET_S = 60.0
+# of the async path: description is always included), but bounded so the
+# worst-case cold worker - model load (~24-29s) + classify/RAG + this budget -
+# stays under the 120s Lambda timeout with slack to write its result before the
+# process is killed. (A stalled Bedrock call at a larger budget could otherwise
+# leave no err/ object and the client polling forever.)
+_DEFAULT_WORKER_DESCRIBE_BUDGET_S = 30.0
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +73,12 @@ def is_worker_event(event: Any) -> bool:
 
 def worker_job_id(event: dict) -> str:
     return event["defectlens_job"]["job_id"]
+
+
+def is_warmup_event(event: Any) -> bool:
+    """True when a Lambda event is a keep-warm warmup (load models, no job).
+    A distinct key from the worker event so neither is mistaken for the other."""
+    return isinstance(event, dict) and event.get("defectlens_warmup") is True
 
 
 def _worker_describe_budget() -> float:

@@ -312,6 +312,16 @@ def test_run_worker_writes_error_on_failure():
     assert "model exploded" in store.errors["job-2"]["error"]
 
 
+def test_worker_describe_budget_default_is_conservative(monkeypatch):
+    """Worst-case cold worker = model load (~24-29s) + classify/RAG + this
+    budget; it must stay under the 120s Lambda timeout with slack to write the
+    result, so the default budget is kept well below the timeout."""
+    monkeypatch.delenv("DEFECTLENS_WORKER_DESCRIBE_TIMEOUT_S", raising=False)
+    from defectlens.serve.async_jobs import _worker_describe_budget
+
+    assert _worker_describe_budget() == 30.0
+
+
 def test_run_worker_uses_provided_store_or_env(monkeypatch):
     # With no env and no injected store, run_worker can't resolve a store.
     monkeypatch.delenv("CPU_JOBS_S3", raising=False)

@@ -116,6 +116,15 @@ class ApiStack(Stack):
             # regardless; the function only runs on to finish the cold load and
             # warm the env, not to 120s.
             timeout=Duration.seconds(120),
+            # Fire-and-forget worker: no Lambda-internal retries on the async
+            # self-invoke. A handled worker error already writes an err/ object
+            # (the poll surfaces it as failed); retrying would only re-run the
+            # full model pipeline on a transient/unhandled failure and could
+            # triple compute on a pathological job. Conscious deviation from the
+            # design's "internal retries are a benefit" line, safe now that the
+            # decompression-bomb path 400s at submit; the frontend bounds the
+            # rare no-err/ case with a poll timeout.
+            retry_attempts=0,
             environment=environment,
         )
 
@@ -178,6 +187,23 @@ class ApiStack(Stack):
                 resources=[f"arn:aws:s3:::{gpu.BUCKET}/{CPU_JOBS_PREFIX}*"],
             )
         )
+        # S3 returns 403 (not 404) on GetObject of a MISSING key when the caller
+        # lacks s3:ListBucket - which would make the async poll routes mis-read a
+        # not-yet-written result as an error instead of 202 "pending". Grant
+        # list-only on the bucket so a missing key returns an authoritative 404
+        # (both the CPU cpu-jobs/ poll and the GPU async-out/ poll use this same
+        # role). Bucket-level, NOT prefix-conditioned: the missing-key check does
+        # not evaluate the s3:prefix condition, so a scoped list would not flip
+        # the behavior. List-only exposes object KEYS of the non-sensitive
+        # artifacts bucket, not contents (GetObject stays scoped). The bucket is
+        # SSE-S3/AES256 with no bucket policy, so no KMS/deny can 403 an existing
+        # object - a 403 here means only "not written yet".
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket"],
+                resources=[f"arn:aws:s3:::{gpu.BUCKET}"],
+            )
+        )
 
         integration = apigwv2_integrations.HttpLambdaIntegration(
             "ServeIntegration",
@@ -227,9 +253,14 @@ class ApiStack(Stack):
         # Consumed by OpsStack's dashboard (cross-stack ref, like http_api).
         self.serve_fn = fn
 
-        # Keep-warm: invoke the function every 5 minutes with a synthetic /health
-        # HTTP-API event so the ~55s model load (3008MB account quota) almost
-        # never lands on a real visitor. ~$0.04/mo of invocations.
+        # Keep-warm: every 5 minutes fire a warmup event that LOADS models
+        # (handler -> ensure_loaded). Under DEFECTLENS_LAZY_LOAD the lifespan and
+        # /health are model-free, so a plain /health ping would keep a container
+        # warm WITHOUT models - defeating the purpose. The warmup event keeps the
+        # still-live sync /analyze landing on a models-loaded container instead of
+        # paying the ~24-29s cold load in-request (which would exceed the 29s
+        # gateway cap). ensure_loaded is idempotent, so it costs the load only
+        # once per fresh env, ~ms thereafter. ~$0.04/mo of invocations.
         events.Rule(
             self,
             "KeepWarm",
@@ -237,24 +268,7 @@ class ApiStack(Stack):
             targets=[
                 targets.LambdaFunction(
                     fn,
-                    event=events.RuleTargetInput.from_object(
-                        {
-                            "version": "2.0",
-                            "routeKey": "GET /health",
-                            "rawPath": "/api/health",
-                            "rawQueryString": "",
-                            "headers": {"host": "keepwarm"},
-                            "requestContext": {
-                                "http": {
-                                    "method": "GET",
-                                    "path": "/api/health",
-                                    "protocol": "HTTP/1.1",
-                                    "sourceIp": "127.0.0.1",
-                                }
-                            },
-                            "isBase64Encoded": False,
-                        }
-                    ),
+                    event=events.RuleTargetInput.from_object({"defectlens_warmup": True}),
                 )
             ],
         )

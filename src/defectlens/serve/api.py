@@ -33,6 +33,13 @@ CORS_ORIGINS = [
 
 MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is generous
 
+# Reject decompression-bomb images at the decode boundary. PIL reads dimensions
+# from the header (no pixel decode), so a small, highly-compressible file that
+# declares a huge canvas is caught here before it can allocate a multi-hundred-MB
+# RGB buffer - which, on the async path, would OOM the worker out-of-band. ~50 MP
+# covers any real inspection photo with room to spare.
+MAX_IMAGE_PIXELS = 50_000_000
+
 logger = logging.getLogger(__name__)
 
 # The condition description is best-effort (describe() returns "" on any
@@ -128,6 +135,32 @@ async def _read_validated_audio(audio: UploadFile) -> bytes:
             status_code=400, detail=f"Uploaded audio is not a readable wav: {exc}"
         ) from exc
     return audio_bytes
+
+
+def _validate_image(data: bytes) -> Image.Image:
+    """Decode-and-validate an uploaded image, shared by the sync /analyze and
+    async submit boundaries. Rejects (400): a non-image, a decompression bomb
+    over MAX_IMAGE_PIXELS (checked from the header before any pixel decode), or a
+    truncated/corrupt payload (via img.load()). Returns the loaded PIL image;
+    callers convert to RGB as needed (the async submit route just validates)."""
+    try:
+        img = Image.open(BytesIO(data))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+        ) from exc
+    if img.width * img.height > MAX_IMAGE_PIXELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Image too large: {img.width}x{img.height} exceeds the pixel limit",
+        )
+    try:
+        img.load()  # force full decode; catches truncated/corrupt payloads
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+        ) from exc
+    return img
 
 
 class TextSearcher:
@@ -371,14 +404,7 @@ def create_app(
     ) -> dict:
         note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
         data = await file.read()
-        try:
-            img = Image.open(BytesIO(data))
-            img.load()  # force full decode; catches truncated/corrupt payloads
-            img = img.convert("RGB")
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
-            ) from exc
+        img = _validate_image(data).convert("RGB")
 
         if _lazy_mode():
             ensure_loaded(request.app)  # cloud lazy path loads on demand
@@ -454,13 +480,7 @@ def create_app(
         store = _require_cpu_jobs(request)
         note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
         data = await file.read()
-        try:
-            img = Image.open(BytesIO(data))
-            img.load()  # force full decode; reject a corrupt payload at submit
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
-            ) from exc
+        _validate_image(data)  # 400 on non-image / decompression bomb / corrupt
         # Model-free route: the analyzer isn't loaded here, so capture audio
         # whenever present (ungated) and let the worker decide via ``enabled``.
         audio_bytes = await _read_validated_audio(audio) if audio is not None else None
@@ -475,8 +495,10 @@ def create_app(
         if state == "ready":
             return obj
         if state == "failed":
-            detail = obj.get("error", "analysis failed") if obj else "analysis failed"
-            raise HTTPException(status_code=500, detail=detail)
+            # The worker's raw error stays server-side (S3 err/ + CloudWatch via
+            # logger.exception); return a generic message so an unauthenticated
+            # client can't harvest bucket names / ARNs from botocore error text.
+            raise HTTPException(status_code=500, detail="analysis failed")
         response.status_code = 202  # still running
         return {"status": "pending"}
 

@@ -50,6 +50,32 @@ def test_lambda_handler_respects_preexisting_env():
     assert result.stdout.strip() == "OK"
 
 
+def test_lambda_handler_dispatches_warmup_events_to_ensure_loaded():
+    """A keep-warm warmup event ({'defectlens_warmup': True}) loads models via
+    ensure_loaded, so lazy-mode keep-warm keeps the sync /analyze path warm; it
+    is NOT treated as a worker event or an HTTP event."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import defectlens.serve.lambda_handler as lh\n"
+            "from defectlens.serve import api, async_jobs\n"
+            "seen = {}\n"
+            "api.ensure_loaded = lambda app: seen.__setitem__('warmed', True)\n"
+            "lh._mangum = lambda e, c: (seen.__setitem__('mangum', e), {'http': True})[1]\n"
+            "async_jobs.run_worker = lambda app, e: (seen.__setitem__('worker', e), {'w': True})[1]\n"
+            "r = lh.handler({'defectlens_warmup': True}, None)\n"
+            "assert seen.get('warmed') is True, seen\n"
+            "assert 'mangum' not in seen and 'worker' not in seen, seen\n"
+            "print('OK')\n",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "OK"
+
+
 def test_lambda_handler_dispatches_worker_events_to_run_worker():
     """A worker self-invocation ({'defectlens_job': ...}) runs the CPU worker;
     any other event goes to Mangum (HTTP). Patches both seams so the routing is
