@@ -70,10 +70,11 @@ def _sample_store(tmp_path):
         ("hvac-1", _unit(3, 4)),
     ]
     exemplar = [
-        ("ex_1", {"id": "ex_1", "card_ids": ["v_a"], "caption": "one"}, _unit(0, 4)),
-        ("ex_2", {"id": "ex_2", "card_ids": ["v_a", "v_b"], "caption": "two"}, _unit(1, 4)),
-        ("ex_3", {"id": "ex_3", "card_ids": ["v_a"], "caption": "three"}, _unit(2, 4)),
-        ("ex_4", {"id": "ex_4", "card_ids": ["v_a"], "caption": "four"}, _unit(3, 4)),
+        ("ex_1", {"id": "ex_1", "card_ids": ["v_a"], "class_tags": ["crack"], "caption": "one"}, _unit(0, 4)),
+        ("ex_2", {"id": "ex_2", "card_ids": ["v_a", "v_b"], "class_tags": ["crack"], "caption": "two"}, _unit(1, 4)),
+        ("ex_3", {"id": "ex_3", "card_ids": ["v_a"], "class_tags": ["crack"], "caption": "three"}, _unit(2, 4)),
+        ("ex_4", {"id": "ex_4", "card_ids": ["v_a"], "class_tags": ["crack"], "caption": "four"}, _unit(3, 4)),
+        ("ex_5", {"id": "ex_5", "card_ids": [], "class_tags": ["mold_algae"], "caption": "five"}, _unit(0, 4)),
     ]
     path = _write_npz(tmp_path, visual=visual, audio=audio, search=search, exemplar=exemplar)
     return ArrayVectorStore.load(path)
@@ -414,7 +415,7 @@ def test_exemplar_top_k_orders_by_cosine_and_returns_meta(tmp_path):
     assert top_id == "ex_2"
     assert meta["caption"] == "two"
     assert dist == pytest.approx(0.0, abs=1e-6)
-    assert store.exemplar_count() == 4
+    assert store.exemplar_count() == 5
 
 
 def test_exemplar_top_k_empty_when_no_exemplars(tmp_path):
@@ -433,7 +434,15 @@ def test_exemplars_for_card_joins_and_caps_at_three(tmp_path):
     metas = store.exemplars_for_card("v_a")
     assert [m["id"] for m in metas] == ["ex_1", "ex_2", "ex_3"]
     assert [m["id"] for m in store.exemplars_for_card("v_b")] == ["ex_2"]
-    assert store.exemplars_for_card("v_c") == []
+
+
+def test_exemplars_for_card_falls_back_to_class_tags(tmp_path):
+    """Cards without a curated join get class-tag-matched exemplars; unknown
+    ids (e.g. audio cards absent from the visual index) get none."""
+    store = _sample_store(tmp_path)
+    # v_c (mold_algae) has no curated join; ex_5 shares its class tag.
+    assert [m["id"] for m in store.exemplars_for_card("v_c")] == ["ex_5"]
+    assert store.exemplars_for_card("hvac-999") == []
 
 
 def test_fusion_never_returns_hvac_even_with_search_index(tmp_path):

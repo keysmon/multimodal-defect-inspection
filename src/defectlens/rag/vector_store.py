@@ -230,8 +230,24 @@ class ArrayVectorStore:
         return rows[:k]
 
     def exemplars_for_card(self, card_id: str, limit: int = 3) -> list[dict]:
-        """Exemplar metadata joined by card_ids (manifest order), capped."""
-        return self._exemplars_by_card.get(card_id, [])[:limit]
+        """Exemplar metadata for a card, capped (manifest order).
+
+        Curated ``card_ids`` joins take precedence; cards without one fall
+        back to exemplars sharing a class tag, so every class-tagged card
+        gets documented-case thumbs (only ~10 of 205 cards carry curated
+        joins — without the fallback, search results almost never show a
+        strip). Audio (hvac-*) cards have no visual tags and get none.
+        """
+        explicit = self._exemplars_by_card.get(card_id, [])
+        if explicit:
+            return explicit[:limit]
+        card_tags = set(self._visual_tag_by_id.get(card_id, ()))
+        if not card_tags:
+            return []
+        return [
+            meta for meta in self.exemplar_meta
+            if card_tags.intersection(meta.get("class_tags", ()))
+        ][:limit]
 
     def search_top_k(self, embedding, k: int) -> list[Row]:
         """Nearest cards for a free-text /search query, over ALL cards.
