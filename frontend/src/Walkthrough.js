@@ -11,6 +11,14 @@ const DEFAULT_POLL_MS = 1500;
 const MAX_POLLS = 180;
 const SUBMIT_RETRY_DELAY_MS = 3000;
 
+// GPU enrichment (fine-tuned model on the scale-to-zero SageMaker endpoint):
+// user-triggered only; the endpoint sleeps at zero so the FIRST run pays a
+// ~5 min cold start. Mirrors the single-photo GPU button's pacing.
+const DEFAULT_ENRICH_POLL_MS = 10000;
+const ENRICH_MAX_POLLS = 42; // ~7 min ceiling
+const ENRICH_WARMING =
+  "Fine-tuned model warming up on GPU - the first run can take ~5 minutes...";
+
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 const CAP_MESSAGE = `A walkthrough is capped at ${MAX_WALKTHROUGH_PHOTOS} photos.`;
 const FAILED_MESSAGE = "Walkthrough failed. Please try again.";
@@ -125,14 +133,30 @@ function CiteChips({ ids, cards }) {
   );
 }
 
-function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
+function Walkthrough({
+  API,
+  pollMs = DEFAULT_POLL_MS,
+  enrichPollMs = DEFAULT_ENRICH_POLL_MS,
+}) {
   const [photos, setPhotos] = useState([]); // {file, preview, note}
   const [visitNote, setVisitNote] = useState("");
   const [isRunning, setIsRunning] = useState(false);
   const [status, setStatus] = useState("");
   const [report, setReport] = useState(null);
+  const [jobId, setJobId] = useState(null);
   const [error, setError] = useState("");
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichStatus, setEnrichStatus] = useState("");
+  const [enrichError, setEnrichError] = useState("");
+  const [gate, setGate] = useState(null);
   const genRef = useRef(0); // supersede stale polls, like the analyze flow
+
+  const resetEnrich = () => {
+    setIsEnriching(false);
+    setEnrichStatus("");
+    setEnrichError("");
+    setGate(null);
+  };
 
   const addPhotos = (e) => {
     const incoming = Array.from(e.target.files || []);
@@ -154,6 +178,8 @@ function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
   const removePhoto = (index) => {
     genRef.current += 1;
     setReport(null);
+    setJobId(null);
+    resetEnrich();
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -173,6 +199,8 @@ function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
     setIsRunning(true);
     setError("");
     setReport(null);
+    setJobId(null);
+    resetEnrich();
     setStatus("Generating the diagnostic report...");
 
     const formData = new FormData();
@@ -195,7 +223,7 @@ function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
         await sleep(SUBMIT_RETRY_DELAY_MS);
         submit = await submitJob();
       }
-      const jobId = submit.data.job_id;
+      const submittedJobId = submit.data.job_id;
       setStatus(
         "Reading the photos against the guidance corpus - a cold start can take a minute..."
       );
@@ -204,14 +232,17 @@ function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
       for (let i = 0; i < MAX_POLLS && !settled; i++) {
         let poll;
         try {
-          poll = await axios.get(`${API}/walkthrough-jobs/${jobId}`);
+          poll = await axios.get(`${API}/walkthrough-jobs/${submittedJobId}`);
         } catch (pollErr) {
           if (pollErr?.response?.status === 500) throw pollErr; // worker failed
           if (i < MAX_POLLS - 1) await sleep(pollMs);
           continue;
         }
         if (poll.status === 200) {
-          if (isCurrent()) setReport(poll.data);
+          if (isCurrent()) {
+            setReport(poll.data);
+            setJobId(submittedJobId); // enables the GPU enrich action
+          }
           settled = true;
         } else if (i < MAX_POLLS - 1) {
           await sleep(pollMs); // 202 pending
@@ -231,6 +262,49 @@ function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
     } finally {
       setIsRunning(false);
       setStatus("");
+    }
+  };
+
+  const handleEnrich = async () => {
+    if (!jobId || isEnriching) return;
+    setIsEnriching(true);
+    setEnrichError("");
+    setGate(null);
+    setEnrichStatus(ENRICH_WARMING);
+
+    try {
+      await axios.post(`${API}/walkthrough-jobs/${jobId}/enrich`);
+      let settled = false;
+      for (let i = 0; i < ENRICH_MAX_POLLS && !settled; i++) {
+        const poll = await axios.get(`${API}/walkthrough-jobs/${jobId}/enrich`);
+        if (poll.data.status === "ready") {
+          setReport(poll.data.report);
+          setGate(poll.data.gate);
+          settled = true;
+        } else {
+          if (poll.data.done !== undefined) {
+            setEnrichStatus(
+              `${ENRICH_WARMING} (${poll.data.done}/${poll.data.total} photos done)`
+            );
+          }
+          if (i < ENRICH_MAX_POLLS - 1) await sleep(enrichPollMs);
+        }
+      }
+      if (!settled) {
+        setEnrichError(
+          "The fine-tuned model is taking longer than expected. Please try again."
+        );
+      }
+    } catch (err) {
+      console.error("Error during enrichment:", err);
+      if (err?.response?.status === 503) {
+        setEnrichError("The fine-tuned GPU model isn't deployed for this demo.");
+      } else {
+        setEnrichError("Enrichment failed. Please try again.");
+      }
+    } finally {
+      setIsEnriching(false);
+      setEnrichStatus("");
     }
   };
 
@@ -417,6 +491,26 @@ function Walkthrough({ API, pollMs = DEFAULT_POLL_MS }) {
           {flaggedCount > 0 && (
             <p className="wt-gate-note">{flaggedLine(flaggedCount)}</p>
           )}
+
+          <div className="gpu-panel">
+            <button
+              onClick={handleEnrich}
+              disabled={isEnriching || !jobId}
+              className="gpu-button"
+            >
+              {isEnriching
+                ? "Enriching with fine-tuned model..."
+                : "Enrich with fine-tuned model (GPU, ~5 min cold)"}
+            </button>
+            {enrichStatus && <p className="analyze-status">{enrichStatus}</p>}
+            {enrichError && <p className="vlm-error">{enrichError}</p>}
+            {gate && (
+              <p className="wt-gate-note">
+                {`${gate.kept} label${gate.kept === 1 ? "" : "s"} merged, ` +
+                  `${gate.dropped.length} dropped by the consistency gate`}
+              </p>
+            )}
+          </div>
 
           <button onClick={handleExport} className="export-button">
             Export walkthrough report (markdown)

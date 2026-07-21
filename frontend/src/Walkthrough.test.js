@@ -180,3 +180,71 @@ test("buildWalkthroughMarkdown includes citations, disclaimer and sources", () =
   expect(md).toContain("https://example.com/aci");
   expect(md).toContain("1 claim was dropped by the citation gate");
 });
+
+async function renderWithReport() {
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "wt-9" } });
+  axios.get.mockResolvedValueOnce({ status: 200, data: mockReport });
+  render(<Walkthrough API={API} pollMs={0} enrichPollMs={0} />);
+  addPhotos(2, ["a.png", "b.png"]);
+  fireEvent.click(screen.getByRole("button", { name: /generate report/i }));
+  await waitFor(() =>
+    expect(screen.getByTestId("wt-report")).toBeInTheDocument()
+  );
+}
+
+test("enrich button submits and merges the gated GPU labels", async () => {
+  await renderWithReport();
+
+  const enriched = JSON.parse(JSON.stringify(mockReport));
+  enriched.per_photo[0].enrichment = {
+    label: "spalling",
+    confidence: 0.82,
+    consistent: true,
+  };
+  axios.post.mockResolvedValueOnce({
+    status: 202,
+    data: { status: "submitted", photos: 2 },
+  });
+  axios.get
+    .mockResolvedValueOnce({ status: 202, data: { status: "pending", done: 1, total: 2 } })
+    .mockResolvedValueOnce({
+      status: 200,
+      data: {
+        status: "ready",
+        report: enriched,
+        gate: {
+          kept: 1,
+          dropped: [
+            { photo_id: "photo_2", label: "spalling", confidence: 0.95,
+              reason: "inconsistent_with_observation" },
+          ],
+        },
+      },
+    });
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /enrich with fine-tuned model/i })
+  );
+
+  await waitFor(() =>
+    expect(screen.getByText(/fine-tuned: spalling 82%/i)).toBeInTheDocument()
+  );
+  expect(axios.post).toHaveBeenLastCalledWith(`${API}/walkthrough-jobs/wt-9/enrich`);
+  expect(
+    screen.getByText(/1 label merged, 1 dropped by the consistency gate/i)
+  ).toBeInTheDocument();
+});
+
+test("enrich surfaces the GPU-not-deployed message on 503", async () => {
+  await renderWithReport();
+  axios.post.mockRejectedValueOnce({ response: { status: 503 } });
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /enrich with fine-tuned model/i })
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByText(/fine-tuned GPU model isn't deployed/i)
+    ).toBeInTheDocument()
+  );
+});
