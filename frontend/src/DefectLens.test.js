@@ -93,8 +93,11 @@ afterEach(() => {
 
 test("renders the DefectLens header", () => {
   render(<DefectLens />);
+  // Accessible name concatenates the wordmark + tagline spans.
   expect(
-    screen.getByText(/DefectLens — building-defect inspection assistant/i)
+    screen.getByRole("heading", {
+      name: /DefectLens — building-defect inspection assistant/i,
+    })
   ).toBeInTheDocument();
 });
 
