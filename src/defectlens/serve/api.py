@@ -468,6 +468,9 @@ def create_app(
             request.app.state.cpu_job_store = store  # cache the boto3-backed store
         if store is None or not getattr(store, "enabled", False):
             raise HTTPException(status_code=503, detail="Async analyze path not deployed")
+        binder = getattr(store, "bind", None)
+        if binder is not None:
+            binder(request.app)  # LocalCpuJobStore's worker needs the app; idempotent
         return store
 
     @app.post("/analyze-jobs", status_code=202)
@@ -499,6 +502,62 @@ def create_app(
             # logger.exception); return a generic message so an unauthenticated
             # client can't harvest bucket names / ARNs from botocore error text.
             raise HTTPException(status_code=500, detail="analysis failed")
+        response.status_code = 202  # still running
+        return {"status": "pending"}
+
+    # -----------------------------------------------------------------------
+    # Walkthrough diagnostic report (P2): N photos + a visit note -> the
+    # Haiku-vision grounded report, on the same async job infra. Submit is
+    # model-free (validate + S3 + self-invoke); the worker dispatches on the
+    # payload's kind (async_jobs.run_worker -> serve.walkthrough).
+    # -----------------------------------------------------------------------
+
+    @app.post("/walkthrough-jobs", status_code=202)
+    async def submit_walkthrough_job(
+        request: Request,
+        files: list[UploadFile] = File(...),
+        visit_note: str = Form(""),
+        photo_notes: list[str] = Form([]),
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        from defectlens.report.synthesize import MAX_PHOTOS, MAX_VISIT_NOTE_CHARS
+        from defectlens.serve.async_jobs import build_walkthrough_job_payload
+
+        if len(files) > MAX_PHOTOS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A walkthrough is capped at {MAX_PHOTOS} photos",
+            )
+        photos = []
+        for i, upload in enumerate(files):
+            data = await upload.read()
+            _validate_image(data)  # 400 on non-image / bomb / corrupt
+            raw_note = photo_notes[i] if i < len(photo_notes) else ""
+            note_text = (
+                re.sub(r"<\|[^>]*\|>", " ", raw_note.strip()).strip()[:MAX_NOTE_CHARS]
+                or None
+            )
+            photos.append(
+                {"photo_id": f"photo_{i + 1}", "image_bytes": data, "note": note_text}
+            )
+        visit = (
+            re.sub(r"<\|[^>]*\|>", " ", visit_note.strip()).strip()[:MAX_VISIT_NOTE_CHARS]
+            or None
+        )
+        return store.submit_payload(build_walkthrough_job_payload(photos, visit))
+
+    @app.get("/walkthrough-jobs/{job_id}")
+    async def poll_walkthrough_job(
+        request: Request, response: Response, job_id: str
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        state, obj = store.status(job_id)
+        if state == "ready":
+            return obj
+        if state == "failed":
+            # Raw worker error stays server-side (S3 err/ + CloudWatch); the
+            # client gets a generic message (same posture as /analyze-jobs).
+            raise HTTPException(status_code=500, detail="walkthrough failed")
         response.status_code = 202  # still running
         return {"status": "pending"}
 
