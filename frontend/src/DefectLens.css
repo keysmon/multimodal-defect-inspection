@@ -396,3 +396,226 @@
   font-weight: 600;
   color: #c0392b;
 }
+
+/* --------------------------------------------------------------------------
+ * Walkthrough diagnostic report (P3)
+ * ------------------------------------------------------------------------ */
+
+.walkthrough-section {
+  margin: 2.5rem auto 0;
+  max-width: 860px;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  text-align: left;
+}
+
+.wt-subtitle {
+  color: #555;
+  margin: 0.25rem 0 1rem;
+}
+
+.wt-photo-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.wt-photo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.5rem;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+}
+
+.wt-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.wt-photo-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.wt-photo-id {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wt-note-input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.wt-remove-button {
+  border: none;
+  background: #f2f2f2;
+  color: #666;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.wt-remove-button:hover {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.wt-report {
+  margin-top: 1.5rem;
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+}
+
+.wt-disclaimer {
+  background: #fff6e5;
+  border: 1px solid #f0c36d;
+  color: #8a6d3b;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.wt-assessment {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.wt-auto-summary-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: #777;
+  background: #f4f4f4;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.wt-answers,
+.wt-actions,
+.wt-findings {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.wt-answer,
+.wt-action,
+.wt-finding {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.wt-finding {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.wt-not-observed {
+  background: #fafafa;
+  border-style: dashed;
+  color: #666;
+}
+
+.wt-concern {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.wt-answer-text,
+.wt-observation {
+  margin: 0.2rem 0 0.4rem;
+  line-height: 1.45;
+}
+
+.priority-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  margin-right: 0.5rem;
+  color: #fff;
+}
+
+.priority-high {
+  background: #c0392b;
+}
+
+.priority-medium {
+  background: #e67e22;
+}
+
+.priority-low {
+  background: #27ae60;
+}
+
+.wt-photo-refs {
+  font-size: 0.75rem;
+  color: #777;
+  margin-left: 0.5rem;
+}
+
+.cite-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.cite-chip {
+  font-size: 0.72rem;
+  background: #eef4fb;
+  color: #2c5f8a;
+  border: 1px solid #cfe0f0;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  cursor: help;
+}
+
+.wt-enrichment-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  background: #f3ecfb;
+  color: #6a3fa0;
+  border: 1px solid #ddccf1;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.wt-gate-note {
+  font-size: 0.8rem;
+  color: #8a6d3b;
+  background: #fdf8ec;
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+}
