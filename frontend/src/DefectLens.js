@@ -200,10 +200,6 @@ function DefectLens() {
   const [vlmResult, setVlmResult] = useState(null);
   const [vlmError, setVlmError] = useState("");
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchResult, setSearchResult] = useState(null);
-
   const [error, setError] = useState("");
 
   // The audio <input> is uncontrolled: clearing selectedAudio state on image
@@ -414,28 +410,6 @@ function DefectLens() {
     if (audioInputRef.current) audioInputRef.current.value = "";
     setAnalyzeResult(null);
     await handleAnalyze({ file, note: example.note, audio: null });
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setError("Please enter a search query.");
-      return;
-    }
-    setIsSearching(true);
-    setError("");
-
-    try {
-      const response = await axios.post(`${API}/search`, {
-        query: searchQuery,
-      });
-      setSearchResult({ cards: response.data.cards });
-    } catch (err) {
-      console.error("Error during search:", err);
-      setError("Search failed — is the API running?");
-      setSearchResult(null);
-    } finally {
-      setIsSearching(false);
-    }
   };
 
   const handleExport = () => {
@@ -673,35 +647,6 @@ function DefectLens() {
           Export report (markdown)
         </button>
       </div>
-      </section>
-
-      <section id="search" className="tool-panel search-section">
-        <div className="panel-header">
-          <span className="eyebrow">Search · guidance corpus</span>
-          <h2>Search guidance</h2>
-          <p className="panel-sub">
-            Query the 205-card cited standards corpus directly - defect terms,
-            symptoms, or equipment sounds.
-          </p>
-        </div>
-        <div className="search-controls">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search defect guidance..."
-            className="search-input"
-          />
-          <button
-            onClick={handleSearch}
-            disabled={isSearching}
-            className="search-button"
-          >
-            {isSearching ? "Searching..." : "Search"}
-          </button>
-        </div>
-
-        {searchResult && <CardList cards={searchResult.cards} />}
       </section>
     </div>
   );

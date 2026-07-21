@@ -35,22 +35,6 @@ const mockAnalyzeResponse = {
   },
 };
 
-const mockSearchResponse = {
-  data: {
-    cards: [
-      {
-        id: "s1",
-        title: "Ventilation guidance",
-        passage: "Ensure adequate airflow to reduce moisture buildup.",
-        severity: "monitor",
-        citation: "ASHRAE 62.2",
-        source_name: "ASHRAE",
-        source_url: "https://example.com/ashrae",
-      },
-    ],
-  },
-};
-
 const mockAudioResponse = {
   data: {
     ...mockAnalyzeResponse.data,
@@ -106,20 +90,6 @@ test("analyze happy path shows severity banner and a guidance card", async () =>
   );
   expect(screen.getByText("Assess crack width")).toBeInTheDocument();
   expect(screen.getByText("1. crack")).toBeInTheDocument();
-});
-
-test("search happy path shows a guidance card", async () => {
-  axios.post.mockResolvedValueOnce(mockSearchResponse);
-  render(<DefectLens />);
-
-  fireEvent.change(screen.getByPlaceholderText(/search defect guidance/i), {
-    target: { value: "mold" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: /^search$/i }));
-
-  await waitFor(() =>
-    expect(screen.getByText("Ventilation guidance")).toBeInTheDocument()
-  );
 });
 
 test("analyze posts the inspector note in the form data", async () => {

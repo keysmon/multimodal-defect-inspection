@@ -4,6 +4,7 @@
 import React, { useState } from "react";
 import Walkthrough from "./Walkthrough";
 import DefectLens from "./DefectLens";
+import SearchView from "./SearchView";
 import "./theme.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
@@ -51,7 +52,9 @@ function App() {
       <div role="tabpanel" id="panel-analyze" aria-labelledby="tab-analyze" hidden={tab !== "analyze"}>
         <DefectLens />
       </div>
-      <div role="tabpanel" id="panel-search" aria-labelledby="tab-search" hidden={tab !== "search"} />
+      <div role="tabpanel" id="panel-search" aria-labelledby="tab-search" hidden={tab !== "search"}>
+        <SearchView API={API} />
+      </div>
 
       <footer className="sc-footer">
         <span className="sc-footer-note">SiteCheck — always cited, verify before acting.</span>
