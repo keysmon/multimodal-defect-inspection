@@ -27,10 +27,20 @@ class Usage:
 class ProviderCall:
     prompt: str
     had_image: bool
+    n_images: int = 0
 
 
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
+
+
+def _as_image_list(image, images) -> list:
+    """Normalize the (image, images) pair to a list; both set is a caller bug."""
+    if images is not None and image is not None:
+        raise ValueError("pass either image or images, not both")
+    if images is not None:
+        return list(images)
+    return [image] if image is not None else []
 
 
 def _image_to_png_bytes(image) -> bytes:
@@ -45,7 +55,9 @@ def _image_to_png_bytes(image) -> bytes:
 class LLMProvider(Protocol):
     name: str
 
-    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str: ...
+    def complete(
+        self, prompt: str, image=None, max_tokens: int = 1024, images: list | None = None
+    ) -> str: ...
 
     def usage(self) -> Usage: ...
 
@@ -57,9 +69,14 @@ class MockProvider:
     calls: list[ProviderCall] = field(default_factory=list)
     _usage: Usage = field(default_factory=Usage)
 
-    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str:
+    def complete(
+        self, prompt: str, image=None, max_tokens: int = 1024, images: list | None = None
+    ) -> str:
+        imgs = _as_image_list(image, images)
         response = self.responses[len(self.calls)]
-        self.calls.append(ProviderCall(prompt=prompt, had_image=image is not None))
+        self.calls.append(
+            ProviderCall(prompt=prompt, had_image=bool(imgs), n_images=len(imgs))
+        )
         self._usage.calls += 1
         self._usage.input_tokens += _estimate_tokens(prompt)
         self._usage.output_tokens += _estimate_tokens(response)
@@ -78,8 +95,12 @@ class LocalQwenProvider:
         self._describer = describer
         self._usage = Usage()
 
-    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str:
-        response = self._describer.chat(prompt, image=image, max_new_tokens=max_tokens)
+    def complete(
+        self, prompt: str, image=None, max_tokens: int = 1024, images: list | None = None
+    ) -> str:
+        response = self._describer.chat(
+            prompt, image=image, images=images, max_new_tokens=max_tokens
+        )
         self._usage.calls += 1
         self._usage.input_tokens += _estimate_tokens(prompt)
         self._usage.output_tokens += _estimate_tokens(response)
@@ -119,17 +140,21 @@ class BedrockHaikuProvider:
             )
         return self._client
 
-    def complete(self, prompt: str, image=None, max_tokens: int = 1024) -> str:
-        content: list[dict] = []
-        if image is not None:
-            content.append(
-                {"image": {"format": "png", "source": {"bytes": _image_to_png_bytes(image)}}}
-            )
+    def complete(
+        self, prompt: str, image=None, max_tokens: int = 1024, images: list | None = None
+    ) -> str:
+        content: list[dict] = [
+            {"image": {"format": "png", "source": {"bytes": _image_to_png_bytes(img)}}}
+            for img in _as_image_list(image, images)
+        ]
         content.append({"text": prompt})
         resp = self._ensure_client().converse(
             modelId=self._model_id,
             messages=[{"role": "user", "content": content}],
-            inferenceConfig={"maxTokens": max_tokens},
+            # temperature 0 (matches bedrock_describer): the walkthrough eval
+            # regression-gates on a frozen golden set, so sampling noise would
+            # false-positive the 0.02 tolerance.
+            inferenceConfig={"maxTokens": max_tokens, "temperature": 0.0},
         )
         u = resp.get("usage", {})
         self._usage.calls += 1

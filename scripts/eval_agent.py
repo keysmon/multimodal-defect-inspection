@@ -15,6 +15,10 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+from defectlens.eval.gate import finalize_run as _finalize_run
+from defectlens.eval.gate import regression_check as _regression_check
+from defectlens.grounding.citations import citation_is_class_relevant
+
 RESULTS = Path("results/agent_eval.json")
 REJECTED = Path("results/agent_eval.rejected.json")
 GOLDEN = Path("data/manifests/agent_golden.csv")
@@ -35,7 +39,7 @@ def property_metrics(report: dict, expected: set[str], card_tags: dict[str, list
         for f in measured
         for c in f.get("citations", [])
     ]
-    valid = [cls in card_tags.get(cid, []) for cls, cid in cites]
+    valid = [citation_is_class_relevant(cid, cls, card_tags) for cls, cid in cites]
     citation_validity = sum(valid) / len(valid) if valid else 1.0
     return {
         "findings_recall": recall,
@@ -45,7 +49,7 @@ def property_metrics(report: dict, expected: set[str], card_tags: dict[str, list
 
 
 def regression_check(prev: dict, curr: dict, tolerance: float = 0.02) -> list[str]:
-    return [m for m in GATED_METRICS if curr.get(m, 0.0) < prev.get(m, 0.0) - tolerance]
+    return _regression_check(prev, curr, GATED_METRICS, tolerance=tolerance)
 
 
 def aggregate_metrics(per_property: dict) -> dict:
@@ -78,26 +82,16 @@ def finalize_run(payload: dict, previous: dict | None, tolerance: float) -> int:
 
     A passing (or first-ever) run overwrites RESULTS; a regressed run is
     written to REJECTED and exits nonzero, so a bad run can never clobber
-    the baseline it failed against.
+    the baseline it failed against. (Shared logic: defectlens.eval.gate.)
     """
-    metrics = payload["metrics"]
-    print(json.dumps(metrics, indent=2))
-    if previous:
-        failed = regression_check(previous, metrics, tolerance=tolerance)
-        for m in GATED_METRICS:
-            print(f"{m}: {previous.get(m):.3f} -> {metrics.get(m):.3f}")
-        if failed:
-            REJECTED.parent.mkdir(parents=True, exist_ok=True)
-            REJECTED.write_text(json.dumps(payload, indent=2))
-            print(
-                f"REGRESSION: {failed}; baseline {RESULTS} kept, "
-                f"run written to {REJECTED}",
-                file=sys.stderr,
-            )
-            return 1
-    RESULTS.parent.mkdir(parents=True, exist_ok=True)
-    RESULTS.write_text(json.dumps(payload, indent=2))
-    return 0
+    return _finalize_run(
+        payload,
+        previous,
+        results_path=RESULTS,
+        rejected_path=REJECTED,
+        gated=GATED_METRICS,
+        tolerance=tolerance,
+    )
 
 
 def load_golden() -> dict[str, dict]:

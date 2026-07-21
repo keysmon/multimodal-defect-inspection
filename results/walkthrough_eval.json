@@ -1,0 +1,62 @@
+{
+  "run_config": {
+    "provider": "bedrock-haiku-4.5",
+    "n_walkthroughs": 6,
+    "visual_accuracy": "not auto-measured (no labels for visual correctness); hand-rated spot-check template at results/walkthrough_spotcheck.md",
+    "groundedness_semantics": "groundedness = citation-presence within the walkthrough's retrieved set (per-photo scoped); card-content support is NOT auto-verified - see the hand-rated spot-check"
+  },
+  "metrics": {
+    "groundedness": 1.0,
+    "raw_groundedness": 1.0,
+    "coverage": 1.0,
+    "answered_with_evidence_rate": 1.0,
+    "flagged_rate": 0.021527777777777774,
+    "schema_valid_rate": 1.0,
+    "latency_s_per_walkthrough": 19.74,
+    "cost_usd_per_walkthrough": 0.01519
+  },
+  "per_walkthrough": {
+    "walk_01": {
+      "groundedness": 1.0,
+      "raw_groundedness": 1.0,
+      "coverage": 1.0,
+      "answered_with_evidence_rate": 1.0,
+      "flagged_rate": 0.0
+    },
+    "walk_02": {
+      "groundedness": 1.0,
+      "raw_groundedness": 1.0,
+      "coverage": 1.0,
+      "answered_with_evidence_rate": 1.0,
+      "flagged_rate": 0.0625
+    },
+    "walk_03": {
+      "groundedness": 1.0,
+      "raw_groundedness": 1.0,
+      "coverage": 1.0,
+      "answered_with_evidence_rate": 1.0,
+      "flagged_rate": 0.0
+    },
+    "walk_04": {
+      "groundedness": 1.0,
+      "raw_groundedness": 1.0,
+      "coverage": 1.0,
+      "answered_with_evidence_rate": 1.0,
+      "flagged_rate": 0.0
+    },
+    "walk_05": {
+      "groundedness": 1.0,
+      "raw_groundedness": 1.0,
+      "coverage": 1.0,
+      "answered_with_evidence_rate": 1.0,
+      "flagged_rate": 0.0
+    },
+    "walk_06": {
+      "groundedness": 1.0,
+      "raw_groundedness": 1.0,
+      "coverage": 1.0,
+      "answered_with_evidence_rate": 1.0,
+      "flagged_rate": 0.06666666666666667
+    }
+  }
+}

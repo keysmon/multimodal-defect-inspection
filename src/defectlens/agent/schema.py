@@ -10,6 +10,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
+from defectlens.llm_json import balanced_json_candidates as _balanced_json_candidates
 from defectlens.taxonomy import UNIFIED_CLASSES
 
 SEVERITIES = ("cosmetic", "monitor", "moderate", "structural", "unknown")
@@ -46,40 +47,6 @@ class InspectionReport(BaseModel):
     findings: list[Finding]
     summary: str = Field(min_length=1)
     audio_band: Optional[str] = None
-
-
-def _balanced_json_candidates(raw: str) -> list[str]:
-    """Top-level brace-balanced {...} substrings, in order of appearance.
-
-    A minimal in-string flag (with backslash escapes) keeps braces inside
-    double-quoted JSON strings from confusing the depth counter. Quotes are
-    only tracked inside a candidate; prose quotes outside braces are ignored.
-    """
-    candidates: list[str] = []
-    depth = 0
-    start = 0
-    in_string = False
-    escaped = False
-    for i, ch in enumerate(raw):
-        if in_string:
-            if escaped:
-                escaped = False
-            elif ch == "\\":
-                escaped = True
-            elif ch == '"':
-                in_string = False
-            continue
-        if depth > 0 and ch == '"':
-            in_string = True
-        elif ch == "{":
-            if depth == 0:
-                start = i
-            depth += 1
-        elif ch == "}" and depth > 0:
-            depth -= 1
-            if depth == 0:
-                candidates.append(raw[start : i + 1])
-    return candidates
 
 
 def parse_report_json(raw: str) -> InspectionReport:

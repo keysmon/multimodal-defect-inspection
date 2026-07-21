@@ -98,6 +98,9 @@ class StubRecognizer:
     def analyze_image_bytes(self, data, k=5, note=None):
         return self.result
 
+    def search_text(self, query, k=5):
+        return []  # walkthrough concern retrieval; photo hits carry the cards here
+
 
 class StubDescriber:
     def __init__(self, text="a description"):
@@ -190,3 +193,70 @@ def test_end_to_end_pending_before_worker_writes_result():
     poll = client.get(f"/analyze-jobs/{submit.json()['job_id']}")
     assert poll.status_code == 202
     assert poll.json()["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
+# Walkthrough (P2): submit -> S3 payload -> worker -> synthesis -> poll,
+# through the real store/routes/worker with an injected mock reasoner.
+# ---------------------------------------------------------------------------
+
+
+def test_walkthrough_submit_worker_poll_end_to_end():
+    import json as _json
+
+    app, store, s3, lam = _build_flow()
+    app.state.report_provider = _walkthrough_mock_provider()
+    client = TestClient(app)
+
+    submit = client.post(
+        "/walkthrough-jobs",
+        files=[
+            ("files", ("a.png", make_png_bytes(), "image/png")),
+            ("files", ("b.png", make_png_bytes(), "image/png")),
+        ],
+        data={"visit_note": "is the crack active?", "photo_notes": ["near sill", ""]},
+    )
+    assert submit.status_code == 202
+    job_id = submit.json()["job_id"]
+    assert ("b", f"jobs/in/{job_id}.json") in s3.objects
+    assert ("b", f"jobs/out/{job_id}.json") in s3.objects  # worker ran on self-invoke
+
+    poll = client.get(f"/walkthrough-jobs/{job_id}")
+    assert poll.status_code == 200
+    report = poll.json()
+    assert report["concerns"] == ["is the crack active?"]
+    assert [f["photo_id"] for f in report["per_photo"]] == ["photo_1", "photo_2"]
+    assert report["per_photo"][0]["cited"] == ["c1"]
+    assert report["summary"]["answers"][0]["citations"] == ["c1"]
+    assert report["disclaimer"] == "Initial diagnostic - verify before acting."
+    assert report["cards"]["c1"]["title"] == "title-c1"
+    # the stored payload carried the sanitized per-photo note
+    stored = _json.loads(s3.objects[("b", f"jobs/in/{job_id}.json")])
+    assert stored["photos"][0]["note"] == "near sill"
+
+
+def _walkthrough_mock_provider():
+    import json as _json
+
+    from defectlens.agent.providers import MockProvider
+
+    synthesis = _json.dumps(
+        {
+            "per_photo": [
+                {"photo_id": "photo_1", "observation": "hairline crack", "cited": ["c1"]},
+                {"photo_id": "photo_2", "observation": "clean", "no_evidence": True},
+            ],
+            "summary": {
+                "overall_assessment": {"text": "One crack.", "citations": ["c1"]},
+                "action_items": [
+                    {"priority": "high", "text": "monitor", "citations": ["c1"],
+                     "photo_refs": ["photo_1"]}
+                ],
+                "answers": [
+                    {"concern": "is the crack active?", "answer": "monitor width",
+                     "citations": ["c1"]}
+                ],
+            },
+        }
+    )
+    return MockProvider(responses=['["is the crack active?"]', synthesis])

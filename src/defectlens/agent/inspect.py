@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from defectlens.agent.providers import LLMProvider, Usage
+from defectlens.grounding.citations import on_class_citations
 from defectlens.agent.schema import (
     ASSIGNABLE_SEVERITIES,
     Citation,
@@ -72,7 +73,7 @@ def run_inspection(
                     # returns semantically-adjacent but off-class cards. The workflow
                     # knows the measured class, so keep only on-class citations -
                     # an off-class citation is worse than none.
-                    citations = [c for c in citations if top_class in c.get("class_tags", [])]
+                    citations = on_class_citations(citations, top_class)
                     findings.append(
                         Finding(
                             finding=top_class,

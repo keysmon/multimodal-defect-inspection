@@ -205,6 +205,9 @@ def _lazy_mode() -> bool:
     return os.environ.get("DEFECTLENS_LAZY_LOAD", "").strip() == "1"
 
 
+_ENSURE_LOADED_LOCK = threading.Lock()
+
+
 def ensure_loaded(app: FastAPI) -> None:
     """Idempotently load the heavyweight components onto app.state.
 
@@ -213,8 +216,15 @@ def ensure_loaded(app: FastAPI) -> None:
     submit/status/health routes never call it, so they stay fast even on a cold
     env - the point of the async path. Each block is a no-op when its component
     is already set (injected stubs in tests, or a prior call), so this is safe
-    to call on every request.
+    to call on every request. The lock serializes concurrent callers - in
+    Lambda each env handles one request, but LocalCpuJobStore's worker threads
+    (local dev) would otherwise double-load models.
     """
+    with _ENSURE_LOADED_LOCK:
+        _ensure_loaded_locked(app)
+
+
+def _ensure_loaded_locked(app: FastAPI) -> None:
     vector_store = None
     card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
     if card_vectors_path and (
@@ -468,6 +478,9 @@ def create_app(
             request.app.state.cpu_job_store = store  # cache the boto3-backed store
         if store is None or not getattr(store, "enabled", False):
             raise HTTPException(status_code=503, detail="Async analyze path not deployed")
+        binder = getattr(store, "bind", None)
+        if binder is not None:
+            binder(request.app)  # LocalCpuJobStore's worker needs the app; idempotent
         return store
 
     @app.post("/analyze-jobs", status_code=202)
@@ -501,6 +514,168 @@ def create_app(
             raise HTTPException(status_code=500, detail="analysis failed")
         response.status_code = 202  # still running
         return {"status": "pending"}
+
+    # -----------------------------------------------------------------------
+    # Walkthrough diagnostic report (P2): N photos + a visit note -> the
+    # Haiku-vision grounded report, on the same async job infra. Submit is
+    # model-free (validate + S3 + self-invoke); the worker dispatches on the
+    # payload's kind (async_jobs.run_worker -> serve.walkthrough).
+    # -----------------------------------------------------------------------
+
+    @app.post("/walkthrough-jobs", status_code=202)
+    async def submit_walkthrough_job(
+        request: Request,
+        files: list[UploadFile] = File(...),
+        visit_note: str = Form(""),
+        photo_notes: list[str] = Form([]),
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        from defectlens.report.synthesize import MAX_PHOTOS, MAX_VISIT_NOTE_CHARS
+        from defectlens.serve.async_jobs import build_walkthrough_job_payload
+
+        if len(files) > MAX_PHOTOS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A walkthrough is capped at {MAX_PHOTOS} photos",
+            )
+        photos = []
+        for i, upload in enumerate(files):
+            data = await upload.read()
+            _validate_image(data)  # 400 on non-image / bomb / corrupt
+            raw_note = photo_notes[i] if i < len(photo_notes) else ""
+            note_text = (
+                re.sub(r"<\|[^>]*\|>", " ", raw_note.strip()).strip()[:MAX_NOTE_CHARS]
+                or None
+            )
+            photos.append(
+                {"photo_id": f"photo_{i + 1}", "image_bytes": data, "note": note_text}
+            )
+        visit = (
+            re.sub(r"<\|[^>]*\|>", " ", visit_note.strip()).strip()[:MAX_VISIT_NOTE_CHARS]
+            or None
+        )
+        return store.submit_payload(build_walkthrough_job_payload(photos, visit))
+
+    @app.get("/walkthrough-jobs/{job_id}")
+    async def poll_walkthrough_job(
+        request: Request, response: Response, job_id: str
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        state, obj = store.status(job_id)
+        if state == "ready":
+            return obj
+        if state == "failed":
+            # Raw worker error stays server-side (S3 err/ + CloudWatch); the
+            # client gets a generic message (same posture as /analyze-jobs).
+            raise HTTPException(status_code=500, detail="walkthrough failed")
+        response.status_code = 202  # still running
+        return {"status": "pending"}
+
+    # -----------------------------------------------------------------------
+    # Walkthrough GPU enrichment (P4): user-triggered fine-tuned-Qwen labels
+    # through the consistency gate. POST fans one SageMaker async job per
+    # photo (the endpoint sleeps at zero; the report NEVER waits on this);
+    # GET polls and, once all photos settle, merges consistent labels into
+    # the stored report. Both 503 without the GPU deploy.
+    # -----------------------------------------------------------------------
+
+    @app.post("/walkthrough-jobs/{job_id}/enrich", status_code=202)
+    async def submit_walkthrough_enrichment(request: Request, job_id: str) -> dict:
+        store = _require_cpu_jobs(request)
+        gateway = _require_gateway(request)
+        state, _report = store.status(job_id)
+        if state != "ready":
+            raise HTTPException(
+                status_code=409, detail="walkthrough report not ready yet"
+            )
+        from defectlens.serve.async_jobs import parse_job_payload
+
+        payload = parse_job_payload(store.get_input(job_id))
+        if payload.get("kind") != "walkthrough":
+            raise HTTPException(status_code=409, detail="not a walkthrough job")
+        photos = payload["photos"]
+
+        # Idempotent AND resumable: the mapping is claimed BEFORE the first GPU
+        # submit and re-persisted after EVERY successful one, so a partial
+        # fan-out failure (throttle, transient network) plus the frontend's
+        # retry resumes the missing photos instead of re-waking - and
+        # re-billing - the already-submitted ones.
+        env = store.get_enrichment(job_id)
+        mapping: dict[str, dict] = dict(env["photos"]) if env else {}
+        if env is not None and len(mapping) >= len(photos):
+            return {"status": "submitted", "photos": len(mapping)}
+        if env is None:
+            store.put_enrichment(job_id, {"photos": mapping, "merged": False})
+        for photo in photos:
+            pid = photo["photo_id"]
+            if pid in mapping:
+                continue  # resumed retry: this photo's GPU job is already live
+            result = gateway.submit(photo["image_bytes"], photo.get("note"))
+            mapping[pid] = {
+                "output_location": result["output_location"],
+                "failure_location": result.get("failure_location"),
+            }
+            store.put_enrichment(job_id, {"photos": mapping, "merged": False})
+        return {"status": "submitted", "photos": len(mapping)}
+
+    @app.get("/walkthrough-jobs/{job_id}/enrich")
+    async def poll_walkthrough_enrichment(
+        request: Request, response: Response, job_id: str
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        gateway = _require_gateway(request)
+        env = store.get_enrichment(job_id)
+        if env is None:
+            raise HTTPException(status_code=404, detail="enrichment not requested")
+        mapping = env["photos"]
+        if env.get("merged"):
+            # Terminal: the merge already happened - serve the stored result
+            # instead of re-reading every GPU status and re-merging per poll.
+            state, report = store.status(job_id)
+            if state == "ready":
+                return {"status": "ready", "report": report, "gate": env.get("gate", {})}
+
+        labels: dict[str, tuple[str, float]] = {}
+        gpu_failures: list[str] = []
+        pending = 0
+        for photo_id, locs in mapping.items():
+            state, classes = gateway.status(
+                locs["output_location"], failure_location=locs.get("failure_location")
+            )
+            if state == "ready" and classes:
+                top = classes[0]
+                labels[photo_id] = (top["label"], top["score"])
+            elif state == "failed" or (state == "ready" and not classes):
+                gpu_failures.append(photo_id)
+            else:
+                pending += 1
+        if pending:
+            response.status_code = 202
+            done = len(mapping) - pending
+            return {"status": "pending", "done": done, "total": len(mapping)}
+
+        state, report = store.status(job_id)
+        if state != "ready":
+            raise HTTPException(status_code=409, detail="walkthrough report missing")
+        from defectlens.report.enrich import merge_enrichment
+
+        merged, gate = merge_enrichment(report, labels)
+        for photo_id in gpu_failures:
+            gate["dropped"].append(
+                {"photo_id": photo_id, "label": None, "confidence": None,
+                 "reason": "gpu_failed"}
+            )
+        for finding in report.get("per_photo", []):
+            # Photos the fan-out never reached (partial submit failure that was
+            # not retried): accounted honestly, never silently absent.
+            if finding["photo_id"] not in mapping:
+                gate["dropped"].append(
+                    {"photo_id": finding["photo_id"], "label": None,
+                     "confidence": None, "reason": "not_submitted"}
+                )
+        store.put_output(job_id, merged)
+        store.put_enrichment(job_id, {"photos": mapping, "merged": True, "gate": gate})
+        return {"status": "ready", "report": merged, "gate": gate}
 
     # -----------------------------------------------------------------------
     # GPU async path (Phase 5.5c): the fine-tuned VLM on a scale-to-zero

@@ -1,0 +1,70 @@
+{
+  "walkthroughs": [
+    {
+      "walkthrough_id": "walk_01",
+      "visit_note": "First visit to a parking structure. Owner reports pieces of concrete on the floor below one bay and brown staining running down a joint. Is the reinforcement at risk? There is also a hairline crack on the deck surface - active or just shrinkage?",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/codebrim/background/background__image_0001334_crop_0000001.png", "note": null},
+        {"photo_id": "photo_2", "image_path": "data/raw/bd3/spalling/BD3_original_dataset__train__spalling__cls05_306.jpg", "note": "chunks found on the floor under this area"},
+        {"photo_id": "photo_3", "image_path": "data/raw/codebrim/background/background__image_0000860_crop_0000001.png", "note": null},
+        {"photo_id": "photo_4", "image_path": "data/raw/codebrim/corrosion_stain/corrosion_stain__image_0001271_crop_0000002.png", "note": null},
+        {"photo_id": "photo_5", "image_path": "data/raw/sdnet2018/cracked/D__CD__7031-107.jpg", "note": null}
+      ]
+    },
+    {
+      "walkthrough_id": "walk_02",
+      "visit_note": "Homeowner is concerned about paint coming off the stair wall and green growth near the downspout. They also asked whether the crack in the wall is structural and if they should repaint before winter.",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/sdnet2018/non_cracked/D__UD__7044-131.jpg", "note": null},
+        {"photo_id": "photo_2", "image_path": "data/raw/codebrim/crack/crack__image_0001522_crop_0000002.png", "note": null},
+        {"photo_id": "photo_3", "image_path": "data/raw/codebrim/background/background__image_0000129_crop_0000004.png", "note": null},
+        {"photo_id": "photo_4", "image_path": "data/raw/bd3/peeling/BD3_original_dataset__train__peeling__cls03_068.jpg", "note": "stair wall"},
+        {"photo_id": "photo_5", "image_path": "data/raw/bd3/algae/BD3_original_dataset__train__algae__cls00_059.jpg", "note": "near the downspout"}
+      ]
+    },
+    {
+      "walkthrough_id": "walk_03",
+      "visit_note": "Tenant reports a damp smell in the stairwell and dark patches appearing on the wall after rain. Check whether there is active water ingress, and whether the pavement crack out front needs sealing this season.",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/bd3/algae/BD3_original_dataset__train__algae__cls00_529.jpg", "note": null},
+        {"photo_id": "photo_2", "image_path": "data/raw/sdnet2018/cracked/P__CP__009-84.jpg", "note": "walkway out front"},
+        {"photo_id": "photo_3", "image_path": "data/raw/sdnet2018/non_cracked/P__UP__076-191.jpg", "note": null},
+        {"photo_id": "photo_4", "image_path": "data/raw/bd3/stain/BD3_original_dataset__train__stain__cls06_188.jpg", "note": "stairwell wall after rain"},
+        {"photo_id": "photo_5", "image_path": "data/raw/sdnet2018/non_cracked/W__UW__7128-226.jpg", "note": null}
+      ]
+    },
+    {
+      "walkthrough_id": "walk_04",
+      "visit_note": "Balcony inspection. The soffit shows a patch of missing concrete and rust-colored streaks below the drip edge. Client wants to know whether the balcony is safe to use and what repairs to budget for.",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/bd3/spalling/BD3_original_dataset__train__spalling__cls05_213.jpg", "note": null},
+        {"photo_id": "photo_2", "image_path": "data/raw/codebrim/corrosion_stain/corrosion_stain__image_0001085_crop_0000008.png", "note": "streaks directly below the drip edge"},
+        {"photo_id": "photo_3", "image_path": "data/raw/codebrim/background/background__image_0000038_crop_0000003.png", "note": null},
+        {"photo_id": "photo_4", "image_path": "data/raw/bd3/stain/BD3_original_dataset__train__stain__cls06_335.jpg", "note": null},
+        {"photo_id": "photo_5", "image_path": "data/raw/sdnet2018/non_cracked/D__UD__7009-170.jpg", "note": null}
+      ]
+    },
+    {
+      "walkthrough_id": "walk_05",
+      "visit_note": "Basement walk-through. White powdery deposits are coming through the foundation wall - is that mold? There is also a diagonal crack above the window. Is there a moisture problem behind the wall?",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/codebrim/efflorescence/efflorescence__image_0001249_crop_0000010.png", "note": "white deposits here"},
+        {"photo_id": "photo_2", "image_path": "data/raw/sdnet2018/non_cracked/P__UP__101-46.jpg", "note": null},
+        {"photo_id": "photo_3", "image_path": "data/raw/sdnet2018/non_cracked/D__UD__7023-48.jpg", "note": null},
+        {"photo_id": "photo_4", "image_path": "data/raw/codebrim/crack/crack__image_0001135_crop_0000002.png", "note": "above the window"},
+        {"photo_id": "photo_5", "image_path": "data/raw/codebrim/background/background__image_0001291_crop_0000001.png", "note": null}
+      ]
+    },
+    {
+      "walkthrough_id": "walk_06",
+      "visit_note": "Facade check after a neighbour complaint. Steel is visible in one spot on the underside of the slab edge - how urgent is that? Is the flaking paint on the soffit related, and does the green staining on the lower wall need treatment?",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/codebrim/exposed_bars/exposed_bars__image_0001070_crop_0000001.png", "note": "slab edge underside"},
+        {"photo_id": "photo_2", "image_path": "data/raw/codebrim/background/background__image_0001579_crop_0000001.png", "note": null},
+        {"photo_id": "photo_3", "image_path": "data/raw/codebrim/background/background__image_0000056_crop_0000005.png", "note": null},
+        {"photo_id": "photo_4", "image_path": "data/raw/bd3/peeling/BD3_original_dataset__train__peeling__cls03_394.jpg", "note": "soffit"},
+        {"photo_id": "photo_5", "image_path": "data/raw/bd3/algae/BD3_original_dataset__train__algae__cls00_238.jpg", "note": "lower wall"}
+      ]
+    }
+  ]
+}

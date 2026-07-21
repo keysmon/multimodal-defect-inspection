@@ -7,46 +7,14 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+from defectlens.llm_json import balanced_array_candidates as _balanced_array_candidates
+
 OBSERVE_PROMPT = """You are assisting a building inspector. Look at this photo and list any
 visible defects or maintenance concerns. Respond with ONLY a JSON array; each
 element: {"finding": "<short description>", "severity": "cosmetic|monitor|moderate|structural"}.
 If nothing is wrong, respond with []."""
 
 _FENCE = re.compile(r"```(?:json)?\s*(\[.*?\]|\{.*?\})\s*```", re.S)
-
-
-def _balanced_array_candidates(raw: str) -> list[str]:
-    """Top-level bracket-balanced [...] substrings, in order of appearance.
-
-    Mirrors schema._balanced_json_candidates but for JSON arrays: a minimal
-    in-string flag (with backslash escapes) keeps brackets inside double-quoted
-    JSON strings from confusing the depth counter.
-    """
-    candidates: list[str] = []
-    depth = 0
-    start = 0
-    in_string = False
-    escaped = False
-    for i, ch in enumerate(raw):
-        if in_string:
-            if escaped:
-                escaped = False
-            elif ch == "\\":
-                escaped = True
-            elif ch == '"':
-                in_string = False
-            continue
-        if depth > 0 and ch == '"':
-            in_string = True
-        elif ch == "[":
-            if depth == 0:
-                start = i
-            depth += 1
-        elif ch == "]" and depth > 0:
-            depth -= 1
-            if depth == 0:
-                candidates.append(raw[start : i + 1])
-    return candidates
 
 
 def _parse_observation_list(raw: str) -> list[dict] | None:

@@ -161,28 +161,34 @@ class Describer:
         input_len = inputs.input_ids.shape[1]
         return _decode_tail(self.processor, output_ids, input_len)
 
-    def chat(self, prompt: str, image=None, max_new_tokens: int = 400) -> str:
+    def chat(
+        self, prompt: str, image=None, max_new_tokens: int = 400, images: list | None = None
+    ) -> str:
         """Generic adapter-OFF generation for the agent workflow.
 
-        Unlike describe(), the caller owns the prompt; image is optional so
-        the same model does text-only synthesis steps.
+        Unlike describe(), the caller owns the prompt; image/images are
+        optional so the same model does text-only synthesis steps. images
+        carries a multi-photo walkthrough (one content entry per image, in
+        order) - Qwen2.5-VL accepts multiple images in one message.
         """
         if vlm_disabled() or self.model is None or self.processor is None:
             return ""
 
         import torch
 
-        content: list[dict] = []
-        if image is not None:
-            content.append({"type": "image", "image": image})
+        if images is not None and image is not None:
+            raise ValueError("pass either image or images, not both")
+        imgs = list(images) if images is not None else ([image] if image is not None else [])
+
+        content: list[dict] = [{"type": "image", "image": im} for im in imgs]
         content.append({"type": "text", "text": prompt})
         messages = [{"role": "user", "content": content}]
         text = self.processor.apply_chat_template(
             messages, add_generation_prompt=True, tokenize=False
         )
         kwargs = {"text": [text], "return_tensors": "pt"}
-        if image is not None:
-            kwargs["images"] = [image]
+        if imgs:
+            kwargs["images"] = imgs
         inputs = self.processor(**kwargs).to(self.device)
         from contextlib import nullcontext
 
