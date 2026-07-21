@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { isColdStartError, sleep } from "./apiHelpers";
-import { Button, Pill, severityTone, StatusLine, ErrorBanner } from "./ui";
+import { Button, Pill, severityTone, StatusLine, ErrorBanner, Lightbox } from "./ui";
 
 export const MAX_WALKTHROUGH_PHOTOS = 10;
 const DEFAULT_POLL_MS = 1500;
@@ -197,15 +197,6 @@ function Walkthrough({
     () => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)),
     []
   );
-
-  // Esc closes the lightbox.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") setLightbox(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   const resetEnrich = () => {
     setIsEnriching(false);
@@ -773,35 +764,14 @@ function Walkthrough({
       </div>
 
       {lightbox != null && photos[lightbox] && (
-        <div
-          className="sc-lightbox"
-          data-testid="wt-lightbox"
-          onClick={() => setLightbox(null)}
-        >
-          <div className="sc-lightbox-card" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="sc-lightbox-close"
-              aria-label="Close"
-              onClick={() => setLightbox(null)}
-            >
-              ×
-            </button>
-            <img
-              src={photos[lightbox].preview}
-              alt={`photo_${lightbox + 1}`}
-              className="sc-lightbox-img"
-            />
-            <div className="sc-lightbox-meta">
-              <span className="sc-lightbox-label">
-                PHOTO {lightbox + 1} · {photos[lightbox].file.name.toUpperCase()}
-              </span>
-              <span className="sc-lightbox-obs">
-                {findingByPhotoId[`photo_${lightbox + 1}`]?.observation || ""}
-              </span>
-            </div>
-          </div>
-        </div>
+        <Lightbox
+          src={photos[lightbox].preview}
+          alt={`photo_${lightbox + 1}`}
+          label={`PHOTO ${lightbox + 1} · ${photos[lightbox].file.name.toUpperCase()}`}
+          caption={findingByPhotoId[`photo_${lightbox + 1}`]?.observation || ""}
+          onClose={() => setLightbox(null)}
+          testId="wt-lightbox"
+        />
       )}
     </main>
   );
