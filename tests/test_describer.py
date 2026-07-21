@@ -180,3 +180,69 @@ def test_module_import_does_not_pull_in_torch_or_transformers():
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "OK"
+
+
+# ---------------------------------------------------------------------------
+# chat multi-image (the walkthrough's cross-photo call, local fallback path)
+# ---------------------------------------------------------------------------
+
+
+def test_chat_multi_image_builds_one_content_entry_per_image(monkeypatch):
+    monkeypatch.delenv("DEFECTLENS_NO_VLM", raising=False)
+
+    class FakeTensor(list):
+        @property
+        def shape(self):
+            return (len(self), len(self[0]) if self else 0)
+
+    class FakeBatchEncoding(dict):
+        def __init__(self, input_ids):
+            super().__init__(input_ids=input_ids)
+            self.input_ids = input_ids
+
+        def to(self, device):
+            return self
+
+    class FakeProcessor:
+        def apply_chat_template(self, messages, add_generation_prompt, tokenize):
+            content = messages[0]["content"]
+            assert content[0] == {"type": "image", "image": "img-A"}
+            assert content[1] == {"type": "image", "image": "img-B"}
+            assert content[2] == {"type": "text", "text": "walkthrough prompt"}
+            return "PROMPT_TEXT"
+
+        def __call__(self, text, images, return_tensors):
+            assert text == ["PROMPT_TEXT"]
+            assert images == ["img-A", "img-B"]
+            assert return_tensors == "pt"
+            return FakeBatchEncoding(FakeTensor([[1, 2, 3, 4]]))
+
+        def batch_decode(self, sequences, skip_special_tokens=True):
+            assert list(sequences) == [[5, 6, 7]]
+            return ["  cross-photo synthesis  "]
+
+    class FakeModel:
+        def generate(self, **kwargs):
+            assert kwargs.get("max_new_tokens") == 555
+            assert kwargs.get("do_sample") is False
+            return FakeTensor([[1, 2, 3, 4, 5, 6, 7]])
+
+    d = Describer()
+    d.model = FakeModel()
+    d.processor = FakeProcessor()
+    d.device = "cpu"
+
+    result = d.chat("walkthrough prompt", images=["img-A", "img-B"], max_new_tokens=555)
+    assert result == "cross-photo synthesis"
+
+
+def test_chat_rejects_both_image_and_images(monkeypatch):
+    import pytest
+
+    monkeypatch.delenv("DEFECTLENS_NO_VLM", raising=False)
+    d = Describer()
+    d.model = object()
+    d.processor = object()
+    d.device = "cpu"
+    with pytest.raises(ValueError):
+        d.chat("p", image="a", images=["b"])
