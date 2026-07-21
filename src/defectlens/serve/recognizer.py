@@ -97,6 +97,10 @@ class RecognitionResult:
     classes: list[tuple[str, float]]  # (label, score) desc
     severity: str
     hits: list[Hit]  # top-k fused cards, metadata-joined
+    # Normalized CLIP image embedding of the query photo [768] — feeds the
+    # exemplar-image similarity ("similar documented cases"). None only in
+    # legacy fixtures that construct results by hand.
+    query_embedding: object | None = None
 
 
 class Recognizer:
@@ -230,4 +234,6 @@ class Recognizer:
         top_cards = [hit.card for hit in hits if top_class in hit.card.class_tags]
         severity = severity_for(top_class, top_cards)
 
-        return RecognitionResult(classes=classes, severity=severity, hits=hits)
+        return RecognitionResult(
+            classes=classes, severity=severity, hits=hits, query_embedding=emb
+        )

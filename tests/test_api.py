@@ -1011,3 +1011,98 @@ def test_poll_analyze_job_503_when_not_wired(monkeypatch):
     client = TestClient(app)
     resp = client.get("/analyze-jobs/whatever")
     assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# exemplar wiring (KB track, plan C2): card thumb strips + similar cases
+# ---------------------------------------------------------------------------
+
+
+class StubExemplarStore:
+    """ArrayVectorStore stand-in exposing only the exemplar seam."""
+
+    def __init__(self):
+        self.meta_a = {
+            "id": "ex-1",
+            "card_ids": ["c1"],
+            "class_tags": ["crack"],
+            "license": "cc_by",
+            "credit": "Dataset X, CC BY 4.0",
+            "source_url": "https://example.com/ex-1",
+            "caption": "documented crack",
+            "image_url": "/exemplars/ex-1.jpg",
+            "thumb_url": "/exemplars/thumbs/ex-1.jpg",
+        }
+        self.top_k_calls = []
+
+    def exemplars_for_card(self, card_id, limit=3):
+        return [self.meta_a] if card_id == "c1" else []
+
+    def exemplar_top_k(self, embedding, k):
+        self.top_k_calls.append((embedding, k))
+        return [("ex-1", self.meta_a, 0.12)]
+
+
+def _exemplar_payload_expected():
+    return {
+        "id": "ex-1",
+        "thumb_url": "/exemplars/thumbs/ex-1.jpg",
+        "image_url": "/exemplars/ex-1.jpg",
+        "credit": "Dataset X, CC BY 4.0",
+        "source_url": "https://example.com/ex-1",
+        "caption": "documented crack",
+    }
+
+
+def test_analyze_attaches_card_exemplars_and_similar_cases():
+    result = _analyze_result()
+    result.query_embedding = [0.0, 1.0, 0.0]
+    recognizer = StubRecognizer(result)
+    recognizer.vector_store = StubExemplarStore()
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")}
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["cards"][0]["exemplars"] == [_exemplar_payload_expected()]
+    assert "exemplars" not in body["cards"][1]  # c2 has no linked exemplars
+    assert body["similar_cases"] == [
+        {**_exemplar_payload_expected(), "card_ids": ["c1"]}
+    ]
+    # top-3 by query-image similarity
+    assert recognizer.vector_store.top_k_calls[0][1] == 3
+
+
+def test_analyze_without_store_omits_exemplars_but_keeps_shape():
+    result = _analyze_result()
+    recognizer = StubRecognizer(result)  # no vector_store attr
+    app = create_app(recognizer=recognizer, describer=StubDescriber())
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")}
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["similar_cases"] == []
+    assert all("exemplars" not in c for c in body["cards"])
+
+
+def test_search_attaches_card_exemplars():
+    card = make_card("c1", ["crack"])
+    searcher = StubTextSearcher([Hit(card=card, distance=0.1)])
+    recognizer = StubRecognizer(_analyze_result())
+    recognizer.vector_store = StubExemplarStore()
+    app = create_app(recognizer=recognizer, text_searcher=searcher)
+    client = TestClient(app)
+
+    resp = client.post("/search", json={"query": "cracks in wall"})
+
+    assert resp.status_code == 200
+    cards = resp.json()["cards"]
+    assert cards[0]["exemplars"] == [_exemplar_payload_expected()]
