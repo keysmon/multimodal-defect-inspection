@@ -357,15 +357,22 @@ function Walkthrough({
   });
 
   return (
-    <section className="walkthrough-section">
-      <h2>Walkthrough diagnostic report</h2>
-      <p className="wt-subtitle">
-        First site visit? Add the photos you took plus your concerns, and get a
-        cited draft diagnostic: what is visible, what to check next, and what
-        the photos cannot answer.
-      </p>
+    <section id="walkthrough" className="tool-panel walkthrough-section">
+      <div className="panel-header">
+        <span className="eyebrow">Walkthrough · site-visit report</span>
+        <h2>Walkthrough diagnostic report</h2>
+        <p className="panel-sub">
+          First site visit? Add the photos you took plus your concerns, and get
+          a cited draft diagnostic: what is visible, what to check next, and
+          what the photos cannot answer.
+        </p>
+      </div>
 
+      <label className="field-label" htmlFor="wt-file-input">
+        {`Site photos · up to ${MAX_WALKTHROUGH_PHOTOS}`}
+      </label>
       <input
+        id="wt-file-input"
         type="file"
         accept="image/*"
         multiple

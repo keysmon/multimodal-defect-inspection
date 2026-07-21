@@ -467,15 +467,32 @@ function DefectLens() {
 
   return (
     <div className="defectlens-container">
-      <header className="dl-header">
+      <header className="dl-toolbar">
         <h1 className="dl-title">
-          DefectLens — building-defect inspection assistant
+          DefectLens
+          <span className="dl-tagline"> — building-defect inspection assistant</span>
         </h1>
+        <nav className="dl-nav" aria-label="Tools">
+          <a href="#analyze">Analyze</a>
+          <a href="#walkthrough">Walkthrough</a>
+          <a href="#search">Search</a>
+        </nav>
       </header>
 
       {error && <div className="error-banner">{error}</div>}
 
-      <section className="gallery-section">
+      <section id="analyze" className="tool-panel">
+      <div className="panel-header">
+        <span className="eyebrow">Analyze · single photo</span>
+        <h2>Photo check with cited guidance</h2>
+        <p className="panel-sub">
+          Upload one photo (plus an optional note and equipment audio) to get a
+          ranked defect classification, a severity band, and the standards
+          passages that back it.
+        </p>
+      </div>
+
+      <div className="gallery-section">
         <h2 className="gallery-title">Try an example</h2>
         <p className="gallery-subtitle">
           One click loads a sample photo and inspector note, then runs the
@@ -501,10 +518,14 @@ function DefectLens() {
             </button>
           ))}
         </div>
-      </section>
+      </div>
 
-      <section className="upload-section">
+      <div className="upload-section">
+        <label className="field-label" htmlFor="dl-photo-input">
+          Photo
+        </label>
         <input
+          id="dl-photo-input"
           type="file"
           accept="image/*"
           onChange={handleFileChange}
@@ -527,7 +548,11 @@ function DefectLens() {
           rows={2}
           maxLength={500}
         />
+        <label className="field-label" htmlFor="dl-audio-input">
+          Equipment audio · wav, optional
+        </label>
         <input
+          id="dl-audio-input"
           type="file"
           accept=".wav,audio/wav"
           ref={audioInputRef}
@@ -547,10 +572,10 @@ function DefectLens() {
           {isAnalyzing ? "Analyzing..." : "Analyze"}
         </button>
         {analyzeStatus && <p className="analyze-status">{analyzeStatus}</p>}
-      </section>
+      </div>
 
       {analyzeResult && (
-        <section className="results-section">
+        <div className="results-section">
           <div
             className="severity-banner"
             style={{
@@ -649,10 +674,10 @@ function DefectLens() {
               </div>
             )}
           </div>
-        </section>
+        </div>
       )}
 
-      <section className="export-section">
+      <div className="export-section">
         <button
           onClick={handleExport}
           disabled={!analyzeResult}
@@ -660,26 +685,36 @@ function DefectLens() {
         >
           Export report (markdown)
         </button>
+      </div>
       </section>
 
       <Walkthrough API={API} />
 
-      <section className="search-section">
-        <h2>Search guidance</h2>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search defect guidance..."
-          className="search-input"
-        />
-        <button
-          onClick={handleSearch}
-          disabled={isSearching}
-          className="search-button"
-        >
-          {isSearching ? "Searching..." : "Search"}
-        </button>
+      <section id="search" className="tool-panel search-section">
+        <div className="panel-header">
+          <span className="eyebrow">Search · guidance corpus</span>
+          <h2>Search guidance</h2>
+          <p className="panel-sub">
+            Query the 205-card cited standards corpus directly - defect terms,
+            symptoms, or equipment sounds.
+          </p>
+        </div>
+        <div className="search-controls">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search defect guidance..."
+            className="search-input"
+          />
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className="search-button"
+          >
+            {isSearching ? "Searching..." : "Search"}
+          </button>
+        </div>
 
         {searchResult && <CardList cards={searchResult.cards} />}
       </section>
