@@ -15,6 +15,8 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+from defectlens.grounding.citations import citation_is_class_relevant
+
 RESULTS = Path("results/agent_eval.json")
 REJECTED = Path("results/agent_eval.rejected.json")
 GOLDEN = Path("data/manifests/agent_golden.csv")
@@ -35,7 +37,7 @@ def property_metrics(report: dict, expected: set[str], card_tags: dict[str, list
         for f in measured
         for c in f.get("citations", [])
     ]
-    valid = [cls in card_tags.get(cid, []) for cls, cid in cites]
+    valid = [citation_is_class_relevant(cid, cls, card_tags) for cls, cid in cites]
     citation_validity = sum(valid) / len(valid) if valid else 1.0
     return {
         "findings_recall": recall,
