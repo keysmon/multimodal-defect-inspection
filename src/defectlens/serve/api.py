@@ -33,6 +33,13 @@ CORS_ORIGINS = [
 
 MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB; a 10s wav is ~1 MB, so this is generous
 
+# Reject decompression-bomb images at the decode boundary. PIL reads dimensions
+# from the header (no pixel decode), so a small, highly-compressible file that
+# declares a huge canvas is caught here before it can allocate a multi-hundred-MB
+# RGB buffer - which, on the async path, would OOM the worker out-of-band. ~50 MP
+# covers any real inspection photo with room to spare.
+MAX_IMAGE_PIXELS = 50_000_000
+
 logger = logging.getLogger(__name__)
 
 # The condition description is best-effort (describe() returns "" on any
@@ -67,9 +74,22 @@ def describe_with_deadline(
     image: Any,
     top_labels: list[str],
     audio_band: str | None,
+    *,
+    budget_override: float | None = None,
 ) -> str:
-    """Run describer.describe, wall-clock-bounded only if it advertises a budget."""
-    budget = getattr(describer, "describe_budget_s", None)
+    """Run describer.describe, wall-clock-bounded when a budget applies.
+
+    The budget is ``budget_override`` when given (the async worker passes a
+    generous one - it has no gateway cap, so a valid slow description is still
+    included while a true hang stays bounded), else the describer's advertised
+    ``describe_budget_s`` (the sync/gateway path), else unbounded (local Qwen,
+    ~15s on MPS and self-bounded by max_new_tokens).
+    """
+    budget = (
+        budget_override
+        if budget_override is not None
+        else getattr(describer, "describe_budget_s", None)
+    )
     if not budget or budget <= 0:
         return _describe_safely(describer, image, top_labels, audio_band)
 
@@ -93,6 +113,54 @@ def describe_with_deadline(
             "description exceeded %.1fs budget; returning without it", budget
         )
     return result["text"]
+
+
+async def _read_validated_audio(audio: UploadFile) -> bytes:
+    """Read an uploaded audio clip, enforcing the 10MB cap (413) and a wav
+    decode-check (400). Pure input validation - it does NOT gate on the
+    analyzer being enabled, so callers decide when to invoke it: the sync
+    /analyze route calls it only when the analyzer is loaded+enabled (behavior
+    unchanged), while the model-free async submit route calls it whenever audio
+    is present and lets the worker decide via ``enabled``.
+    """
+    audio_bytes = await audio.read()
+    if len(audio_bytes) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Uploaded audio exceeds the 10MB limit")
+    try:
+        import soundfile as sf
+
+        sf.read(BytesIO(audio_bytes))  # decode-check, mirrors img.load()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Uploaded audio is not a readable wav: {exc}"
+        ) from exc
+    return audio_bytes
+
+
+def _validate_image(data: bytes) -> Image.Image:
+    """Decode-and-validate an uploaded image, shared by the sync /analyze and
+    async submit boundaries. Rejects (400): a non-image, a decompression bomb
+    over MAX_IMAGE_PIXELS (checked from the header before any pixel decode), or a
+    truncated/corrupt payload (via img.load()). Returns the loaded PIL image;
+    callers convert to RGB as needed (the async submit route just validates)."""
+    try:
+        img = Image.open(BytesIO(data))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+        ) from exc
+    if img.width * img.height > MAX_IMAGE_PIXELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Image too large: {img.width}x{img.height} exceeds the pixel limit",
+        )
+    try:
+        img.load()  # force full decode; catches truncated/corrupt payloads
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
+        ) from exc
+    return img
 
 
 class TextSearcher:
@@ -131,12 +199,165 @@ def _card_to_dict(card: Any) -> dict:
     }
 
 
+def _lazy_mode() -> bool:
+    """True on the async cloud path: model loading is deferred out of the
+    lifespan to the routes/worker that actually need it."""
+    return os.environ.get("DEFECTLENS_LAZY_LOAD", "").strip() == "1"
+
+
+def ensure_loaded(app: FastAPI) -> None:
+    """Idempotently load the heavyweight components onto app.state.
+
+    Called eagerly by the lifespan (local/default) and lazily by the routes
+    that actually need models (sync /analyze, /search, the async worker). The
+    submit/status/health routes never call it, so they stay fast even on a cold
+    env - the point of the async path. Each block is a no-op when its component
+    is already set (injected stubs in tests, or a prior call), so this is safe
+    to call on every request.
+    """
+    vector_store = None
+    card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
+    if card_vectors_path and (
+        app.state.recognizer is None or app.state.audio_analyzer is None
+    ):
+        from defectlens.rag.vector_store import ArrayVectorStore
+
+        vector_store = ArrayVectorStore.load(card_vectors_path)
+
+    if app.state.recognizer is None:
+        from defectlens.serve.recognizer import Recognizer
+
+        r = Recognizer(vector_store=vector_store)
+        r.load()
+        app.state.recognizer = r
+    if app.state.describer is None:
+        from defectlens.serve.bedrock_describer import describer_is_bedrock
+
+        if describer_is_bedrock():
+            from defectlens.serve.bedrock_describer import BedrockDescriber
+
+            d = BedrockDescriber()
+        else:
+            from defectlens.serve.describer import Describer
+
+            d = Describer()
+        d.load()
+        app.state.describer = d
+    if app.state.text_searcher is None:
+        app.state.text_searcher = TextSearcher(app.state.recognizer)
+    if app.state.audio_analyzer is None:
+        from defectlens.serve.audio_analyzer import AudioAnalyzer
+
+        audio_kwargs: dict[str, Any] = {"vector_store": vector_store}
+        audio_bank_dir = os.environ.get("AUDIO_BANK_DIR")
+        if audio_bank_dir:
+            audio_kwargs["bank_dir"] = Path(audio_bank_dir)
+        a = AudioAnalyzer(**audio_kwargs)
+        a.load()
+        app.state.audio_analyzer = a
+    if app.state.vlm_gateway is None:
+        from defectlens.serve.vlm_gateway import build_gateway_from_env
+
+        app.state.vlm_gateway = build_gateway_from_env()
+
+
+def run_analysis(
+    app: FastAPI,
+    data: bytes,
+    img: Any,
+    note_text: str | None,
+    audio_bytes: bytes | None,
+    *,
+    skip_description: bool = False,
+    describe_budget: float | None = None,
+) -> dict:
+    """The core image (+ optional audio) analysis, shared by the sync /analyze
+    route and the async worker.
+
+    Reads its already-loaded components off ``app.state`` - each caller loads
+    models (``ensure_loaded``) and validates raw inputs (image decode, audio
+    size/decode) at its own boundary first, so this function is pure pipeline:
+    classify (CLIP-fused, or the fine-tuned VLM when the adapter is loaded) ->
+    retrieve cited cards -> optional equipment-audio late fusion -> condition
+    description -> assembled response dict.
+
+    - ``skip_description``: the sync cold-start stopgap sets this so the first
+      cold request warms the env without the extra Bedrock call. The worker
+      never skips (async has no gateway cap).
+    - ``describe_budget``: overrides the describer's advertised wall-clock
+      budget. The worker passes a generous value so a valid slow description is
+      included while a true hang stays bounded; ``None`` keeps the describer's
+      own budget (the sync/gateway behavior).
+    """
+    recognizer = app.state.recognizer
+    describer = app.state.describer
+    analyzer = app.state.audio_analyzer
+
+    result = recognizer.analyze_image_bytes(data, k=5, note=note_text)
+
+    # Phase 3 classifier: fine-tuned VLM ranking (macro top-1 0.851) when the
+    # adapter is loaded; CLIP-fused ranking otherwise. Cards retrieval stays
+    # CLIP-RAG either way; severity re-keys on the final top class.
+    classes = result.classes
+    severity = result.severity
+    classifier = "clip-fused"
+    vlm_classes = getattr(describer, "rank_classes", lambda _img, note=None: [])(
+        img, note=note_text
+    )
+    if vlm_classes:
+        from defectlens.serve.recognizer import severity_for
+
+        classes = vlm_classes
+        classifier = "vlm-qlora"
+        top_class = classes[0][0]
+        top_cards = [
+            hit.card for hit in result.hits if top_class in hit.card.class_tags
+        ]
+        severity = severity_for(top_class, top_cards)
+
+    # Phase 5.3 late fusion: an optional equipment-audio clip adds a second
+    # modality. Audio runs before description so the band can enter the prompt.
+    audio_payload = None
+    audio_band = None
+    combined_severity = severity
+    if audio_bytes is not None and analyzer is not None and getattr(analyzer, "enabled", False):
+        finding = analyzer.analyze(audio_bytes)
+        audio_band = finding.band
+        audio_payload = {
+            "score": finding.score,
+            "band": finding.band,
+            "severity": finding.severity,
+            "cards": [_card_to_dict(hit.card) for hit in finding.hits],
+        }
+        combined_severity = combine_severity(severity, finding.severity)
+
+    top_labels = [label for label, _score in classes[:3]]
+    if skip_description:
+        description = ""
+    else:
+        description = describe_with_deadline(
+            describer, img, top_labels, audio_band, budget_override=describe_budget
+        )
+
+    return {
+        "classes": [{"label": label, "score": score} for label, score in classes],
+        "severity": severity,
+        "combined_severity": combined_severity,
+        "classifier": classifier,
+        "note": note_text,
+        "description": description,
+        "cards": [_card_to_dict(hit.card) for hit in result.hits],
+        "audio": audio_payload,
+    }
+
+
 def create_app(
     recognizer: Any = None,
     describer: Any = None,
     text_searcher: Any = None,
     audio_analyzer: Any = None,
     vlm_gateway: Any = None,
+    cpu_job_store: Any = None,
 ) -> FastAPI:
     """App factory. Pass stubs directly for tests (stored on app.state as-is,
     no lifespan-triggered loading needed since TestClient without `with` never
@@ -150,56 +371,12 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Cloud/no-DB path: when CARD_VECTORS_PATH points at a baked npz, load
-        # it once and inject one ArrayVectorStore into both Recognizer and
-        # AudioAnalyzer (they fall back to the pgvector conn when it's absent,
-        # keeping local dev unchanged). See rag.vector_store.
-        vector_store = None
-        card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
-        if card_vectors_path:
-            from defectlens.rag.vector_store import ArrayVectorStore
-
-            vector_store = ArrayVectorStore.load(card_vectors_path)
-
-        if app.state.recognizer is None:
-            from defectlens.serve.recognizer import Recognizer
-
-            r = Recognizer(vector_store=vector_store)
-            r.load()
-            app.state.recognizer = r
-        if app.state.describer is None:
-            from defectlens.serve.bedrock_describer import describer_is_bedrock
-
-            if describer_is_bedrock():
-                # Cloud path: Claude Haiku on Bedrock writes the description
-                # (DEFECTLENS_NO_VLM=1, no local torch model in the image).
-                from defectlens.serve.bedrock_describer import BedrockDescriber
-
-                d = BedrockDescriber()
-            else:
-                from defectlens.serve.describer import Describer
-
-                d = Describer()
-            d.load()
-            app.state.describer = d
-        if app.state.text_searcher is None:
-            app.state.text_searcher = TextSearcher(app.state.recognizer)
-        if app.state.audio_analyzer is None:
-            from defectlens.serve.audio_analyzer import AudioAnalyzer
-
-            audio_kwargs: dict[str, Any] = {"vector_store": vector_store}
-            audio_bank_dir = os.environ.get("AUDIO_BANK_DIR")
-            if audio_bank_dir:
-                audio_kwargs["bank_dir"] = Path(audio_bank_dir)
-            a = AudioAnalyzer(**audio_kwargs)
-            a.load()
-            app.state.audio_analyzer = a
-        if app.state.vlm_gateway is None:
-            # None unless SAGEMAKER_ENDPOINT is set (5.5c GPU async path); the
-            # CPU-only deploy leaves it None so /analyze-vlm returns 503.
-            from defectlens.serve.vlm_gateway import build_gateway_from_env
-
-            app.state.vlm_gateway = build_gateway_from_env()
+        # Eager load at startup unless DEFECTLENS_LAZY_LOAD=1 (the async cloud
+        # path): lazy mode keeps submit/status/health model-free so they answer
+        # fast on a cold env, and the async worker calls ensure_loaded() itself.
+        # Local uvicorn keeps the eager behavior so the first request is warm.
+        if not _lazy_mode():
+            ensure_loaded(app)
         yield
 
     app = FastAPI(lifespan=lifespan)
@@ -208,6 +385,7 @@ def create_app(
     app.state.text_searcher = text_searcher
     app.state.audio_analyzer = audio_analyzer
     app.state.vlm_gateway = vlm_gateway
+    app.state.cpu_job_store = cpu_job_store
 
     app.add_middleware(
         CORSMiddleware,
@@ -226,90 +404,103 @@ def create_app(
     ) -> dict:
         note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
         data = await file.read()
-        try:
-            img = Image.open(BytesIO(data))
-            img.load()  # force full decode; catches truncated/corrupt payloads
-            img = img.convert("RGB")
-        except Exception as exc:
-            raise HTTPException(
-                status_code=400, detail=f"Uploaded file is not a readable image: {exc}"
-            ) from exc
+        img = _validate_image(data).convert("RGB")
 
-        recognizer = request.app.state.recognizer
-        describer = request.app.state.describer
+        if _lazy_mode():
+            ensure_loaded(request.app)  # cloud lazy path loads on demand
+
+        # Audio validation stays gated on the analyzer being loaded+enabled here
+        # so the sync path's behavior is unchanged; the async submit route
+        # captures audio ungated (it is model-free, so the analyzer isn't loaded
+        # yet) and lets the worker decide via ``enabled``.
         analyzer = request.app.state.audio_analyzer
-
-        result = recognizer.analyze_image_bytes(data, k=5, note=note_text)
-
-        # Phase 3 classifier: fine-tuned VLM ranking (macro top-1 0.851)
-        # when the adapter is loaded; CLIP-fused ranking otherwise. Cards
-        # retrieval stays CLIP-RAG either way; severity re-keys on the
-        # final top class.
-        classes = result.classes
-        severity = result.severity
-        classifier = "clip-fused"
-        vlm_classes = getattr(describer, "rank_classes", lambda _img, note=None: [])(
-            img, note=note_text
-        )
-        if vlm_classes:
-            from defectlens.serve.recognizer import severity_for
-
-            classes = vlm_classes
-            classifier = "vlm-qlora"
-            top_class = classes[0][0]
-            top_cards = [
-                hit.card for hit in result.hits if top_class in hit.card.class_tags
-            ]
-            severity = severity_for(top_class, top_cards)
-
-        # Phase 5.3 late fusion: an optional equipment-audio clip adds a second
-        # modality. Audio runs before description so the band can enter the prompt.
-        audio_payload = None
-        audio_band = None
-        combined_severity = severity
+        audio_bytes = None
         if audio is not None and analyzer is not None and getattr(analyzer, "enabled", False):
-            audio_bytes = await audio.read()
-            if len(audio_bytes) > MAX_AUDIO_BYTES:
-                raise HTTPException(
-                    status_code=413, detail="Uploaded audio exceeds the 10MB limit"
-                )
-            try:
-                import soundfile as sf
+            audio_bytes = await _read_validated_audio(audio)
 
-                sf.read(BytesIO(audio_bytes))  # decode-check, mirrors img.load() above
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=400, detail=f"Uploaded audio is not a readable wav: {exc}"
-                ) from exc
-            finding = analyzer.analyze(audio_bytes)
-            audio_band = finding.band
-            audio_payload = {
-                "score": finding.score,
-                "band": finding.band,
-                "severity": finding.severity,
-                "cards": [_card_to_dict(hit.card) for hit in finding.hits],
-            }
-            combined_severity = combine_severity(severity, finding.severity)
+        # Cold-start relief (sync/gateway path only): the FIRST /analyze on a
+        # fresh env already pays the ~24s in-request model load, which alone
+        # nears the 29s gateway cap. On the cloud path (describer advertises a
+        # budget) skip the extra Bedrock call on that one request so it completes
+        # under the cap and warms the env - classification + cited cards still
+        # return; the description arrives on the next (warm) request. The async
+        # worker never skips (it has no gateway cap). Local/ungated describers
+        # and all subsequent requests are unaffected.
+        describer = request.app.state.describer
+        served_before = getattr(request.app.state, "served_analyze", False)
+        request.app.state.served_analyze = True
+        skip_description = (
+            bool(getattr(describer, "describe_budget_s", None)) and not served_before
+        )
 
-        top_labels = [label for label, _score in classes[:3]]
-        description = describe_with_deadline(describer, img, top_labels, audio_band)
-
-        return {
-            "classes": [{"label": label, "score": score} for label, score in classes],
-            "severity": severity,
-            "combined_severity": combined_severity,
-            "classifier": classifier,
-            "note": note_text,
-            "description": description,
-            "cards": [_card_to_dict(hit.card) for hit in result.hits],
-            "audio": audio_payload,
-        }
+        return run_analysis(
+            request.app,
+            data,
+            img,
+            note_text,
+            audio_bytes,
+            skip_description=skip_description,
+        )
 
     @app.post("/search")
     async def search(payload: SearchRequest, request: Request) -> dict:
+        if _lazy_mode():
+            ensure_loaded(request.app)  # cloud lazy path loads on demand
         text_searcher = request.app.state.text_searcher
         hits = text_searcher.search(payload.query, k=5)
         return {"cards": [_card_to_dict(hit.card) for hit in hits]}
+
+    # -----------------------------------------------------------------------
+    # CPU async path (async /analyze design, Phase 1): removes the 29s gateway
+    # cap for /analyze. POST /analyze-jobs validates the image, writes the job
+    # to S3 and async self-invokes the worker, returning 202 immediately - it is
+    # model-free, so it's fast even on a cold env. GET /analyze-jobs/{job_id}
+    # polls the S3 result. Both 503 when the async path isn't wired (no
+    # CPU_JOBS_S3 / not running in Lambda); local dev uses sync /analyze.
+    # -----------------------------------------------------------------------
+
+    def _require_cpu_jobs(request: Request):
+        store = request.app.state.cpu_job_store
+        if store is None:
+            from defectlens.serve.async_jobs import build_cpu_job_store_from_env
+
+            store = build_cpu_job_store_from_env()
+            request.app.state.cpu_job_store = store  # cache the boto3-backed store
+        if store is None or not getattr(store, "enabled", False):
+            raise HTTPException(status_code=503, detail="Async analyze path not deployed")
+        return store
+
+    @app.post("/analyze-jobs", status_code=202)
+    async def submit_analyze_job(
+        request: Request,
+        file: UploadFile = File(...),
+        note: str = Form(""),
+        audio: UploadFile | None = File(None),
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        note_text = re.sub(r"<\|[^>]*\|>", " ", note.strip())[:MAX_NOTE_CHARS] or None
+        data = await file.read()
+        _validate_image(data)  # 400 on non-image / decompression bomb / corrupt
+        # Model-free route: the analyzer isn't loaded here, so capture audio
+        # whenever present (ungated) and let the worker decide via ``enabled``.
+        audio_bytes = await _read_validated_audio(audio) if audio is not None else None
+        return store.submit(data, note_text, audio_bytes)
+
+    @app.get("/analyze-jobs/{job_id}")
+    async def poll_analyze_job(
+        request: Request, response: Response, job_id: str
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        state, obj = store.status(job_id)
+        if state == "ready":
+            return obj
+        if state == "failed":
+            # The worker's raw error stays server-side (S3 err/ + CloudWatch via
+            # logger.exception); return a generic message so an unauthenticated
+            # client can't harvest bucket names / ARNs from botocore error text.
+            raise HTTPException(status_code=500, detail="analysis failed")
+        response.status_code = 202  # still running
+        return {"status": "pending"}
 
     # -----------------------------------------------------------------------
     # GPU async path (Phase 5.5c): the fine-tuned VLM on a scale-to-zero
@@ -395,8 +586,20 @@ def create_app(
         vlm_loaded = bool(describer is not None and getattr(describer, "model", None) is not None)
         adapter_loaded = bool(getattr(describer, "adapter_loaded", False))
 
+        # Lazy cloud path: the env answering /health may not have loaded models
+        # yet (they load in the worker / on first use), but the service IS
+        # servable when the async job path is wired and the baked vector artifact
+        # is present. Key "ok" on servability, not this-env model state - else
+        # /health flaps ok/degraded by which env answers and the canary
+        # false-alarms after the DEFECTLENS_LAZY_LOAD switch.
+        async_ready = (
+            _lazy_mode()
+            and bool(os.environ.get("CPU_JOBS_S3", "").strip())
+            and Path(os.environ.get("CARD_VECTORS_PATH", "")).exists()
+        )
+
         return {
-            "status": "ok" if (db_ok or store_ok) else "degraded",
+            "status": "ok" if (db_ok or store_ok or async_ready) else "degraded",
             "db": db_ok,
             "cards_indexed": cards_indexed,
             "vlm_loaded": vlm_loaded,

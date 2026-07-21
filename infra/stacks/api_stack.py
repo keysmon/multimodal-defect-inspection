@@ -47,6 +47,12 @@ BEDROCK_MODEL_SLUG = "anthropic.claude-haiku-4-5-20251001-v1:0"
 
 STAGE_NAME = "api"
 
+# CPU async-job I/O lives under this prefix in the shared artifacts bucket
+# (gpu.BUCKET): the submit route writes cpu-jobs/in/, the worker writes
+# cpu-jobs/out/ or cpu-jobs/err/. A 1-day S3 lifecycle rule (applied out-of-band
+# on the bucket - it is not CDK-managed) expires them.
+CPU_JOBS_PREFIX = "phase5/cpu-jobs/"
+
 
 class ApiStack(Stack):
     def __init__(
@@ -68,6 +74,13 @@ class ApiStack(Stack):
             # Absolute paths inside the image (LAMBDA_TASK_ROOT == /var/task).
             "CARD_VECTORS_PATH": "/var/task/models/cloud_artifacts/card_vectors.npz",
             "AUDIO_BANK_DIR": "/var/task/models/audio_bank",
+            # Async /analyze: lazy model load keeps submit/status/health
+            # model-free (fast on a cold env); the worker calls ensure_loaded
+            # itself. The submit route drops jobs under this s3://bucket/prefix
+            # and async self-invokes this same Lambda (name from
+            # AWS_LAMBDA_FUNCTION_NAME, set by the runtime).
+            "DEFECTLENS_LAZY_LOAD": "1",
+            "CPU_JOBS_S3": f"s3://{gpu.BUCKET}/{CPU_JOBS_PREFIX}",
         }
         # GPU async path (5.5c) is OFF by default: SAGEMAKER_ENDPOINT is the sole
         # on-switch, so a CPU-only deploy answers 503 rather than invoking a
@@ -90,15 +103,28 @@ class ApiStack(Stack):
             # requested; bump to 8192 + re-enable audio when granted). At 3008
             # CLIP fits; CLAP is disabled via DEFECTLENS_NO_AUDIO to stay in RAM.
             memory_size=3008,
-            # Match the 29s API-gateway integration cap (+1s slack). A request
-            # that can't beat the gateway is already a client failure; the old
-            # 120s ceiling just let a stalled invocation burn 4x billing and
-            # hold a concurrency slot for 2 minutes, which cascades under
-            # bursts of cold starts. describe_with_deadline() bounds the
-            # optional Bedrock call inside the request; this bounds everything
-            # else. (Hang root-caused 2026-07-20: botocore read_timeout did not
-            # fire under concurrent-cold-start memory pressure.)
-            timeout=Duration.seconds(30),
+            # The async worker (Event self-invoke) is the SAME function, so it
+            # runs under this timeout - but it has no 29s API-gateway cap, and a
+            # cold worker (model load ~24-29s + classify + RAG + describe)
+            # exceeds 30s. Give it headroom: 120s. Safe now because the Bedrock
+            # hang - the original reason this was cut 120s->30s on 2026-07-20 -
+            # is bounded by describe_with_deadline() (sync uses the describer's
+            # 12s budget, the worker a generous-but-bounded one), so nothing in
+            # the path stalls unboundedly: model load completes, classify/RAG are
+            # CPU-fast. The HTTP path is unaffected in practice - the integration
+            # still caps at 29s (below), so a client sees a 504 by then
+            # regardless; the function only runs on to finish the cold load and
+            # warm the env, not to 120s.
+            timeout=Duration.seconds(120),
+            # Fire-and-forget worker: no Lambda-internal retries on the async
+            # self-invoke. A handled worker error already writes an err/ object
+            # (the poll surfaces it as failed); retrying would only re-run the
+            # full model pipeline on a transient/unhandled failure and could
+            # triple compute on a pathological job. Conscious deviation from the
+            # design's "internal retries are a benefit" line, safe now that the
+            # decompression-bomb path 400s at submit; the frontend bounds the
+            # rare no-err/ case with a poll timeout.
+            retry_attempts=0,
             environment=environment,
         )
 
@@ -145,6 +171,51 @@ class ApiStack(Stack):
             )
         )
 
+        # CPU async path: the submit route async self-invokes this SAME function
+        # (InvocationType=Event) and reads/writes job payloads under cpu-jobs/.
+        # Scoped to self + that prefix; a separate AWS::IAM::Policy on the role,
+        # so referencing fn.function_arn here does not create a CFN cycle.
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["lambda:InvokeFunction"],
+                # resources=["*"], NOT fn.function_arn: a token there creates a CFN
+                # circular dependency (CDK makes fn depend on its default policy for
+                # the integration/keep-warm permissions, and the self-invoke would
+                # make that policy depend back on fn). A static ARN via an explicit
+                # function name avoids the cycle but REPLACES the function, which
+                # breaks the ServeFn Ref that OpsStack imports cross-stack ("cannot
+                # update an export in use"). "*" avoids both; the role is
+                # function-scoped and only self-invokes (the worker payload).
+                # FOLLOW-UP to tighten: give the fn a static name AND have OpsStack
+                # reference it by that name (dropping the cross-stack Ref), then
+                # scope this to that single function ARN.
+                resources=["*"],
+            )
+        )
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:GetObject", "s3:PutObject"],
+                resources=[f"arn:aws:s3:::{gpu.BUCKET}/{CPU_JOBS_PREFIX}*"],
+            )
+        )
+        # S3 returns 403 (not 404) on GetObject of a MISSING key when the caller
+        # lacks s3:ListBucket - which would make the async poll routes mis-read a
+        # not-yet-written result as an error instead of 202 "pending". Grant
+        # list-only on the bucket so a missing key returns an authoritative 404
+        # (both the CPU cpu-jobs/ poll and the GPU async-out/ poll use this same
+        # role). Bucket-level, NOT prefix-conditioned: the missing-key check does
+        # not evaluate the s3:prefix condition, so a scoped list would not flip
+        # the behavior. List-only exposes object KEYS of the non-sensitive
+        # artifacts bucket, not contents (GetObject stays scoped). The bucket is
+        # SSE-S3/AES256 with no bucket policy, so no KMS/deny can 403 an existing
+        # object - a 403 here means only "not written yet".
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket"],
+                resources=[f"arn:aws:s3:::{gpu.BUCKET}"],
+            )
+        )
+
         integration = apigwv2_integrations.HttpLambdaIntegration(
             "ServeIntegration",
             fn,
@@ -162,6 +233,8 @@ class ApiStack(Stack):
         )
         for path, method in (
             ("/analyze", apigwv2.HttpMethod.POST),
+            ("/analyze-jobs", apigwv2.HttpMethod.POST),
+            ("/analyze-jobs/{job_id}", apigwv2.HttpMethod.GET),
             ("/analyze-vlm", apigwv2.HttpMethod.POST),
             ("/search", apigwv2.HttpMethod.POST),
             ("/health", apigwv2.HttpMethod.GET),
@@ -191,9 +264,14 @@ class ApiStack(Stack):
         # Consumed by OpsStack's dashboard (cross-stack ref, like http_api).
         self.serve_fn = fn
 
-        # Keep-warm: invoke the function every 5 minutes with a synthetic /health
-        # HTTP-API event so the ~55s model load (3008MB account quota) almost
-        # never lands on a real visitor. ~$0.04/mo of invocations.
+        # Keep-warm: every 5 minutes fire a warmup event that LOADS models
+        # (handler -> ensure_loaded). Under DEFECTLENS_LAZY_LOAD the lifespan and
+        # /health are model-free, so a plain /health ping would keep a container
+        # warm WITHOUT models - defeating the purpose. The warmup event keeps the
+        # still-live sync /analyze landing on a models-loaded container instead of
+        # paying the ~24-29s cold load in-request (which would exceed the 29s
+        # gateway cap). ensure_loaded is idempotent, so it costs the load only
+        # once per fresh env, ~ms thereafter. ~$0.04/mo of invocations.
         events.Rule(
             self,
             "KeepWarm",
@@ -201,24 +279,7 @@ class ApiStack(Stack):
             targets=[
                 targets.LambdaFunction(
                     fn,
-                    event=events.RuleTargetInput.from_object(
-                        {
-                            "version": "2.0",
-                            "routeKey": "GET /health",
-                            "rawPath": "/api/health",
-                            "rawQueryString": "",
-                            "headers": {"host": "keepwarm"},
-                            "requestContext": {
-                                "http": {
-                                    "method": "GET",
-                                    "path": "/api/health",
-                                    "protocol": "HTTP/1.1",
-                                    "sourceIp": "127.0.0.1",
-                                }
-                            },
-                            "isBase64Encoded": False,
-                        }
-                    ),
+                    event=events.RuleTargetInput.from_object({"defectlens_warmup": True}),
                 )
             ],
         )

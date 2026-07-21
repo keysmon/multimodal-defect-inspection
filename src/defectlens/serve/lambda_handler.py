@@ -32,9 +32,26 @@ os.environ.setdefault("AUDIO_BANK_DIR", "models/audio_bank")
 
 from mangum import Mangum  # noqa: E402  (after env defaults)
 
+from defectlens.serve import async_jobs  # noqa: E402
 from defectlens.serve.api import create_app  # noqa: E402
 
 app = create_app()
 # The HTTP API named stage prefixes every path with /api (CloudFront routes
 # /api/* straight through); strip it so FastAPI sees its own routes.
-handler = Mangum(app, api_gateway_base_path=os.environ.get("API_GATEWAY_BASE_PATH", "/api"))
+_mangum = Mangum(app, api_gateway_base_path=os.environ.get("API_GATEWAY_BASE_PATH", "/api"))
+
+
+def handler(event, context):
+    """Dispatch by event shape: a worker self-invocation ({"defectlens_job":
+    ...}) runs the CPU async worker; a keep-warm warmup ({"defectlens_warmup":
+    true}) loads models so lazy-mode keep-warm keeps the sync /analyze path warm;
+    anything else is an HTTP-API event for Mangum. One container/function serves
+    the API, warms itself, and reprocesses its own Event-invoke queue."""
+    if async_jobs.is_worker_event(event):
+        return async_jobs.run_worker(app, event)
+    if async_jobs.is_warmup_event(event):
+        from defectlens.serve.api import ensure_loaded
+
+        ensure_loaded(app)
+        return {"warmed": True}
+    return _mangum(event, context)

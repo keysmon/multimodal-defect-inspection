@@ -75,6 +75,13 @@ const mockAudioResponse = {
   },
 };
 
+// Async /analyze: the submit POST returns 202 {job_id}; the first poll GET
+// returns 200 with the full result body. Configures both mocks for one analysis.
+function mockAnalyzeJob(resultResponse) {
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "job-async" } });
+  axios.get.mockResolvedValueOnce({ status: 200, data: resultResponse.data });
+}
+
 beforeAll(() => {
   global.URL.createObjectURL = jest.fn(() => "blob:mock-url");
   global.URL.revokeObjectURL = jest.fn();
@@ -92,7 +99,7 @@ test("renders the DefectLens header", () => {
 });
 
 test("analyze happy path shows severity banner and a guidance card", async () => {
-  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  mockAnalyzeJob(mockAnalyzeResponse);
   render(<DefectLens />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
@@ -123,7 +130,7 @@ test("search happy path shows a guidance card", async () => {
 });
 
 test("analyze posts the inspector note in the form data", async () => {
-  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  mockAnalyzeJob(mockAnalyzeResponse);
   render(<DefectLens />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
@@ -141,7 +148,7 @@ test("analyze posts the inspector note in the form data", async () => {
 });
 
 test("analyze posts the selected audio file in the form data", async () => {
-  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  mockAnalyzeJob(mockAnalyzeResponse);
   render(<DefectLens />);
 
   const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
@@ -160,7 +167,7 @@ test("analyze posts the selected audio file in the form data", async () => {
 });
 
 test("analyze with audio shows the combined severity banner and audio panel", async () => {
-  axios.post.mockResolvedValueOnce(mockAudioResponse);
+  mockAnalyzeJob(mockAudioResponse);
   render(<DefectLens />);
 
   const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
@@ -224,7 +231,7 @@ test("clicking a gallery example populates the note and runs the analyze flow", 
         Promise.resolve(new Blob(["img-bytes"], { type: "image/jpeg" })),
     })
   );
-  axios.post.mockResolvedValueOnce(mockAnalyzeResponse);
+  mockAnalyzeJob(mockAnalyzeResponse);
   render(<DefectLens />);
 
   const tiles = screen.getAllByRole("button", { name: /load example:/i });
@@ -248,9 +255,12 @@ test("clicking a gallery example populates the note and runs the analyze flow", 
 
 test("auto-retries once on a cold-start timeout, then succeeds", async () => {
   jest.useFakeTimers();
+  // First SUBMIT rejects (cold 504); the retry submits (202), then the first
+  // poll returns the ready result.
   axios.post
     .mockRejectedValueOnce({ response: { status: 504 } })
-    .mockResolvedValueOnce(mockAnalyzeResponse);
+    .mockResolvedValueOnce({ status: 202, data: { job_id: "job-async" } });
+  axios.get.mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data });
   render(<DefectLens />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
@@ -259,15 +269,16 @@ test("auto-retries once on a cold-start timeout, then succeeds", async () => {
   });
   fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
 
-  // First attempt rejected -> warming status shown while the retry is pending.
+  // First submit rejected -> warming status shown while the retry is pending.
   await act(async () => {});
   expect(screen.getByText(/Model warming up - retrying/i)).toBeInTheDocument();
   expect(axios.post).toHaveBeenCalledTimes(1);
 
-  // Advance past the 3s backoff -> the single retry fires and succeeds.
+  // Advance past the 3s backoff -> the single retry submits, then the poll runs.
   await act(async () => {
     jest.advanceTimersByTime(3000);
   });
+  await act(async () => {}); // flush the submit -> poll microtask chain
   expect(axios.post).toHaveBeenCalledTimes(2);
   expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
   expect(
@@ -294,6 +305,127 @@ test("shows an error banner when the analyze request fails", async () => {
   );
 });
 
+test("a mid-poll image swap does not render the superseded job's result", async () => {
+  // HIGH race: analyze image A (cold -> pending poll), swap to image B via the
+  // file input while A is still polling, then A's poll lands ready. A's result
+  // must NOT render under B - it was superseded.
+  jest.useFakeTimers();
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "jA" } });
+  axios.get
+    .mockResolvedValueOnce({ status: 202, data: { status: "pending" } }) // A poll 1
+    .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data }); // A poll 2 (superseded)
+  render(<DefectLens />);
+
+  const fileA = new File(["a"], "wallA.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [fileA] } });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  await act(async () => {}); // submit -> poll 1 (pending) -> sleep
+
+  // Mid-poll: pick image B.
+  const fileB = new File(["b"], "wallB.png", { type: "image/png" });
+  await act(async () => {
+    fireEvent.change(screen.getByTestId("file-input"), { target: { files: [fileB] } });
+  });
+
+  // Advance so A's second poll resolves ready.
+  await act(async () => {
+    jest.advanceTimersByTime(1500);
+  });
+  await act(async () => {});
+
+  expect(screen.queryByText(/Severity: Urgent/i)).not.toBeInTheDocument();
+  expect(screen.queryByText("Assess crack width")).not.toBeInTheDocument();
+  jest.useRealTimers();
+});
+
+test("a 400 (unreadable image) shows the image error, not an API-down message", async () => {
+  axios.post.mockRejectedValueOnce({
+    response: { status: 400, data: { detail: "Uploaded file is not a readable image: broken" } },
+  });
+  render(<DefectLens />);
+
+  const file = new File(["not-an-image"], "bad.txt", { type: "text/plain" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await waitFor(() =>
+    expect(screen.getByText(/not a readable image/i)).toBeInTheDocument()
+  );
+  expect(
+    screen.queryByText(/is the API running/i)
+  ).not.toBeInTheDocument();
+});
+
+test("polls until the result is ready (202 pending, then 200)", async () => {
+  jest.useFakeTimers();
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "j" } });
+  axios.get
+    .mockResolvedValueOnce({ status: 202, data: { status: "pending" } })
+    .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data });
+  render(<DefectLens />);
+  const file = new File(["x"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+
+  await act(async () => {}); // submit + first poll (202) -> sleep
+  await act(async () => {
+    jest.advanceTimersByTime(1500);
+  }); // second poll -> 200
+  await act(async () => {});
+  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  expect(axios.get).toHaveBeenCalledTimes(2);
+  jest.useRealTimers();
+});
+
+test("a terminal worker failure (poll 500) shows the analysis-failed message", async () => {
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "j" } });
+  axios.get.mockRejectedValueOnce({ response: { status: 500 } });
+  render(<DefectLens />);
+  const file = new File(["x"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  await waitFor(() =>
+    expect(screen.getByText(/Analysis failed\. Please try again/i)).toBeInTheDocument()
+  );
+});
+
+test("a transient poll error keeps polling instead of aborting", async () => {
+  jest.useFakeTimers();
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "j" } });
+  axios.get
+    .mockRejectedValueOnce({ response: { status: 503 } }) // transient
+    .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data });
+  render(<DefectLens />);
+  const file = new File(["x"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  await act(async () => {}); // submit + poll1 rejects 503 -> sleep
+  await act(async () => {
+    jest.advanceTimersByTime(1500);
+  }); // poll2 -> 200
+  await act(async () => {});
+  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  jest.useRealTimers();
+});
+
+test("gives up with a timeout message after the poll ceiling", async () => {
+  jest.useFakeTimers();
+  axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "j" } });
+  axios.get.mockResolvedValue({ status: 202, data: { status: "pending" } }); // never ready
+  render(<DefectLens />);
+  const file = new File(["x"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  await act(async () => {}); // submit + first poll
+  for (let i = 0; i < 95; i++) {
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+    });
+  }
+  expect(screen.getByText(/taking longer than expected/i)).toBeInTheDocument();
+  jest.useRealTimers();
+});
+
 test("GPU button submits to the fine-tuned model and renders its result", async () => {
   const mockVlmSubmit = {
     data: {
@@ -315,9 +447,11 @@ test("GPU button submits to the fine-tuned model and renders its result", async 
     },
   };
   axios.post
-    .mockResolvedValueOnce(mockAnalyzeResponse) // /analyze reveals the GPU button
+    .mockResolvedValueOnce({ status: 202, data: { job_id: "job-async" } }) // /analyze-jobs submit
     .mockResolvedValueOnce(mockVlmSubmit); // /analyze-vlm submit
-  axios.get.mockResolvedValueOnce(mockVlmReady); // /vlm-status ready on first poll
+  axios.get
+    .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data }) // /analyze-jobs poll -> reveals GPU button
+    .mockResolvedValueOnce(mockVlmReady); // /vlm-status ready on first poll
 
   render(<DefectLens />);
 

@@ -127,6 +127,24 @@ def test_bedrock_widgets(template: Template) -> None:
     assert "InvocationThrottles" in body
 
 
+def test_invocation_spike_alarm_wired_to_sns(template: Template) -> None:
+    """F3: a minutes-scale invocation-spike alarm (the CE cost guard lags ~1 day)
+    on the serve Lambda's Invocations, wired to the ops SNS topic."""
+    alarms = template.find_resources("AWS::CloudWatch::Alarm")
+    spike = [
+        a
+        for a in alarms.values()
+        if a["Properties"].get("AlarmName") == "defectlens-serve-invocation-spike"
+    ]
+    assert len(spike) == 1
+    props = spike[0]["Properties"]
+    assert props["MetricName"] == "Invocations"
+    assert props["Namespace"] == "AWS/Lambda"
+    assert props["Threshold"] == 1000
+    assert props["ComparisonOperator"] == "GreaterThanThreshold"
+    assert props.get("AlarmActions"), "alarm must notify the SNS topic"
+
+
 def test_cost_guard_text_widget(template: Template) -> None:
     body = _dashboard_body(template)
     # The guards are CE/Budgets API driven, not CW metrics - documented on the

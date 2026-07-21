@@ -14,6 +14,21 @@ const ANALYZE_ERROR = "Analysis failed — is the API running?";
 const COLD_START_HINT =
   "The demo scales to zero when idle - the first analysis can take a minute. Please try again.";
 
+// Async /analyze: POST /analyze-jobs submits a job (model-free -> fast even on a
+// cold env, returns 202 {job_id}) and the worker loads models + analyzes off the
+// request; poll GET /analyze-jobs/{id} until the S3 result lands (200 = ready
+// with the full result body, 202 = pending). Removes the 29s gateway cap that
+// made a cold sync /analyze 504, so a cold first run just polls for a while.
+const ANALYZE_POLL_MS = 1500;
+const ANALYZE_MAX_POLLS = 90; // ~135s ceiling: covers a cold worker + the 120s fn timeout
+const ANALYZING_STATUS =
+  "The first run after an idle period can take up to a minute...";
+const ANALYZE_TIMEOUT_MSG =
+  "Analysis is taking longer than expected. Please try again.";
+const ANALYZE_FAILED_MSG = "Analysis failed. Please try again.";
+const UPLOAD_ERROR =
+  "That file couldn't be read. Please choose a valid image (and a WAV under 10MB for audio).";
+
 // GPU async path (fine-tuned VLM on a scale-to-zero SageMaker endpoint): submit
 // once, then poll /vlm-status until the S3 result lands. The endpoint sleeps at
 // zero instances, so the FIRST run pays a ~5 min cold start while it wakes.
@@ -207,6 +222,11 @@ function DefectLens() {
   // change event and the file is silently dropped. Reset the element too.
   const audioInputRef = useRef(null);
 
+  // Generation token: bumped whenever a new analysis starts OR the image
+  // changes, so a slow poll from a superseded job drops its result instead of
+  // rendering stale data under the current image.
+  const analyzeGenRef = useRef(0);
+
   const resetVlm = () => {
     setIsVlmRunning(false);
     setVlmStatus("");
@@ -215,6 +235,7 @@ function DefectLens() {
   };
 
   const handleFileChange = (e) => {
+    analyzeGenRef.current += 1; // a new image supersedes any in-flight analysis
     const file = e.target.files[0];
     setSelectedFile(file || null);
     setImagePreview(file ? URL.createObjectURL(file) : null);
@@ -241,6 +262,8 @@ function DefectLens() {
       setError("Please select an image first.");
       return;
     }
+    const gen = ++analyzeGenRef.current; // this analysis supersedes any in-flight one
+    const isCurrent = () => gen === analyzeGenRef.current;
     setIsAnalyzing(true);
     setError("");
     setAnalyzeStatus("");
@@ -251,28 +274,71 @@ function DefectLens() {
     if (noteText.trim()) formData.append("note", noteText.trim());
     if (audioFile) formData.append("audio", audioFile);
 
-    const postAnalyze = () =>
-      axios.post(`${API}/analyze`, formData, {
+    const submitJob = () =>
+      axios.post(`${API}/analyze-jobs`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
     let retried = false;
     try {
-      let response;
+      // Submit the job (model-free -> fast even on a cold env). A cold/throttled
+      // submit can still 503/504/drop the connection; retry that once.
+      let submit;
       try {
-        response = await postAnalyze();
+        submit = await submitJob();
       } catch (err) {
         if (!isColdStartError(err)) throw err;
         retried = true;
         setAnalyzeStatus(RETRY_STATUS);
         await sleep(RETRY_DELAY_MS);
-        response = await postAnalyze();
+        submit = await submitJob();
       }
-      setAnalyzeResult({ ...response.data, filename: file.name });
+      const jobId = submit.data.job_id;
+      setAnalyzeStatus(ANALYZING_STATUS);
+
+      // Poll the S3 result: 200 = ready (body is the full analysis), 202 =
+      // pending (keep polling), 500 = the worker failed (terminal). A transient
+      // poll error (503/504/network) doesn't abort - the worker may still be
+      // warming - so keep polling until the ceiling.
+      let settled = false;
+      for (let i = 0; i < ANALYZE_MAX_POLLS && !settled; i++) {
+        let poll;
+        try {
+          poll = await axios.get(`${API}/analyze-jobs/${jobId}`);
+        } catch (pollErr) {
+          if (pollErr?.response?.status === 500) throw pollErr; // worker failed
+          // transient (503/504/network): keep polling; if this was the last
+          // attempt the loop ends and the timeout message shows.
+          if (i < ANALYZE_MAX_POLLS - 1) await sleep(ANALYZE_POLL_MS);
+          continue;
+        }
+        if (poll.status === 200) {
+          // Drop the result if a newer analysis or a file swap superseded this
+          // job while it polled - otherwise stale data renders under the current
+          // image (a wrong inspection record). settled still stops the loop.
+          if (isCurrent()) setAnalyzeResult({ ...poll.data, filename: file.name });
+          settled = true;
+        } else if (i < ANALYZE_MAX_POLLS - 1) {
+          await sleep(ANALYZE_POLL_MS); // 202 pending
+        }
+      }
+      if (!settled && isCurrent()) {
+        setError(ANALYZE_TIMEOUT_MSG);
+        setAnalyzeResult(null);
+      }
     } catch (err) {
       console.error("Error during analyze:", err);
-      setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
-      setAnalyzeResult(null);
+      if (isCurrent()) {
+        const status = err?.response?.status;
+        if (status === 500) {
+          setError(ANALYZE_FAILED_MSG); // the worker ran and failed
+        } else if (status === 400 || status === 413) {
+          setError(err.response?.data?.detail || UPLOAD_ERROR); // bad image/audio
+        } else {
+          setError(retried ? `${ANALYZE_ERROR} ${COLD_START_HINT}` : ANALYZE_ERROR);
+        }
+        setAnalyzeResult(null);
+      }
     } finally {
       setIsAnalyzing(false);
       setAnalyzeStatus("");

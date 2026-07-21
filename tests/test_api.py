@@ -339,6 +339,25 @@ def test_health_degraded_path_when_db_query_raises():
     }
 
 
+def test_health_lazy_async_path_reports_ok_without_models(monkeypatch, tmp_path):
+    """Lazy cloud path: the env answering /health may not have loaded models, but
+    the service IS servable when the async job path is wired + the baked vector
+    artifact is present -> ok (else /health flaps ok/degraded by which env answers
+    and the canary false-alarms)."""
+    vec = tmp_path / "card_vectors.npz"
+    vec.write_bytes(b"x")
+    monkeypatch.setenv("DEFECTLENS_LAZY_LOAD", "1")
+    monkeypatch.setenv("CPU_JOBS_S3", "s3://b/phase5/cpu-jobs/")
+    monkeypatch.setenv("CARD_VECTORS_PATH", str(vec))
+    app = create_app()  # no recognizer wired (lazy: loads in the worker)
+    client = TestClient(app)
+
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    assert resp.json()["cards_indexed"] == 0  # honestly not loaded on this env
+
+
 def test_health_degraded_when_recognizer_never_wired():
     app = create_app()
     client = TestClient(app)
@@ -759,6 +778,30 @@ def test_describe_deadline_does_not_gate_ungated_describer():
     assert out == "a full local description that must survive"
 
 
+def test_describe_deadline_budget_override_beats_attribute():
+    """The async worker has no gateway cap, so it passes a generous
+    budget_override that REPLACES the describer's tight advertised budget - a
+    valid slow description survives instead of being truncated. (The whole
+    point of the async path: description is always included.)"""
+    # Attribute budget 0.05s would truncate the 0.3s call to ""; override 5s
+    # lets it complete.
+    d = _BudgetedDescriber(text="a full bedrock description", delay=0.3, budget=0.05)
+    out = describe_with_deadline(d, "img", ["crack"], None, budget_override=5)
+    assert out == "a full bedrock description"
+
+
+def test_describe_deadline_budget_override_still_bounds_a_hang():
+    """A generous override is still a bound: a true hang returns "" at the
+    override, not the (longer) function timeout."""
+    slow = _BudgetedDescriber(delay=1.0, budget=12, text="never seen")
+    t0 = _time.perf_counter()
+    out = describe_with_deadline(slow, "img", ["crack"], None, budget_override=0.2)
+    elapsed = _time.perf_counter() - t0
+    assert out == ""  # abandoned at the override
+    assert elapsed < 0.9  # bounded near 0.2s, not the 1.0s delay
+    _time.sleep(1.0)  # drain the daemon thread + release the semaphore
+
+
 def test_analyze_returns_200_when_description_hangs():
     """Wired contract: a stalled describer still yields classes + cards, empty desc."""
     result = _analyze_result()
@@ -775,3 +818,196 @@ def test_analyze_returns_200_when_description_hangs():
     assert body["classes"][0]["label"] == "crack"  # classification survived
     assert len(body["cards"]) == 2  # cited cards survived
     _time.sleep(1.0)  # drain the abandoned daemon thread
+
+
+def test_analyze_skips_description_on_first_cold_request_cloud_path():
+    """Cloud describer (has describe_budget_s): first request skips desc, warms, then includes it."""
+    result = _analyze_result()
+    describer = _BudgetedDescriber(text="warm description here", budget=5)
+    app = create_app(recognizer=StubRecognizer(result), describer=describer)
+    client = TestClient(app)
+
+    r1 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert r1.status_code == 200
+    assert r1.json()["description"] == ""  # cold: skipped
+    assert r1.json()["classes"][0]["label"] == "crack"  # classification still returned
+
+    r2 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert r2.status_code == 200
+    assert r2.json()["description"] == "warm description here"  # warm: present
+
+
+def test_analyze_local_describer_never_skips_description():
+    """Ungated (local) describer has no budget attr -> description on the very first request."""
+    result = _analyze_result()
+    describer = StubDescriber(text="local desc from the first call")
+    app = create_app(recognizer=StubRecognizer(result), describer=describer)
+    client = TestClient(app)
+
+    r1 = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert r1.status_code == 200
+    assert r1.json()["description"] == "local desc from the first call"
+
+
+# ---------------------------------------------------------------------------
+# CPU async path: POST /analyze-jobs (submit) + GET /analyze-jobs/{id} (poll)
+# ---------------------------------------------------------------------------
+
+
+class StubCpuJobStore:
+    """Fixed-behaviour stand-in for CpuJobStore - no AWS."""
+
+    enabled = True
+
+    def __init__(self, status_result=("pending", None)):
+        self.submitted = []
+        self._status = status_result
+        self.polled = None
+
+    def submit(self, data, note, audio_bytes):
+        self.submitted.append((data, note, audio_bytes))
+        return {"job_id": "job-xyz"}
+
+    def status(self, job_id):
+        self.polled = job_id
+        return self._status
+
+
+def test_submit_analyze_job_returns_202_and_job_id():
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze-jobs",
+        files={"file": ("t.png", make_png_bytes(), "image/png")},
+        data={"note": "musty smell"},
+    )
+    assert resp.status_code == 202
+    assert resp.json() == {"job_id": "job-xyz"}
+    assert len(store.submitted) == 1
+    data, note, audio_bytes = store.submitted[0]
+    assert isinstance(data, bytes)
+    assert note == "musty smell"
+    assert audio_bytes is None
+
+
+def test_submit_analyze_job_rejects_bad_image_400():
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/analyze-jobs", files={"file": ("bad.txt", b"not an image", "text/plain")}
+    )
+    assert resp.status_code == 400
+    assert store.submitted == []  # a bad image is never enqueued
+
+
+def test_submit_analyze_job_captures_audio_ungated():
+    """Submit is model-free (no analyzer loaded), so audio is captured whenever
+    present and forwarded to the worker - NOT gated on analyzer.enabled."""
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)  # no audio_analyzer wired at all
+    client = TestClient(app)
+
+    resp = client.post("/analyze-jobs", files=_wav_files())
+    assert resp.status_code == 202
+    _data, _note, audio_bytes = store.submitted[0]
+    assert isinstance(audio_bytes, bytes) and len(audio_bytes) > 0
+
+
+def test_submit_analyze_job_oversized_audio_413():
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+    oversized = b"\x00" * (10 * 1024 * 1024 + 1)
+    resp = client.post(
+        "/analyze-jobs",
+        files={
+            "file": ("t.png", make_png_bytes(), "image/png"),
+            "audio": ("big.wav", oversized, "audio/wav"),
+        },
+    )
+    assert resp.status_code == 413
+    assert store.submitted == []
+
+
+def test_submit_analyze_job_503_when_not_wired(monkeypatch):
+    monkeypatch.delenv("CPU_JOBS_S3", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    app = create_app()  # no store injected, no env
+    client = TestClient(app)
+    resp = client.post(
+        "/analyze-jobs", files={"file": ("t.png", make_png_bytes(), "image/png")}
+    )
+    assert resp.status_code == 503
+
+
+def test_poll_analyze_job_ready_returns_result():
+    result = {"classes": [{"label": "crack", "score": 0.9}], "cards": []}
+    store = StubCpuJobStore(status_result=("ready", result))
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.get("/analyze-jobs/job-xyz")
+    assert resp.status_code == 200
+    assert resp.json() == result
+    assert store.polled == "job-xyz"
+
+
+def test_poll_analyze_job_pending_returns_202():
+    store = StubCpuJobStore(status_result=("pending", None))
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.get("/analyze-jobs/job-xyz")
+    assert resp.status_code == 202
+    assert resp.json()["status"] == "pending"
+
+
+def test_poll_analyze_job_failed_returns_500_with_generic_detail():
+    # The worker stores the raw error server-side (S3 err/ + CloudWatch); the
+    # poll route must NOT echo it to unauthenticated clients (infra recon leak).
+    leaky = "s3://defectlens-phase3-ca-002559670021 AccessDenied for arn:aws:iam::002559670021:role/x"
+    store = StubCpuJobStore(status_result=("failed", {"error": leaky}))
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+
+    resp = client.get("/analyze-jobs/job-xyz")
+    assert resp.status_code == 500
+    detail = resp.json()["detail"]
+    assert detail == "analysis failed"
+    assert "AccessDenied" not in detail and "arn:aws" not in detail and "002559670021" not in detail
+
+
+def test_submit_analyze_job_rejects_oversized_pixels_400(monkeypatch):
+    """A decompression-bomb image (pixel count over the cap) is rejected at the
+    submit boundary (400) so it never reaches the worker to OOM it."""
+    monkeypatch.setattr("defectlens.serve.api.MAX_IMAGE_PIXELS", 10, raising=False)
+    store = StubCpuJobStore()
+    app = create_app(cpu_job_store=store)
+    client = TestClient(app)
+    resp = client.post(
+        "/analyze-jobs", files={"file": ("t.png", make_png_bytes(), "image/png")}
+    )
+    assert resp.status_code == 400
+    assert store.submitted == []  # bomb never enqueued
+
+
+def test_analyze_rejects_oversized_pixels_400(monkeypatch):
+    """The shared image validator guards sync /analyze too (8x8=64px > cap 10)."""
+    monkeypatch.setattr("defectlens.serve.api.MAX_IMAGE_PIXELS", 10, raising=False)
+    app = create_app(recognizer=StubRecognizer(_analyze_result()), describer=StubDescriber())
+    client = TestClient(app)
+    resp = client.post("/analyze", files={"file": ("t.png", make_png_bytes(), "image/png")})
+    assert resp.status_code == 400
+
+
+def test_poll_analyze_job_503_when_not_wired(monkeypatch):
+    monkeypatch.delenv("CPU_JOBS_S3", raising=False)
+    monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
+    app = create_app()
+    client = TestClient(app)
+    resp = client.get("/analyze-jobs/whatever")
+    assert resp.status_code == 503

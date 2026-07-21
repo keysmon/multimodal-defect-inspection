@@ -34,6 +34,7 @@ from aws_cdk import aws_apigatewayv2 as apigwv2
 from aws_cdk import aws_budgets as budgets
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudwatch as cloudwatch
+from aws_cdk import aws_cloudwatch_actions as cw_actions
 from aws_cdk import aws_events as events
 from aws_cdk import aws_events_targets as targets
 from aws_cdk import aws_iam as iam
@@ -158,6 +159,32 @@ class OpsStack(Stack):
             schedule=events.Schedule.rate(Duration.hours(6)),
             targets=[targets.LambdaFunction(cost_guard)],
         )
+
+        # Real-time invocation-spike tripwire. The Cost Explorer guard above lags
+        # ~1 day, so a denial-of-wallet burst (each async analysis also fans out
+        # into many cheap poll invocations) could run unmetered for hours. This
+        # alarm fires in MINUTES on an abnormal invocation volume - well above
+        # normal demo + polling traffic, below the ~1500/5min ceiling the 5/s
+        # stage throttle allows - and emails via SNS. It complements the throttle
+        # (real-time request bound) and the CE guard (next-day $ bound); it
+        # alerts rather than auto-throttles, since the throttle already caps the
+        # actual spend rate and a legitimate demo burst shouldn't kill traffic.
+        invocation_spike = cloudwatch.Alarm(
+            self,
+            "InvocationSpikeAlarm",
+            alarm_name="defectlens-serve-invocation-spike",
+            metric=serve_fn.metric_invocations(period=Duration.minutes(5), statistic="Sum"),
+            threshold=1000,
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+            alarm_description=(
+                "serve Lambda invocations spiked in a 5-min window (possible "
+                "abuse / denial-of-wallet); the Cost Explorer guard lags ~1 day, "
+                "so this is the minutes-scale tripwire."
+            ),
+        )
+        invocation_spike.add_alarm_action(cw_actions.SnsAction(topic))
 
         self._build_dashboard(
             serve_fn=serve_fn,
