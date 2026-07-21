@@ -21,6 +21,7 @@ import base64
 import json
 import logging
 import os
+import threading
 import uuid
 from io import BytesIO
 from typing import Any
@@ -46,7 +47,7 @@ _DEFAULT_WORKER_DESCRIBE_BUDGET_S = 30.0
 
 
 def build_job_payload(image_bytes: bytes, note: str | None, audio_bytes: bytes | None) -> bytes:
-    """Encode a job's inputs as the S3 payload: image (+ optional note/audio). Pure."""
+    """Encode a single-photo analyze job as the S3 payload. Pure."""
     payload: dict[str, Any] = {"image_b64": base64.b64encode(image_bytes).decode("ascii")}
     if note:
         payload["note"] = note
@@ -55,11 +56,53 @@ def build_job_payload(image_bytes: bytes, note: str | None, audio_bytes: bytes |
     return json.dumps(payload).encode("utf-8")
 
 
+def build_walkthrough_job_payload(photos: list[dict], visit_note: str | None) -> bytes:
+    """Encode a walkthrough job (N photos + visit note) as the S3 payload. Pure.
+
+    Each photo: {"photo_id", "image_bytes", "note"}. The "kind" discriminator
+    routes the worker; analyze payloads carry no kind (back-compat with jobs
+    already in flight when this shipped).
+    """
+    payload = {
+        "kind": "walkthrough",
+        "visit_note": visit_note,
+        "photos": [
+            {
+                "photo_id": p["photo_id"],
+                "image_b64": base64.b64encode(p["image_bytes"]).decode("ascii"),
+                "note": p.get("note"),
+            }
+            for p in photos
+        ],
+    }
+    return json.dumps(payload).encode("utf-8")
+
+
 def parse_job_payload(raw: bytes) -> dict:
-    """Decode a job payload into {image_bytes, note, audio_bytes}. Pure."""
+    """Decode a job payload; the returned dict always carries "kind". Pure.
+
+    analyze (default, incl. legacy kind-less payloads):
+      {"kind": "analyze", "image_bytes", "note", "audio_bytes"}
+    walkthrough:
+      {"kind": "walkthrough", "visit_note", "photos": [{photo_id, image_bytes, note}]}
+    """
     data = json.loads(raw)
+    if data.get("kind") == "walkthrough":
+        return {
+            "kind": "walkthrough",
+            "visit_note": data.get("visit_note"),
+            "photos": [
+                {
+                    "photo_id": p["photo_id"],
+                    "image_bytes": base64.b64decode(p["image_b64"]),
+                    "note": p.get("note"),
+                }
+                for p in data.get("photos", [])
+            ],
+        }
     audio_b64 = data.get("audio_b64")
     return {
+        "kind": "analyze",
         "image_bytes": base64.b64decode(data["image_b64"]),
         "note": data.get("note"),
         "audio_bytes": base64.b64decode(audio_b64) if audio_b64 else None,
@@ -143,13 +186,17 @@ class CpuJobStore:
         return self._lambda
 
     def submit(self, image_bytes: bytes, note: str | None, audio_bytes: bytes | None) -> dict:
-        """Write the job input to S3 and async self-invoke the worker. Fast (no
-        models): returns the job id the caller polls."""
+        """Submit a single-photo analyze job (delegates to submit_payload)."""
+        return self.submit_payload(build_job_payload(image_bytes, note, audio_bytes))
+
+    def submit_payload(self, payload: bytes) -> dict:
+        """Write a pre-built job payload to S3 and async self-invoke the worker.
+        Fast (no models): returns the job id the caller polls."""
         job_id = uuid.uuid4().hex
         self._s3_client().put_object(
             Bucket=self.bucket,
             Key=self._key("in", job_id),
-            Body=build_job_payload(image_bytes, note, audio_bytes),
+            Body=payload,
             ContentType="application/json",
         )
         self._lambda_client().invoke(
@@ -200,14 +247,79 @@ class CpuJobStore:
             raise
 
 
-def build_cpu_job_store_from_env() -> CpuJobStore | None:
+class LocalCpuJobStore:
+    """In-process async job store for local dev (DEFECTLENS_LOCAL_JOBS=1).
+
+    The walkthrough has NO sync route, so local development needs an async
+    path without S3/Lambda: submit stores the payload in memory and runs the
+    worker in a daemon thread; status() polls the same dicts. Mirrors
+    CpuJobStore's public surface so the serve routes stay store-agnostic.
+    bind(app) must be called before submits (the routes do this lazily -
+    the worker needs the app to reach the loaded components).
+    """
+
+    def __init__(self, worker=None) -> None:
+        self._worker = worker if worker is not None else run_worker
+        self._app: Any = None
+        self._inputs: dict[str, bytes] = {}
+        self._outputs: dict[str, dict] = {}
+        self._errors: dict[str, dict] = {}
+        self._lock = threading.Lock()
+
+    @property
+    def enabled(self) -> bool:
+        return True
+
+    def bind(self, app: Any) -> None:
+        self._app = app
+
+    def submit(self, image_bytes: bytes, note: str | None, audio_bytes: bytes | None) -> dict:
+        return self.submit_payload(build_job_payload(image_bytes, note, audio_bytes))
+
+    def submit_payload(self, payload: bytes) -> dict:
+        job_id = uuid.uuid4().hex
+        with self._lock:
+            self._inputs[job_id] = payload
+        event = {"defectlens_job": {"job_id": job_id}}
+        threading.Thread(
+            target=self._worker, args=(self._app, event, self), daemon=True
+        ).start()
+        return {"job_id": job_id}
+
+    def status(self, job_id: str) -> tuple[str, dict | None]:
+        with self._lock:
+            if job_id in self._outputs:
+                return "ready", self._outputs[job_id]
+            if job_id in self._errors:
+                return "failed", self._errors[job_id]
+        return "pending", None
+
+    def get_input(self, job_id: str) -> bytes:
+        with self._lock:
+            return self._inputs[job_id]
+
+    def put_output(self, job_id: str, obj: dict) -> None:
+        with self._lock:
+            self._outputs[job_id] = obj
+
+    def put_error(self, job_id: str, obj: dict) -> None:
+        with self._lock:
+            self._errors[job_id] = obj
+
+
+def build_cpu_job_store_from_env() -> CpuJobStore | LocalCpuJobStore | None:
     """Construct the store from env, or None when the async path isn't wired.
 
-    CPU_JOBS_S3 (s3://bucket/prefix) is where jobs live; AWS_LAMBDA_FUNCTION_NAME
-    (set automatically inside Lambda) is the self-invoke target. Without both -
-    e.g. local dev - return None so the submit/status routes answer 503 and the
-    frontend falls back to sync /analyze.
+    DEFECTLENS_LOCAL_JOBS=1 selects the in-process LocalCpuJobStore (local
+    dev: no S3/Lambda; the walkthrough has no sync fallback, so this is how
+    it runs locally). Otherwise CPU_JOBS_S3 (s3://bucket/prefix) is where
+    jobs live and AWS_LAMBDA_FUNCTION_NAME (set automatically inside Lambda)
+    is the self-invoke target. Without either wiring - return None so the
+    submit/status routes answer 503 and the frontend falls back to sync
+    /analyze.
     """
+    if os.environ.get("DEFECTLENS_LOCAL_JOBS", "").strip() == "1":
+        return LocalCpuJobStore()
     cpu_jobs_s3 = os.environ.get("CPU_JOBS_S3", "").strip()
     function_name = os.environ.get("AWS_LAMBDA_FUNCTION_NAME", "").strip()
     if not cpu_jobs_s3 or not function_name:
@@ -221,7 +333,7 @@ def build_cpu_job_store_from_env() -> CpuJobStore | None:
     return CpuJobStore(bucket=bucket, prefix=prefix, function_name=function_name, region=region)
 
 
-def run_worker(app: Any, event: dict, store: CpuJobStore | None = None) -> dict:
+def run_worker(app: Any, event: dict, store: CpuJobStore | LocalCpuJobStore | None = None) -> dict:
     """Process one worker self-invocation: read the S3 input, run the shared
     analysis pipeline, write the S3 output (or an error object).
 
@@ -240,19 +352,26 @@ def run_worker(app: Any, event: dict, store: CpuJobStore | None = None) -> dict:
     job_id = worker_job_id(event)
     try:
         payload = parse_job_payload(store.get_input(job_id))
-        from defectlens.serve.api import ensure_loaded, run_analysis
+        if payload["kind"] == "walkthrough":
+            # Lazy module-style import: keeps this module cheap AND lets tests
+            # monkeypatch serve.walkthrough.run_walkthrough_job.
+            from defectlens.serve import walkthrough
 
-        ensure_loaded(app)
-        image_bytes = payload["image_bytes"]
-        img = Image.open(BytesIO(image_bytes)).convert("RGB")
-        result = run_analysis(
-            app,
-            image_bytes,
-            img,
-            payload["note"],
-            payload["audio_bytes"],
-            describe_budget=_worker_describe_budget(),
-        )
+            result = walkthrough.run_walkthrough_job(app, payload)
+        else:
+            from defectlens.serve.api import ensure_loaded, run_analysis
+
+            ensure_loaded(app)
+            image_bytes = payload["image_bytes"]
+            img = Image.open(BytesIO(image_bytes)).convert("RGB")
+            result = run_analysis(
+                app,
+                image_bytes,
+                img,
+                payload["note"],
+                payload["audio_bytes"],
+                describe_budget=_worker_describe_budget(),
+            )
         store.put_output(job_id, result)
     except Exception as exc:  # worker is fire-and-forget; surface via err/
         logger.exception("cpu async worker job %s failed", job_id)

@@ -328,3 +328,65 @@ def test_run_worker_uses_provided_store_or_env(monkeypatch):
     monkeypatch.delenv("AWS_LAMBDA_FUNCTION_NAME", raising=False)
     with pytest.raises(RuntimeError):
         run_worker(_worker_app(), {"defectlens_job": {"job_id": "j"}})
+
+
+# ---------------------------------------------------------------------------
+# Walkthrough job kind (P2): payload roundtrip + worker dispatch
+# ---------------------------------------------------------------------------
+
+
+def test_walkthrough_payload_roundtrips_photos_and_visit_note():
+    from defectlens.serve.async_jobs import build_walkthrough_job_payload
+
+    photos = [
+        {"photo_id": "photo_1", "image_bytes": b"img-one", "note": "stair wall"},
+        {"photo_id": "photo_2", "image_bytes": b"img-two", "note": None},
+    ]
+    raw = build_walkthrough_job_payload(photos, "damp smell in stairwell")
+    parsed = parse_job_payload(raw)
+    assert parsed["kind"] == "walkthrough"
+    assert parsed["visit_note"] == "damp smell in stairwell"
+    assert parsed["photos"][0] == {
+        "photo_id": "photo_1", "image_bytes": b"img-one", "note": "stair wall"
+    }
+    assert parsed["photos"][1]["image_bytes"] == b"img-two"
+    assert parsed["photos"][1]["note"] is None
+
+
+def test_analyze_payload_parses_with_default_kind():
+    raw = build_job_payload(b"img", "note", None)
+    parsed = parse_job_payload(raw)
+    assert parsed["kind"] == "analyze"  # back-compat: missing kind = analyze
+
+
+def test_submit_payload_generalizes_submit():
+    s3, lam = FakeS3(), FakeLambda()
+    store = CpuJobStore(
+        bucket="b", prefix="jobs", function_name="fn", s3_client=s3, lambda_client=lam
+    )
+    job_id = store.submit_payload(b'{"kind": "walkthrough"}')["job_id"]
+    assert s3.objects[("b", f"jobs/in/{job_id}.json")] == b'{"kind": "walkthrough"}'
+    assert lam.invocations  # async self-invoke fired
+
+
+def test_run_worker_dispatches_walkthrough_kind(monkeypatch):
+    """A walkthrough payload routes to serve.walkthrough.run_walkthrough_job."""
+    from defectlens.serve import async_jobs
+    from defectlens.serve.async_jobs import build_walkthrough_job_payload
+
+    photos = [{"photo_id": "photo_1", "image_bytes": b"img", "note": None}]
+    store = FakeStore(build_walkthrough_job_payload(photos, "note"))
+
+    seen = {}
+
+    def fake_run_walkthrough_job(app, payload):
+        seen["payload"] = payload
+        return {"concerns": [], "per_photo": []}
+
+    import defectlens.serve.walkthrough as walkthrough_mod
+
+    monkeypatch.setattr(walkthrough_mod, "run_walkthrough_job", fake_run_walkthrough_job)
+    async_jobs.run_worker(_worker_app(), {"defectlens_job": {"job_id": "j1"}}, store)
+
+    assert seen["payload"]["kind"] == "walkthrough"
+    assert store.outputs["j1"] == {"concerns": [], "per_photo": []}
