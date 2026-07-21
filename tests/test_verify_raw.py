@@ -15,6 +15,10 @@ def make_ok_tree(raw: Path):
     real_file(raw / "codebrim" / "crack" / "a.jpg")
     real_file(raw / "bd3" / "algae" / "b.jpg")
     real_file(raw / "sdnet2018" / "cracked" / "c.jpg")
+    # Taxonomy v2 (2026-07-21) required datasets:
+    real_file(raw / "mbdd2025" / "crack" / "d.jpg")
+    real_file(raw / "vt_corrosion" / "poor" / "e.jpg")
+    real_file(raw / "insulator" / "broken" / "f.jpg")
 
 
 def test_verify_ok(tmp_path):

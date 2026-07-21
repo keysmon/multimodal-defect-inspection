@@ -67,6 +67,72 @@ via `scripts/normalize_raw.py`. Downloads live outside the repo (in `~/datasets/
 
     python scripts/normalize_raw.py --dataset roboflow_walls --source ~/datasets/roboflow_walls
 
+## 6. MBDD2025 (required, taxonomy v2)
+
+- Source: https://zenodo.org/records/15622584 (DOI 10.5281/zenodo.15622584)
+- License: **CC BY 4.0** (verified via the Zenodo record, 2026-07-21)
+- Citation: "MBDD2025: A Deep Learning-Oriented Dataset for Diverse Building
+  Defect Detection from UAV Images" — 14,471 UAV images of building walls
+  across 6 structure types (steel/wood/masonry/brick-wood/brick-concrete/RC),
+  PASCAL VOC boxes over 5 classes (crack, leakage, corrosion, abscission, bulge).
+- Fetch: `scripts/fetch_mbdd.sh` (~2.5 GB zip to `~/datasets/mbdd2025`,
+  sha256 `db37469e0ee59be132d0e3773affec89a1c49fad3a873a9d47e7221bcfc3f95e`,
+  Zenodo-published md5 cross-checked on first download).
+- **Crop derivation (`scripts/prepare_mbdd.py` + `scripts/crop_utils.py`):**
+  detection boxes -> single-label classification crops: bbox + 15% margin
+  clamped to the image; min side 96px AFTER margin; a box overlapping a
+  DIFFERENT-class box with overlap coefficient (intersection / min area) > 0.3
+  is skipped (single-label guarantee; the coefficient also catches nested
+  boxes, which plain IoU misses); exact-duplicate crops dropped by content
+  hash. Verified yield (2026-07-21): crack 4,304 / leakage 5,508 /
+  corrosion 2,980 / abscission 8,313 / bulge 778 (21,883 kept; 34,549 boxes
+  under the 96px floor, 1,013 overlap-skipped, 168 duplicates).
+
+      python scripts/prepare_mbdd.py --source ~/datasets/mbdd2025/MBDD2025 --out ~/datasets/mbdd2025_crops
+      python scripts/normalize_raw.py --dataset mbdd2025 --source ~/datasets/mbdd2025_crops
+
+## 7. VT Corrosion Condition State (required, taxonomy v2)
+
+- Source: https://data.lib.vt.edu/articles/dataset/16624663 (DOI 10.7294/16624663)
+- License: **CC0** (verified via the figshare API, 2026-07-21)
+- 440 VDOT bridge-inspection photos, labelme polygons graded to AASHTO/BIRM
+  corrosion condition states. Polygon labels carry states 2_Fair/3_Poor/4_Severe;
+  **state "good" never occurs per-image** — good regions are simply unannotated,
+  so every shipped image contains corrosion.
+- Fetch: `scripts/fetch_vt_corrosion.sh` (~333 MB zip to `~/datasets/vt_corrosion`,
+  sha256 `45f0ec8b26f1c09d707f3010af359a28e0985d385d2bf6d98b5d4dd308e9dbe5`,
+  figshare-published md5 cross-checked on first download).
+- **Per-image state (`scripts/prepare_vt_corrosion.py`):** whole images (the
+  `original/` full-resolution set), one label per image = the WORST state among
+  its polygons; staged names are split-prefixed (train_/test_) because source
+  stems collide. Verified yield (2026-07-21): fair 101 / poor 235 / severe 104.
+  The severity state rides `source_label` for the B3 severity secondary metric.
+
+      python scripts/prepare_vt_corrosion.py --source ~/datasets/vt_corrosion/extracted/"Corrosion Condition State Classification" --out ~/datasets/vt_corrosion_by_state
+      python scripts/normalize_raw.py --dataset vt_corrosion --source ~/datasets/vt_corrosion_by_state
+
+## 8. Insulator-Defect Detection (required, taxonomy v2 — electrical branch)
+
+- Source: https://figshare.com/articles/dataset/VOC_zip/21200986
+  (DOI 10.6084/m9.figshare.21200986)
+- License: **CC BY 4.0** (verified via the figshare API, 2026-07-21)
+- 1,600 images of **grid transmission insulators — NOT electrical panels**
+  (caveat also stated in the README); YOLO boxes, label.txt order
+  [pollution-flashover, broken, insulator].
+- Fetch: `scripts/fetch_insulator.sh` (~2.4 GB zip to `~/datasets/insulator`,
+  sha256 `71b3c7f469ebd4f9349558409b09616c4768ef5e1ee2a67083747781a9f3934d`,
+  figshare-published md5 cross-checked on first download).
+- **Crop derivation (`scripts/prepare_insulator.py`):** same crop rules as
+  MBDD, with one asymmetry: "insulator" is the intact-OBJECT class (staged as
+  `normal`), and defect boxes nest inside object boxes, so the object class is
+  treated as *benign* — it never pollutes a defect crop, while any defect box
+  DOES pollute a would-be normal crop (a symmetric rule would wipe out the
+  defect classes: first run kept only 7 defect crops). Verified yield
+  (2026-07-21): pollution_flashover 1,985 / broken 1,033 / normal 266.
+
+      python scripts/prepare_insulator.py --source ~/datasets/insulator/extracted/VOC --out ~/datasets/insulator_crops
+      python scripts/normalize_raw.py --dataset insulator --source ~/datasets/insulator_crops
+
 ## Verify
 
     python scripts/verify_raw.py
