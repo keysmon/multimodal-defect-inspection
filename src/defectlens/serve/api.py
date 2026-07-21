@@ -586,8 +586,20 @@ def create_app(
         vlm_loaded = bool(describer is not None and getattr(describer, "model", None) is not None)
         adapter_loaded = bool(getattr(describer, "adapter_loaded", False))
 
+        # Lazy cloud path: the env answering /health may not have loaded models
+        # yet (they load in the worker / on first use), but the service IS
+        # servable when the async job path is wired and the baked vector artifact
+        # is present. Key "ok" on servability, not this-env model state - else
+        # /health flaps ok/degraded by which env answers and the canary
+        # false-alarms after the DEFECTLENS_LAZY_LOAD switch.
+        async_ready = (
+            _lazy_mode()
+            and bool(os.environ.get("CPU_JOBS_S3", "").strip())
+            and Path(os.environ.get("CARD_VECTORS_PATH", "")).exists()
+        )
+
         return {
-            "status": "ok" if (db_ok or store_ok) else "degraded",
+            "status": "ok" if (db_ok or store_ok or async_ready) else "degraded",
             "db": db_ok,
             "cards_indexed": cards_indexed,
             "vlm_loaded": vlm_loaded,

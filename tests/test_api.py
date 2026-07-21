@@ -339,6 +339,25 @@ def test_health_degraded_path_when_db_query_raises():
     }
 
 
+def test_health_lazy_async_path_reports_ok_without_models(monkeypatch, tmp_path):
+    """Lazy cloud path: the env answering /health may not have loaded models, but
+    the service IS servable when the async job path is wired + the baked vector
+    artifact is present -> ok (else /health flaps ok/degraded by which env answers
+    and the canary false-alarms)."""
+    vec = tmp_path / "card_vectors.npz"
+    vec.write_bytes(b"x")
+    monkeypatch.setenv("DEFECTLENS_LAZY_LOAD", "1")
+    monkeypatch.setenv("CPU_JOBS_S3", "s3://b/phase5/cpu-jobs/")
+    monkeypatch.setenv("CARD_VECTORS_PATH", str(vec))
+    app = create_app()  # no recognizer wired (lazy: loads in the worker)
+    client = TestClient(app)
+
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ok"
+    assert resp.json()["cards_indexed"] == 0  # honestly not loaded on this env
+
+
 def test_health_degraded_when_recognizer_never_wired():
     app = create_app()
     client = TestClient(app)
