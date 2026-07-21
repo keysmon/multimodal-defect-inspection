@@ -54,17 +54,17 @@ def test_split_stable_when_other_datasets_added():
 
 
 def test_frozen_split_artifacts_unchanged():
-    """Regression lock on the FROZEN split (commit 7637ee4): 15,004/2,648 rows,
-    all 9 classes in both splits. If this fails, the frozen artifacts were
-    touched — that requires explicit sign-off, not a code fix."""
+    """Regression lock on the FROZEN v2 split (user-gated regeneration
+    2026-07-21): 27,330/4,824 rows, all 12 classes in both splits. If this
+    fails, the frozen artifacts were touched — that requires explicit
+    sign-off, not a code fix. (v1 lock: 15,004/2,648, archived as
+    test_v1_frozen.csv and enforced by tests/test_split_v2.py.)"""
     train = read_manifest(REPO_ROOT / "data" / "manifests" / "train.csv")
     test = read_manifest(REPO_ROOT / "data" / "manifests" / "test.csv")
-    assert len(train) == 15004
-    assert len(test) == 2648
-    # v1 artifacts predate taxonomy v2: they hold exactly the 9 v1 classes.
-    # Task A5 regenerates the split (user-gated --force) and refreshes this lock.
-    assert {r.unified_label for r in test} == set(UNIFIED_CLASSES[:9])
-    assert {r.unified_label for r in train} == set(UNIFIED_CLASSES[:9])
+    assert len(train) == 27330
+    assert len(test) == 4824
+    assert {r.unified_label for r in test} == set(UNIFIED_CLASSES)
+    assert {r.unified_label for r in train} == set(UNIFIED_CLASSES)
 
 
 def test_tiny_groups_stay_in_train():
