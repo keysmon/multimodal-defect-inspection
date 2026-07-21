@@ -61,8 +61,10 @@ def test_frozen_split_artifacts_unchanged():
     test = read_manifest(REPO_ROOT / "data" / "manifests" / "test.csv")
     assert len(train) == 15004
     assert len(test) == 2648
-    assert {r.unified_label for r in test} == set(UNIFIED_CLASSES)
-    assert {r.unified_label for r in train} == set(UNIFIED_CLASSES)
+    # v1 artifacts predate taxonomy v2: they hold exactly the 9 v1 classes.
+    # Task A5 regenerates the split (user-gated --force) and refreshes this lock.
+    assert {r.unified_label for r in test} == set(UNIFIED_CLASSES[:9])
+    assert {r.unified_label for r in train} == set(UNIFIED_CLASSES[:9])
 
 
 def test_tiny_groups_stay_in_train():

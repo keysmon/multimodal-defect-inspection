@@ -55,13 +55,17 @@ HUMANIZED = {
     "water_damage": "water damage",
     "peeling_paint": "peeling paint",
     "no_defect": "no defect",
+    "finish_detachment": "finish detachment",
+    "bulge_deformation": "bulging deformation",
+    "insulator_damage": "insulator damage",
 }
 UNIFIED_CLASSES = list(HUMANIZED)
 
 QUESTION = (
     "What building defect is shown in this image? Answer with one of: "
     "crack, spalling, efflorescence, exposed rebar, corrosion stain, "
-    "mold or algae, water damage, peeling paint, no defect."
+    "mold or algae, water damage, peeling paint, no defect, "
+    "finish detachment, bulging deformation, insulator damage."
 )
 
 # ---------------------------------------------------------------------------

@@ -5,3 +5,14 @@ caps:
   sdnet2018:
     cracked: 4000
     non_cracked: 4000
+  # MBDD2025 (v2, 2026-07-21): prepare_mbdd.py yields crack 4304 / leakage 5508 /
+  # corrosion 2980 / abscission 8313 / bulge 778. Capped at 2500 per label so no
+  # single (dataset,label) group dominates its unified class (crack would gain
+  # +4.3k on top of ~9k, water_damage +5.5k on top of ~3k) and the balanced
+  # trainer's 20x weight cap still reaches the smallest v2 class (bulge, 778).
+  # bulge is uncapped (below the cap already).
+  mbdd2025:
+    crack: 2500
+    leakage: 2500
+    corrosion: 2500
+    abscission: 2500

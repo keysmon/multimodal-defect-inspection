@@ -32,6 +32,10 @@ CLASS_KEYWORDS: dict[str, tuple[str, ...]] = {
     # no_defect has NO keywords on purpose: it can never merge onto a grounded
     # finding (is_consistent short-circuits it) - see the docstring below.
     "no_defect": (),
+    # Taxonomy v2 (2026-07-21) additions:
+    "finish_detachment": ("detach", "render", "plaster", "tile", "shedding", "falling", "abscission", "delaminat"),
+    "bulge_deformation": ("bulge", "bulging", "deform", "bow", "out-of-plane", "displacement"),
+    "insulator_damage": ("insulator", "flashover", "porcelain", "bushing"),
 }
 
 

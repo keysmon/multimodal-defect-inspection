@@ -15,11 +15,17 @@ UNIFIED_CLASSES = [
     "water_damage",
     "peeling_paint",
     "no_defect",
+    # Taxonomy v2 (2026-07-21): appended AFTER no_defect so every v1 class
+    # keeps its index (eval artifacts and prompt orderings stay comparable).
+    "finish_detachment",
+    "bulge_deformation",
+    "insulator_damage",
 ]
 
 # Audio fault-family vocabulary for equipment-sound guidance cards (Phase 5.3):
-# a separate tag space from the 9 visual UNIFIED_CLASSES above, which stay pinned
-# at 9. Corpus cards may tag from either set; the corpus loader accepts the union.
+# a separate tag space from the 12 visual UNIFIED_CLASSES above, which stay pinned
+# at 12 (v2, 2026-07-21). Corpus cards may tag from either set; the corpus loader
+# accepts the union.
 AUDIO_FAULT_TAGS = (
     "fan_imbalance",
     "bearing_wear",

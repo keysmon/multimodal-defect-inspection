@@ -1,8 +1,8 @@
 """Qwen2.5-VL-3B serving component: fine-tuned classification + description.
 
 One model, two modes (spec §7 + Phase 3 landing):
-- rank_classes(): LoRA adapter ACTIVE — the fine-tuned 9-way classifier
-  (macro top-1 0.851 on the frozen test split).
+- rank_classes(): LoRA adapter ACTIVE — the fine-tuned classifier over the
+  12-class v2 taxonomy (v1 adapter: macro top-1 0.851 on the frozen 9-class split).
 - describe(): adapter DISABLED per call — the base model writes the
   condition description. The adapter was trained only on terse class
   answers and measurably degrades open-ended narration, so description
@@ -100,7 +100,7 @@ class Describer:
             self.adapter_loaded = True
 
     def rank_classes(self, image, note: str | None = None) -> list[tuple[str, float]]:
-        """Fine-tuned 9-way classification: (label, probability) descending.
+        """Fine-tuned classification over UNIFIED_CLASSES: (label, probability) descending.
 
         Same length-normalized answer log-likelihood ranking the Phase 3 eval
         measured 0.851 macro top-1 with; log-liks are softmaxed so the API
