@@ -1,6 +1,6 @@
 {
-  "short_name": "DefectLens",
-  "name": "DefectLens",
+  "short_name": "SiteCheck",
+  "name": "SiteCheck",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#0a0e15",
+  "background_color": "#0a0e15"
 }

@@ -76,6 +76,13 @@ const GALLERY_EXAMPLES = [
 // Severity bands that get a colored headline word (anything else renders muted).
 const SEVERITY_WORDS = { structural: 1, urgent: 1, monitor: 1, cosmetic: 1 };
 
+// Bedrock descriptions sometimes open with markdown headings ("# Surface
+// Condition Assessment"); strip the markers for plain-text display. The
+// exported markdown keeps the raw text.
+function displayDescription(text) {
+  return text.replace(/^#+\s*/gm, "");
+}
+
 function buildReportMarkdown(analyzeResult) {
   const date = new Date().toISOString().slice(0, 10);
   const lines = [];
@@ -551,7 +558,9 @@ function AnalyzeView({ API }) {
               {analyzeResult.description && (
                 <section>
                   <h3 className="sc-section-h">What the model sees</h3>
-                  <p className="sc-prose" style={{ margin: 0 }}>{analyzeResult.description}</p>
+                  <p className="sc-prose" style={{ margin: 0 }}>
+                    {displayDescription(analyzeResult.description)}
+                  </p>
                 </section>
               )}
               {analyzeResult.cards?.length > 0 && !guidanceOpen && (

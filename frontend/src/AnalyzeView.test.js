@@ -104,6 +104,25 @@ test("analyze happy path shows severity headline, bars, and a guidance card", as
   expect(screen.getByText("Assess crack width")).toBeInTheDocument();
 });
 
+test("strips markdown heading markers from the displayed description", async () => {
+  const withHeading = JSON.parse(JSON.stringify(mockAnalyzeResponse));
+  withHeading.data.description =
+    "# Surface Condition Assessment\nA visible linear crack runs diagonally.";
+  mockAnalyzeJob(withHeading);
+  render(<AnalyzeView API={API} />);
+
+  const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [file] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
+
+  await waitFor(() =>
+    expect(screen.getByText(/Surface Condition Assessment/)).toBeInTheDocument()
+  );
+  expect(screen.queryByText(/# Surface Condition Assessment/)).not.toBeInTheDocument();
+});
+
 test("analyze posts the inspector note in the form data", async () => {
   mockAnalyzeJob(mockAnalyzeResponse);
   render(<AnalyzeView API={API} />);
