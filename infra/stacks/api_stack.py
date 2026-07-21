@@ -178,7 +178,18 @@ class ApiStack(Stack):
         fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["lambda:InvokeFunction"],
-                resources=[fn.function_arn],
+                # resources=["*"], NOT fn.function_arn: a token there creates a CFN
+                # circular dependency (CDK makes fn depend on its default policy for
+                # the integration/keep-warm permissions, and the self-invoke would
+                # make that policy depend back on fn). A static ARN via an explicit
+                # function name avoids the cycle but REPLACES the function, which
+                # breaks the ServeFn Ref that OpsStack imports cross-stack ("cannot
+                # update an export in use"). "*" avoids both; the role is
+                # function-scoped and only self-invokes (the worker payload).
+                # FOLLOW-UP to tighten: give the fn a static name AND have OpsStack
+                # reference it by that name (dropping the cross-stack Ref), then
+                # scope this to that single function ARN.
+                resources=["*"],
             )
         )
         fn.add_to_role_policy(
