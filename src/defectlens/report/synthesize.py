@@ -100,6 +100,19 @@ def _card_line(card) -> str:
     return f"- {card.id} [{tags}] {card.title}: {card.passage}"
 
 
+def _card_info(card) -> dict:
+    """Renderable card metadata (mirrors serve.api._card_to_dict's shape)."""
+    return {
+        "id": card.id,
+        "title": card.title,
+        "passage": card.passage,
+        "severity": card.severity,
+        "citation": card.citation,
+        "source_name": card.source_name,
+        "source_url": card.source_url,
+    }
+
+
 def _clip_note(note, limit: int):
     if note is None:
         return None
@@ -159,7 +172,6 @@ def run_walkthrough(
         for card in retrieve_for_text(recognizer, concern, k=CONCERN_K):
             allowed[card.id] = card
             concern_ids.add(card.id)
-    union_ids = set(allowed)
     for pid in photo_allowed:
         photo_allowed[pid] |= concern_ids
 
@@ -189,7 +201,7 @@ def run_walkthrough(
         concerns=concerns,
         photo_ids=photo_ids,
         photo_allowed=photo_allowed,
-        union_ids=union_ids,
+        allowed_cards=allowed,
         flagged=flagged,
     )
 
@@ -206,9 +218,10 @@ def _gate(
     concerns: list[str],
     photo_ids: list[str],
     photo_allowed: dict[str, set[str]],
-    union_ids: set[str],
+    allowed_cards: dict[str, object],
     flagged: list[dict],
 ) -> WalkthroughReport:
+    union_ids = set(allowed_cards)
     summary_raw = data.get("summary")
     if not isinstance(summary_raw, dict):
         summary_raw = {}
@@ -346,6 +359,14 @@ def _gate(
             "guidance cards; review the action items."
         )
 
+    cited_ids: set[str] = set(assessment_citations)
+    for finding in per_photo:
+        cited_ids.update(finding.cited)
+    for item in action_items:
+        cited_ids.update(item.citations)
+    for answer in answers:
+        cited_ids.update(answer.citations)
+
     return WalkthroughReport(
         concerns=concerns,
         per_photo=per_photo,
@@ -356,4 +377,5 @@ def _gate(
             answers=answers,
         ),
         flagged_claims=flagged,
+        cards={cid: _card_info(allowed_cards[cid]) for cid in sorted(cited_ids)},
     )

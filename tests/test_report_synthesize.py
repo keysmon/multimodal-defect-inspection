@@ -23,6 +23,10 @@ class FakeCard:
     title: str = "t"
     class_tags: tuple = ("crack",)
     passage: str = "guidance passage"
+    severity: str = "monitor"
+    citation: str = "Std. ref"
+    source_name: str = "SRC"
+    source_url: str = "https://example.com/src"
 
 
 @dataclass(frozen=True)
@@ -129,6 +133,22 @@ def test_happy_path_grounded_report():
     assert report.disclaimer == "Initial diagnostic - verify before acting."
     # the synthesis call carried BOTH photos (cross-photo reasoning)
     assert provider.calls[-1].n_images == 2
+    # cited-card metadata rides along for rendering/export
+    assert set(report.cards) == {"crack-01"}
+    card = report.cards["crack-01"]
+    assert card["title"] == "t" and card["source_url"] == "https://example.com/src"
+
+
+def test_report_cards_include_only_cited_ids():
+    """Retrieved-but-never-cited cards stay out of the report payload."""
+    provider = MockProvider(responses=['["damp smell"]', _synthesis(
+        per_photo=[{"photo_id": "photo_1", "observation": "stain", "cited": ["crack-01"]}],
+    )])
+    report = run_walkthrough(
+        photos=_photos(1), visit_note="damp smell", recognizer=FakeRecognizer(), provider=provider
+    )
+    # damp-02 was retrieved for the concern but nothing cites it
+    assert set(report.cards) == {"crack-01"}
 
 
 def test_ungrounded_observation_dropped_to_flagged_and_replaced():

@@ -81,6 +81,10 @@ class WalkthroughReport(BaseModel):
     summary: WalkthroughSummary
     disclaimer: str = DISCLAIMER
     flagged_claims: list[dict] = Field(default_factory=list)
+    # Metadata (title/passage/citation/source) for every card the report
+    # cites, keyed by card_id - so the UI and the markdown export can render
+    # citations without a second corpus lookup. Only CITED ids appear here.
+    cards: dict[str, dict] = Field(default_factory=dict)
 
 
 def parse_synthesis_json(raw: str) -> dict:
