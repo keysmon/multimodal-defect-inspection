@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 
 import numpy as np
@@ -41,6 +42,10 @@ def _nan_to_none(value: float) -> float | None:
 
 
 def pick_device() -> str:
+    # Escape hatch: run CLIP-sized work on CPU while a training run owns the
+    # MPS pool (concurrent MPS loads OOM'd the B1 validation run, 2026-07-21).
+    if os.environ.get("DEFECTLENS_FORCE_CPU", "").strip() == "1":
+        return "cpu"
     if torch.backends.mps.is_available():
         return "mps"
     if torch.cuda.is_available():
