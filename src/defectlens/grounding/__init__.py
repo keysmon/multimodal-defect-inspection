@@ -5,3 +5,7 @@ from defectlens.grounding.citations import (  # noqa: F401
     on_class_citations,
     validate_citations,
 )
+from defectlens.grounding.retrieval import (  # noqa: F401
+    retrieve_for_photo,
+    retrieve_for_text,
+)
