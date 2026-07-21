@@ -562,6 +562,84 @@ def create_app(
         return {"status": "pending"}
 
     # -----------------------------------------------------------------------
+    # Walkthrough GPU enrichment (P4): user-triggered fine-tuned-Qwen labels
+    # through the consistency gate. POST fans one SageMaker async job per
+    # photo (the endpoint sleeps at zero; the report NEVER waits on this);
+    # GET polls and, once all photos settle, merges consistent labels into
+    # the stored report. Both 503 without the GPU deploy.
+    # -----------------------------------------------------------------------
+
+    @app.post("/walkthrough-jobs/{job_id}/enrich", status_code=202)
+    async def submit_walkthrough_enrichment(request: Request, job_id: str) -> dict:
+        store = _require_cpu_jobs(request)
+        gateway = _require_gateway(request)
+        existing = store.get_enrichment(job_id)
+        if existing is not None:  # idempotent: never resubmit (GPU wake is $)
+            return {"status": "submitted", "photos": len(existing)}
+        state, _report = store.status(job_id)
+        if state != "ready":
+            raise HTTPException(
+                status_code=409, detail="walkthrough report not ready yet"
+            )
+        from defectlens.serve.async_jobs import parse_job_payload
+
+        payload = parse_job_payload(store.get_input(job_id))
+        if payload.get("kind") != "walkthrough":
+            raise HTTPException(status_code=409, detail="not a walkthrough job")
+        mapping: dict[str, dict] = {}
+        for photo in payload["photos"]:
+            result = gateway.submit(photo["image_bytes"], photo.get("note"))
+            mapping[photo["photo_id"]] = {
+                "output_location": result["output_location"],
+                "failure_location": result.get("failure_location"),
+            }
+        store.put_enrichment(job_id, mapping)
+        return {"status": "submitted", "photos": len(mapping)}
+
+    @app.get("/walkthrough-jobs/{job_id}/enrich")
+    async def poll_walkthrough_enrichment(
+        request: Request, response: Response, job_id: str
+    ) -> dict:
+        store = _require_cpu_jobs(request)
+        gateway = _require_gateway(request)
+        mapping = store.get_enrichment(job_id)
+        if mapping is None:
+            raise HTTPException(status_code=404, detail="enrichment not requested")
+
+        labels: dict[str, tuple[str, float]] = {}
+        gpu_failures: list[str] = []
+        pending = 0
+        for photo_id, locs in mapping.items():
+            state, classes = gateway.status(
+                locs["output_location"], failure_location=locs.get("failure_location")
+            )
+            if state == "ready" and classes:
+                top = classes[0]
+                labels[photo_id] = (top["label"], top["score"])
+            elif state == "failed" or (state == "ready" and not classes):
+                gpu_failures.append(photo_id)
+            else:
+                pending += 1
+        if pending:
+            response.status_code = 202
+            done = len(mapping) - pending
+            return {"status": "pending", "done": done, "total": len(mapping)}
+
+        state, report = store.status(job_id)
+        if state != "ready":
+            raise HTTPException(status_code=409, detail="walkthrough report missing")
+        from defectlens.report.enrich import merge_enrichment
+
+        merged, gate = merge_enrichment(report, labels)
+        for photo_id in gpu_failures:
+            gate["dropped"].append(
+                {"photo_id": photo_id, "label": None, "confidence": None,
+                 "reason": "gpu_failed"}
+            )
+        store.put_output(job_id, merged)
+        return {"status": "ready", "report": merged, "gate": gate}
+
+    # -----------------------------------------------------------------------
     # GPU async path (Phase 5.5c): the fine-tuned VLM on a scale-to-zero
     # SageMaker async endpoint. /analyze-vlm submits a job (S3 in + async
     # invoke, returns immediately); /vlm-status polls the S3 result. Both 503

@@ -229,6 +229,15 @@ class CpuJobStore:
     def put_error(self, job_id: str, obj: dict) -> None:
         self._put(self._key("err", job_id), obj)
 
+    def put_enrichment(self, job_id: str, obj: dict) -> None:
+        """Persist the walkthrough job's GPU-enrichment fan-out mapping
+        ({photo_id: {output_location, failure_location}}) under enr/."""
+        self._put(self._key("enr", job_id), obj)
+
+    def get_enrichment(self, job_id: str) -> dict | None:
+        raw = self._get(self._key("enr", job_id))
+        return json.loads(raw) if raw is not None else None
+
     def _put(self, key: str, obj: dict) -> None:
         self._s3_client().put_object(
             Bucket=self.bucket,
@@ -264,6 +273,7 @@ class LocalCpuJobStore:
         self._inputs: dict[str, bytes] = {}
         self._outputs: dict[str, dict] = {}
         self._errors: dict[str, dict] = {}
+        self._enrichments: dict[str, dict] = {}
         self._lock = threading.Lock()
 
     @property
@@ -305,6 +315,14 @@ class LocalCpuJobStore:
     def put_error(self, job_id: str, obj: dict) -> None:
         with self._lock:
             self._errors[job_id] = obj
+
+    def put_enrichment(self, job_id: str, obj: dict) -> None:
+        with self._lock:
+            self._enrichments[job_id] = obj
+
+    def get_enrichment(self, job_id: str) -> dict | None:
+        with self._lock:
+            return self._enrichments.get(job_id)
 
 
 def build_cpu_job_store_from_env() -> CpuJobStore | LocalCpuJobStore | None:
