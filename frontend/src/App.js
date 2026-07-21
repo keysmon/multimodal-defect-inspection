@@ -3,7 +3,7 @@
 // tab switch instead of being unmounted mid-flight.
 import React, { useState } from "react";
 import Walkthrough from "./Walkthrough";
-import DefectLens from "./DefectLens";
+import AnalyzeView from "./AnalyzeView";
 import SearchView from "./SearchView";
 import "./theme.css";
 
@@ -50,7 +50,7 @@ function App() {
         <Walkthrough API={API} />
       </div>
       <div role="tabpanel" id="panel-analyze" aria-labelledby="tab-analyze" hidden={tab !== "analyze"}>
-        <DefectLens />
+        <AnalyzeView API={API} />
       </div>
       <div role="tabpanel" id="panel-search" aria-labelledby="tab-search" hidden={tab !== "search"}>
         <SearchView API={API} />

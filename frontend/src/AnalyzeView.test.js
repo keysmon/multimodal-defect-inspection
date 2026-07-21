@@ -2,9 +2,11 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import axios from "axios";
-import DefectLens from "./DefectLens";
+import AnalyzeView from "./AnalyzeView";
 
 jest.mock("axios");
+
+const API = "http://localhost:8000";
 
 const mockAnalyzeResponse = {
   data: {
@@ -75,35 +77,45 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test("analyze happy path shows severity banner and a guidance card", async () => {
+test("shows the result placeholder before any analysis", () => {
+  render(<AnalyzeView API={API} />);
+  expect(screen.getByText(/results appear here/i)).toBeInTheDocument();
+});
+
+test("analyze happy path shows severity headline, bars, and a guidance card", async () => {
   mockAnalyzeJob(mockAnalyzeResponse);
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
     target: { files: [file] },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await waitFor(() =>
-    expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument()
+    expect(screen.getByTestId("severity-headline")).toHaveTextContent("Severity: Urgent")
   );
+  expect(screen.getByTestId("rank-bars")).toHaveTextContent("crack");
+  expect(screen.getByTestId("rank-bars")).toHaveTextContent("91%");
+
+  // Guidance is collapsed by default; expanding reveals the card.
+  expect(screen.queryByText("Assess crack width")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /show cited guidance \(1\)/i }));
   expect(screen.getByText("Assess crack width")).toBeInTheDocument();
-  expect(screen.getByText("1. crack")).toBeInTheDocument();
 });
 
 test("analyze posts the inspector note in the form data", async () => {
   mockAnalyzeJob(mockAnalyzeResponse);
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
     target: { files: [file] },
   });
-  fireEvent.change(screen.getByPlaceholderText(/optional inspector note/i), {
+  fireEvent.change(screen.getByLabelText(/inspector note/i), {
     target: { value: "musty smell near shower" },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await waitFor(() => expect(axios.post).toHaveBeenCalled());
   const formData = axios.post.mock.calls[0][1];
@@ -112,7 +124,7 @@ test("analyze posts the inspector note in the form data", async () => {
 
 test("analyze posts the selected audio file in the form data", async () => {
   mockAnalyzeJob(mockAnalyzeResponse);
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
@@ -122,16 +134,16 @@ test("analyze posts the selected audio file in the form data", async () => {
   fireEvent.change(screen.getByTestId("audio-input"), {
     target: { files: [wav] },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await waitFor(() => expect(axios.post).toHaveBeenCalled());
   const formData = axios.post.mock.calls[0][1];
   expect(formData.get("audio")).toBe(wav);
 });
 
-test("analyze with audio shows the combined severity banner and audio panel", async () => {
+test("analyze with audio shows the combined severity headline and audio panel", async () => {
   mockAnalyzeJob(mockAudioResponse);
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const img = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
@@ -141,14 +153,14 @@ test("analyze with audio shows the combined severity banner and audio panel", as
   fireEvent.change(screen.getByTestId("audio-input"), {
     target: { files: [wav] },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await waitFor(() =>
-    expect(
-      screen.getByText(/Combined severity: Structural/i)
-    ).toBeInTheDocument()
+    expect(screen.getByTestId("severity-headline")).toHaveTextContent(
+      "Combined severity: Structural"
+    )
   );
-  expect(screen.getByText("Equipment audio")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /^equipment audio$/i })).toBeInTheDocument();
   expect(screen.getByText(/score: 0\.421/i)).toBeInTheDocument();
   expect(screen.getByText("anomalous")).toBeInTheDocument();
   expect(screen.getByText("Bearing wear rumble")).toBeInTheDocument();
@@ -158,8 +170,8 @@ test("selecting a new image clears a previously chosen audio file", () => {
   // Observable half of the stale-input fix: the chosen-audio filename display
   // disappears when a new image is picked. (The DOM input.value reset that
   // makes re-picking the SAME wav work is not observable in jsdom — file input
-  // .value is always "" — so that half rides on the useRef idiom + Task 7 E2E.)
-  render(<DefectLens />);
+  // .value is always "" — so that half rides on the useRef idiom + Task 6 E2E.)
+  render(<AnalyzeView API={API} />);
 
   const img1 = new File(["a"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [img1] } });
@@ -173,9 +185,9 @@ test("selecting a new image clears a previously chosen audio file", () => {
 });
 
 test("selecting a new image resets the inspector note", () => {
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
-  const noteField = screen.getByPlaceholderText(/optional inspector note/i);
+  const noteField = screen.getByLabelText(/inspector note/i);
   fireEvent.change(noteField, { target: { value: "old note" } });
   expect(noteField.value).toBe("old note");
 
@@ -184,7 +196,7 @@ test("selecting a new image resets the inspector note", () => {
     target: { files: [file] },
   });
 
-  expect(screen.getByPlaceholderText(/optional inspector note/i).value).toBe("");
+  expect(screen.getByLabelText(/inspector note/i).value).toBe("");
 });
 
 test("clicking a gallery example populates the note and runs the analyze flow", async () => {
@@ -195,14 +207,14 @@ test("clicking a gallery example populates the note and runs the analyze flow", 
     })
   );
   mockAnalyzeJob(mockAnalyzeResponse);
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const tiles = screen.getAllByRole("button", { name: /load example:/i });
   expect(tiles).toHaveLength(6);
   fireEvent.click(tiles[0]);
 
   // The example's note is loaded into the inspector-note field...
-  const noteField = screen.getByPlaceholderText(/optional inspector note/i);
+  const noteField = screen.getByLabelText(/inspector note/i);
   await waitFor(() => expect(noteField.value).not.toBe(""));
 
   // ...and the analyze flow runs, posting that note in the form data.
@@ -212,7 +224,7 @@ test("clicking a gallery example populates the note and runs the analyze flow", 
   expect(formData.get("file")).toBeInstanceOf(File);
 
   await waitFor(() =>
-    expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument()
+    expect(screen.getByTestId("severity-headline")).toHaveTextContent("Severity: Urgent")
   );
 });
 
@@ -224,13 +236,13 @@ test("auto-retries once on a cold-start timeout, then succeeds", async () => {
     .mockRejectedValueOnce({ response: { status: 504 } })
     .mockResolvedValueOnce({ status: 202, data: { job_id: "job-async" } });
   axios.get.mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data });
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
     target: { files: [file] },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   // First submit rejected -> warming status shown while the retry is pending.
   await act(async () => {});
@@ -243,7 +255,7 @@ test("auto-retries once on a cold-start timeout, then succeeds", async () => {
   });
   await act(async () => {}); // flush the submit -> poll microtask chain
   expect(axios.post).toHaveBeenCalledTimes(2);
-  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  expect(screen.getByTestId("severity-headline")).toHaveTextContent("Severity: Urgent");
   expect(
     screen.queryByText(/Model warming up - retrying/i)
   ).not.toBeInTheDocument();
@@ -253,13 +265,13 @@ test("auto-retries once on a cold-start timeout, then succeeds", async () => {
 
 test("shows an error banner when the analyze request fails", async () => {
   axios.post.mockRejectedValueOnce(new Error("network error"));
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
     target: { files: [file] },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await waitFor(() =>
     expect(
@@ -277,11 +289,11 @@ test("a mid-poll image swap does not render the superseded job's result", async 
   axios.get
     .mockResolvedValueOnce({ status: 202, data: { status: "pending" } }) // A poll 1
     .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data }); // A poll 2 (superseded)
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const fileA = new File(["a"], "wallA.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [fileA] } });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
   await act(async () => {}); // submit -> poll 1 (pending) -> sleep
 
   // Mid-poll: pick image B.
@@ -296,7 +308,7 @@ test("a mid-poll image swap does not render the superseded job's result", async 
   });
   await act(async () => {});
 
-  expect(screen.queryByText(/Severity: Urgent/i)).not.toBeInTheDocument();
+  expect(screen.queryByTestId("severity-headline")).not.toBeInTheDocument();
   expect(screen.queryByText("Assess crack width")).not.toBeInTheDocument();
   jest.useRealTimers();
 });
@@ -305,11 +317,11 @@ test("a 400 (unreadable image) shows the image error, not an API-down message", 
   axios.post.mockRejectedValueOnce({
     response: { status: 400, data: { detail: "Uploaded file is not a readable image: broken" } },
   });
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const file = new File(["not-an-image"], "bad.txt", { type: "text/plain" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await waitFor(() =>
     expect(screen.getByText(/not a readable image/i)).toBeInTheDocument()
@@ -325,17 +337,17 @@ test("polls until the result is ready (202 pending, then 200)", async () => {
   axios.get
     .mockResolvedValueOnce({ status: 202, data: { status: "pending" } })
     .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data });
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
   const file = new File(["x"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   await act(async () => {}); // submit + first poll (202) -> sleep
   await act(async () => {
     jest.advanceTimersByTime(1500);
   }); // second poll -> 200
   await act(async () => {});
-  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  expect(screen.getByTestId("severity-headline")).toHaveTextContent("Severity: Urgent");
   expect(axios.get).toHaveBeenCalledTimes(2);
   jest.useRealTimers();
 });
@@ -343,10 +355,10 @@ test("polls until the result is ready (202 pending, then 200)", async () => {
 test("a terminal worker failure (poll 500) shows the analysis-failed message", async () => {
   axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "j" } });
   axios.get.mockRejectedValueOnce({ response: { status: 500 } });
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
   const file = new File(["x"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
   await waitFor(() =>
     expect(screen.getByText(/Analysis failed\. Please try again/i)).toBeInTheDocument()
   );
@@ -358,16 +370,16 @@ test("a transient poll error keeps polling instead of aborting", async () => {
   axios.get
     .mockRejectedValueOnce({ response: { status: 503 } }) // transient
     .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data });
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
   const file = new File(["x"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
   await act(async () => {}); // submit + poll1 rejects 503 -> sleep
   await act(async () => {
     jest.advanceTimersByTime(1500);
   }); // poll2 -> 200
   await act(async () => {});
-  expect(screen.getByText(/Severity: Urgent/i)).toBeInTheDocument();
+  expect(screen.getByTestId("severity-headline")).toHaveTextContent("Severity: Urgent");
   jest.useRealTimers();
 });
 
@@ -375,10 +387,10 @@ test("gives up with a timeout message after the poll ceiling", async () => {
   jest.useFakeTimers();
   axios.post.mockResolvedValueOnce({ status: 202, data: { job_id: "j" } });
   axios.get.mockResolvedValue({ status: 202, data: { status: "pending" } }); // never ready
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
   const file = new File(["x"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), { target: { files: [file] } });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
   await act(async () => {}); // submit + first poll
   for (let i = 0; i < 95; i++) {
     await act(async () => {
@@ -416,17 +428,17 @@ test("GPU button submits to the fine-tuned model and renders its result", async 
     .mockResolvedValueOnce({ status: 200, data: mockAnalyzeResponse.data }) // /analyze-jobs poll -> reveals GPU button
     .mockResolvedValueOnce(mockVlmReady); // /vlm-status ready on first poll
 
-  render(<DefectLens />);
+  render(<AnalyzeView API={API} />);
 
   const file = new File(["dummy-bytes"], "wall.png", { type: "image/png" });
   fireEvent.change(screen.getByTestId("file-input"), {
     target: { files: [file] },
   });
-  fireEvent.click(screen.getByRole("button", { name: /^analyze$/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
 
   // The GPU button only appears once there is an analysis result.
   const gpuButton = await screen.findByRole("button", {
-    name: /run fine-tuned model/i,
+    name: /re-run on the fine-tuned model/i,
   });
   fireEvent.click(gpuButton);
 
@@ -452,5 +464,5 @@ test("GPU button submits to the fine-tuned model and renders its result", async 
     })
   );
   // ...and renders the fine-tuned model's top class.
-  expect(screen.getByText("1. exposed rebar")).toBeInTheDocument();
+  expect(screen.getByTestId("vlm-chips")).toHaveTextContent("1. exposed rebar 88%");
 });

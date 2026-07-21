@@ -1,10 +1,9 @@
-// src/DefectLens.js
+// Analyze a single photo (async /analyze-jobs path) with optional inspector
+// note + equipment audio, plus the user-triggered GPU (fine-tuned VLM) re-run.
 import React, { useRef, useState } from "react";
 import axios from "axios";
 import { isColdStartError, sleep } from "./apiHelpers";
-import "./DefectLens.css";
-
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+import { Button, Pill, severityTone, severityLabel, CardList, ErrorBanner, StatusLine } from "./ui";
 
 // Cold-start retry: the live demo scales to zero, so the first analyze after an
 // idle period commonly fails while the model warms. We retry once after a short
@@ -74,74 +73,20 @@ const GALLERY_EXAMPLES = [
   },
 ];
 
-// Severity band -> display styling (spec: structural/urgent/monitor/cosmetic).
-const SEVERITY_STYLES = {
-  structural: { background: "#c0392b", color: "#fff", label: "Structural" },
-  urgent: { background: "#e67e22", color: "#fff", label: "Urgent" },
-  monitor: { background: "#f1c40f", color: "#222", label: "Monitor" },
-  cosmetic: { background: "#27ae60", color: "#fff", label: "Cosmetic" },
-};
-
-function severityStyle(severity) {
-  return (
-    SEVERITY_STYLES[severity] || {
-      background: "#95a5a6",
-      color: "#fff",
-      label: severity || "Unknown",
-    }
-  );
-}
-
-// Shared card list renderer for both /analyze and /search results.
-function CardList({ cards }) {
-  if (!cards || cards.length === 0) {
-    return null;
-  }
-  return (
-    <ul className="card-list">
-      {cards.map((card) => (
-        <li key={card.id} className="guidance-card">
-          <div className="card-header">
-            <h3 className="card-title">{card.title}</h3>
-            <span
-              className="card-severity-tag"
-              style={{
-                backgroundColor: severityStyle(card.severity).background,
-                color: severityStyle(card.severity).color,
-              }}
-            >
-              {card.severity}
-            </span>
-          </div>
-          <p className="card-passage">{card.passage}</p>
-          <p className="card-citation">{card.citation}</p>
-          <a
-            href={card.source_url}
-            target="_blank"
-            rel="noreferrer"
-            className="card-source-link"
-          >
-            {card.source_name}
-          </a>
-        </li>
-      ))}
-    </ul>
-  );
-}
+// Severity bands that get a colored headline word (anything else renders muted).
+const SEVERITY_WORDS = { structural: 1, urgent: 1, monitor: 1, cosmetic: 1 };
 
 function buildReportMarkdown(analyzeResult) {
   const date = new Date().toISOString().slice(0, 10);
   const lines = [];
 
-  lines.push("# DefectLens Report");
+  lines.push("# SiteCheck analysis report");
   lines.push("");
   lines.push(`- Date: ${date}`);
   lines.push(`- Filename: ${analyzeResult.filename}`);
-  lines.push(`- Severity: ${severityStyle(analyzeResult.severity).label}`);
+  lines.push(`- Severity: ${severityLabel(analyzeResult.severity)}`);
   if (analyzeResult.audio) {
-    lines.push(
-      `- Combined severity: ${severityStyle(analyzeResult.combined_severity).label}`
-    );
+    lines.push(`- Combined severity: ${severityLabel(analyzeResult.combined_severity)}`);
   }
   if (analyzeResult.note) lines.push(`- Inspector note: ${analyzeResult.note}`);
   lines.push("");
@@ -185,7 +130,7 @@ function buildReportMarkdown(analyzeResult) {
   return lines.join("\n");
 }
 
-function DefectLens() {
+function AnalyzeView({ API }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [selectedAudio, setSelectedAudio] = useState(null);
@@ -193,6 +138,7 @@ function DefectLens() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeStatus, setAnalyzeStatus] = useState("");
   const [analyzeResult, setAnalyzeResult] = useState(null);
+  const [guidanceOpen, setGuidanceOpen] = useState(false);
 
   // GPU (fine-tuned VLM) re-run of the just-analyzed image.
   const [isVlmRunning, setIsVlmRunning] = useState(false);
@@ -201,6 +147,9 @@ function DefectLens() {
   const [vlmError, setVlmError] = useState("");
 
   const [error, setError] = useState("");
+
+  // The photo <input> is hidden behind the styled add/swap buttons.
+  const fileInputRef = useRef(null);
 
   // The audio <input> is uncontrolled: clearing selectedAudio state on image
   // change does NOT reset the DOM value, so re-picking the same wav fires no
@@ -231,6 +180,7 @@ function DefectLens() {
     setSelectedAudio(null);
     if (audioInputRef.current) audioInputRef.current.value = "";
     setAnalyzeResult(null);
+    setGuidanceOpen(false);
     resetVlm();
     setError("");
   };
@@ -255,6 +205,7 @@ function DefectLens() {
     setIsAnalyzing(true);
     setError("");
     setAnalyzeStatus("");
+    setGuidanceOpen(false);
     resetVlm(); // a fresh analysis invalidates any prior GPU re-run
 
     const formData = new FormData();
@@ -422,7 +373,7 @@ function DefectLens() {
     const date = new Date().toISOString().slice(0, 10);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `defectlens-report-${date}.md`;
+    link.download = `sitecheck-report-${date}.md`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -436,220 +387,229 @@ function DefectLens() {
       ? analyzeResult.combined_severity
       : analyzeResult.severity
     : null;
-  const bandStyle = bannerSeverity ? severityStyle(bannerSeverity) : null;
 
   return (
-    <div className="defectlens-container">
-      {error && <div className="error-banner">{error}</div>}
-
-      <section id="analyze" className="tool-panel">
-      <div className="panel-header">
-        <span className="eyebrow">Analyze · single photo</span>
-        <h2>Photo check with cited guidance</h2>
-        <p className="panel-sub">
-          Upload one photo (plus an optional note and equipment audio) to get a
-          ranked defect classification, a severity band, and the standards
-          passages that back it.
-        </p>
+    <main className="sc-main">
+      <div className="sc-intro">
+        <div className="sc-eyebrow">Analyze · single photo</div>
+        <h1 className="sc-h1">Point it at the problem.</h1>
+        <p className="sc-lede">One photo in — ranked classes, a severity band, and cited guidance out.</p>
       </div>
 
-      <div className="gallery-section">
-        <h2 className="gallery-title">Try an example</h2>
-        <p className="gallery-subtitle">
-          One click loads a sample photo and inspector note, then runs the
-          analysis.
-        </p>
-        <div className="gallery-grid">
-          {GALLERY_EXAMPLES.map((example) => (
-            <button
-              key={example.image}
-              type="button"
-              className="gallery-tile"
-              onClick={() => handleGalleryExample(example)}
-              disabled={isAnalyzing}
-              aria-label={`Load example: ${example.caption}`}
-            >
-              <img
-                src={`${process.env.PUBLIC_URL}/gallery/${example.image}`}
-                alt={example.caption}
-                className="gallery-thumb"
-                loading="lazy"
+      <div className="sc-layout sc-layout--analyze">
+        <aside className="sc-rail">
+          <div className="sc-panel">
+            {imagePreview ? (
+              <img src={imagePreview} alt="Selected preview" className="sc-preview-img" />
+            ) : (
+              <button type="button" className="sc-preview-empty" onClick={() => fileInputRef.current?.click()}>
+                + Add a photo
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              id="dl-photo-input"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="sc-hidden-input"
+              data-testid="file-input"
+              aria-label="Upload image"
+            />
+            {selectedFile && (
+              <div className="sc-file-row">
+                <span className="sc-file-name">{selectedFile.name}</span>
+                <button type="button" className="sc-swap-btn" onClick={() => fileInputRef.current?.click()}>
+                  Swap photo
+                </button>
+              </div>
+            )}
+            <div>
+              <label className="sc-field-label" htmlFor="dl-note-input">
+                Inspector note <span className="sc-optional">· optional</span>
+              </label>
+              <textarea
+                id="dl-note-input"
+                className="sc-textarea"
+                placeholder="e.g. musty smell, below upstairs bathroom"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                maxLength={500}
               />
-              <span className="gallery-caption">{example.caption}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="upload-section">
-        <label className="field-label" htmlFor="dl-photo-input">
-          Photo
-        </label>
-        <input
-          id="dl-photo-input"
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="file-input"
-          data-testid="file-input"
-          aria-label="Upload image"
-        />
-        {imagePreview && (
-          <img
-            src={imagePreview}
-            alt="Selected preview"
-            className="preview-image"
-          />
-        )}
-        <textarea
-          className="note-input"
-          placeholder="Optional inspector note (e.g., 'musty smell, below upstairs bathroom')"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          rows={2}
-          maxLength={500}
-        />
-        <label className="field-label" htmlFor="dl-audio-input">
-          Equipment audio · wav, optional
-        </label>
-        <input
-          id="dl-audio-input"
-          type="file"
-          accept=".wav,audio/wav"
-          ref={audioInputRef}
-          onChange={handleAudioChange}
-          className="audio-input"
-          data-testid="audio-input"
-          aria-label="Upload equipment audio (optional)"
-        />
-        {selectedAudio && (
-          <span className="audio-filename">{selectedAudio.name}</span>
-        )}
-        <button
-          onClick={() => handleAnalyze()}
-          disabled={isAnalyzing}
-          className="analyze-button"
-        >
-          {isAnalyzing ? "Analyzing..." : "Analyze"}
-        </button>
-        {analyzeStatus && <p className="analyze-status">{analyzeStatus}</p>}
-      </div>
-
-      {analyzeResult && (
-        <div className="results-section">
-          <div
-            className="severity-banner"
-            style={{
-              backgroundColor: bandStyle.background,
-              color: bandStyle.color,
-            }}
-          >
-            {hasAudio ? "Combined severity" : "Severity"}: {bandStyle.label}
-          </div>
-
-          <div className="rank-chips">
-            {topClasses.map((c, i) => (
-              <span key={c.label} className="rank-chip">
-                {`${i + 1}. ${c.label.replace(/_/g, " ")}`}
-                {typeof c.score === "number" && (
-                  <span className="rank-score">
-                    {`${Math.round(c.score * 100)}%`}
-                  </span>
-                )}
-              </span>
-            ))}
-            {analyzeResult.classifier && (
-              <span
-                className="classifier-badge"
-                title={
-                  analyzeResult.classifier === "vlm-qlora"
-                    ? "Classified by the fine-tuned Qwen2.5-VL model (macro top-1 0.851 on the frozen test split)"
-                    : "Classified by the CLIP retrieval-fusion baseline"
-                }
-              >
-                {analyzeResult.classifier === "vlm-qlora"
-                  ? "fine-tuned VLM"
-                  : "CLIP baseline"}
-              </span>
-            )}
-          </div>
-
-          {analyzeResult.description && (
-            <p className="description">{analyzeResult.description}</p>
-          )}
-
-          <CardList cards={analyzeResult.cards} />
-
-          {hasAudio && (
-            <div className="audio-panel">
-              <h2 className="audio-panel-title">Equipment audio</h2>
-              <div className="audio-summary">
-                <span
-                  className="audio-band-chip"
-                  style={{
-                    backgroundColor: severityStyle(analyzeResult.audio.severity)
-                      .background,
-                    color: severityStyle(analyzeResult.audio.severity).color,
-                  }}
-                >
-                  {analyzeResult.audio.band.replace(/_/g, " ")}
-                </span>
-                <span className="audio-score">
-                  score: {Number(analyzeResult.audio.score).toFixed(3)}
-                </span>
-              </div>
-              <CardList cards={analyzeResult.audio.cards} />
             </div>
-          )}
-
-          <div className="gpu-panel">
-            <button
-              onClick={handleRunGpu}
-              disabled={isVlmRunning}
-              className="gpu-button"
-            >
-              {isVlmRunning
-                ? "Running fine-tuned model..."
-                : "Run fine-tuned model (GPU, ~5 min cold)"}
-            </button>
-            {vlmStatus && <p className="analyze-status">{vlmStatus}</p>}
-            {vlmError && <p className="vlm-error">{vlmError}</p>}
-            {vlmResult && (
-              <div className="rank-chips vlm-chips">
-                {vlmResult.classes.slice(0, 3).map((c, i) => (
-                  <span key={c.label} className="rank-chip">
-                    {`${i + 1}. ${c.label.replace(/_/g, " ")}`}
-                    {typeof c.score === "number" && (
-                      <span className="rank-score">
-                        {`${Math.round(c.score * 100)}%`}
-                      </span>
-                    )}
-                  </span>
-                ))}
-                <span
-                  className="classifier-badge"
-                  title="Classified by the fine-tuned Qwen2.5-VL model on the GPU async endpoint (macro top-1 0.851 on the frozen test split)"
-                >
-                  fine-tuned VLM (GPU)
-                </span>
-              </div>
-            )}
+            <div>
+              <label className="sc-field-label" htmlFor="dl-audio-input">
+                Equipment audio <span className="sc-optional">· wav, optional</span>
+              </label>
+              <button
+                type="button"
+                className="sc-dashed-btn sc-dashed-btn--left"
+                onClick={() => audioInputRef.current?.click()}
+              >
+                {selectedAudio ? selectedAudio.name : "Add a pump or fan recording"}
+              </button>
+              <input
+                ref={audioInputRef}
+                id="dl-audio-input"
+                type="file"
+                accept=".wav,audio/wav"
+                onChange={handleAudioChange}
+                className="sc-hidden-input"
+                data-testid="audio-input"
+                aria-label="Upload equipment audio (optional)"
+              />
+            </div>
+            <Button onClick={() => handleAnalyze()} disabled={isAnalyzing} style={{ width: "100%" }}>
+              {isAnalyzing ? "Analyzing…" : "Analyze photo"}
+            </Button>
+            <StatusLine>{analyzeStatus}</StatusLine>
+            <ErrorBanner>{error}</ErrorBanner>
           </div>
-        </div>
-      )}
 
-      <div className="export-section">
-        <button
-          onClick={handleExport}
-          disabled={!analyzeResult}
-          className="export-button"
-        >
-          Export report (markdown)
-        </button>
+          <div className="sc-panel">
+            <h2 className="sc-mini-title">No photo handy?</h2>
+            <p className="sc-mini-sub">One click runs a sample. Sample photos CC BY - see ATTRIBUTION.md.</p>
+            <div className="sc-gallery-grid">
+              {GALLERY_EXAMPLES.map((example) => (
+                <button
+                  key={example.image}
+                  type="button"
+                  className="sc-gallery-tile"
+                  onClick={() => handleGalleryExample(example)}
+                  disabled={isAnalyzing}
+                  aria-label={`Load example: ${example.caption}`}
+                >
+                  <img
+                    src={`${process.env.PUBLIC_URL}/gallery/${example.image}`}
+                    alt={example.caption}
+                    className="sc-gallery-thumb"
+                    loading="lazy"
+                  />
+                  <span className="sc-gallery-cap">{example.caption}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {!analyzeResult ? (
+          <div className="sc-result-placeholder">
+            <span className="sc-eyebrow" style={{ marginBottom: 0 }}>Result</span>
+            <span>Results appear here - add a photo (or run a sample) and Analyze.</span>
+          </div>
+        ) : (
+          <article className="sc-article">
+            <div className="sc-article-head sc-article-head--compact">
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div className="sc-article-meta">RESULT · {(analyzeResult.filename || "").toUpperCase()}</div>
+                <h2 className="sc-article-title sc-article-title--sm" data-testid="severity-headline">
+                  {hasAudio ? "Combined severity" : "Severity"}:{" "}
+                  <span className={`sc-severity-word--${SEVERITY_WORDS[bannerSeverity] ? bannerSeverity : "unknown"}`}>
+                    {severityLabel(bannerSeverity)}
+                  </span>
+                </h2>
+              </div>
+              {analyzeResult.classifier && (
+                <Pill
+                  tone="default"
+                  title={
+                    analyzeResult.classifier === "vlm-qlora"
+                      ? "Classified by the fine-tuned Qwen2.5-VL model (macro top-1 0.851 on the frozen test split)"
+                      : "Classified by the CLIP retrieval-fusion baseline"
+                  }
+                >
+                  {analyzeResult.classifier === "vlm-qlora" ? "fine-tuned VLM" : "CLIP baseline"}
+                </Pill>
+              )}
+              <Button variant="ghost" size="sm" onClick={handleExport}>
+                Export markdown
+              </Button>
+            </div>
+            <div className="sc-article-body sc-article-body--compact">
+              <section>
+                <h3 className="sc-section-h">Ranked classes</h3>
+                <div data-testid="rank-bars" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {topClasses.map((c, i) => (
+                    <div key={c.label} className="sc-bar-row">
+                      <span className={i === 0 ? "sc-bar-label" : "sc-bar-label sc-bar-label--dim"}>
+                        {c.label.replace(/_/g, " ")}
+                      </span>
+                      <div className="sc-bar-track">
+                        <div
+                          className={i === 0 ? "sc-bar-fill" : "sc-bar-fill sc-bar-fill--dim"}
+                          style={{ width: `${Math.max(Math.round(c.score * 100), 2)}%` }}
+                        />
+                      </div>
+                      <span className={i === 0 ? "sc-bar-score" : "sc-bar-score sc-bar-score--dim"}>
+                        {Math.round(c.score * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              {analyzeResult.description && (
+                <section>
+                  <h3 className="sc-section-h">What the model sees</h3>
+                  <p className="sc-prose" style={{ margin: 0 }}>{analyzeResult.description}</p>
+                </section>
+              )}
+              {analyzeResult.cards?.length > 0 && !guidanceOpen && (
+                <div>
+                  <Button variant="ghost" size="sm" onClick={() => setGuidanceOpen(true)}>
+                    Show cited guidance ({analyzeResult.cards.length})
+                  </Button>
+                </div>
+              )}
+              {guidanceOpen && (
+                <section>
+                  <h3 className="sc-section-h">Cited guidance</h3>
+                  <CardList cards={analyzeResult.cards} />
+                </section>
+              )}
+              {hasAudio && (
+                <section>
+                  <h3 className="sc-section-h">Equipment audio</h3>
+                  <div className="sc-chip-row" style={{ marginBottom: 12 }}>
+                    <Pill tone={severityTone(analyzeResult.audio.severity)}>
+                      {analyzeResult.audio.band.replace(/_/g, " ")}
+                    </Pill>
+                    <span className="sc-audio-name">score: {Number(analyzeResult.audio.score).toFixed(3)}</span>
+                  </div>
+                  <CardList cards={analyzeResult.audio.cards} />
+                </section>
+              )}
+              <section className="sc-footer-row">
+                <Button variant="ghost" size="sm" onClick={handleRunGpu} disabled={isVlmRunning}>
+                  {isVlmRunning ? "Running fine-tuned model…" : "Re-run on the fine-tuned model"}
+                </Button>
+                <span className="sc-hint">First run ~5 min while the GPU endpoint wakes.</span>
+                <StatusLine>{vlmStatus}</StatusLine>
+                <ErrorBanner>{vlmError}</ErrorBanner>
+                {vlmResult && (
+                  <div className="sc-chip-row" data-testid="vlm-chips">
+                    {vlmResult.classes.slice(0, 3).map((c, i) => (
+                      <Pill key={c.label} tone={i === 0 ? "level" : "default"}>
+                        {`${i + 1}. ${c.label.replace(/_/g, " ")}${
+                          typeof c.score === "number" ? ` ${Math.round(c.score * 100)}%` : ""
+                        }`}
+                      </Pill>
+                    ))}
+                    <Pill
+                      tone="good"
+                      title="Classified by the fine-tuned Qwen2.5-VL model on the GPU async endpoint (macro top-1 0.851 on the frozen test split)"
+                    >
+                      fine-tuned VLM (GPU)
+                    </Pill>
+                  </div>
+                )}
+              </section>
+            </div>
+          </article>
+        )}
       </div>
-      </section>
-    </div>
+    </main>
   );
 }
 
-export default DefectLens;
+export default AnalyzeView;
