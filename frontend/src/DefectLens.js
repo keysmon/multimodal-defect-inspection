@@ -2,7 +2,6 @@
 import React, { useRef, useState } from "react";
 import axios from "axios";
 import { isColdStartError, sleep } from "./apiHelpers";
-import Walkthrough from "./Walkthrough";
 import "./DefectLens.css";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
@@ -467,18 +466,6 @@ function DefectLens() {
 
   return (
     <div className="defectlens-container">
-      <header className="dl-toolbar">
-        <h1 className="dl-title">
-          DefectLens
-          <span className="dl-tagline"> — building-defect inspection assistant</span>
-        </h1>
-        <nav className="dl-nav" aria-label="Tools">
-          <a href="#analyze">Analyze</a>
-          <a href="#walkthrough">Walkthrough</a>
-          <a href="#search">Search</a>
-        </nav>
-      </header>
-
       {error && <div className="error-banner">{error}</div>}
 
       <section id="analyze" className="tool-panel">
@@ -687,8 +674,6 @@ function DefectLens() {
         </button>
       </div>
       </section>
-
-      <Walkthrough API={API} />
 
       <section id="search" className="tool-panel search-section">
         <div className="panel-header">

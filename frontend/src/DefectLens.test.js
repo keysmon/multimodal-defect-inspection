@@ -91,16 +91,6 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test("renders the DefectLens header", () => {
-  render(<DefectLens />);
-  // Accessible name concatenates the wordmark + tagline spans.
-  expect(
-    screen.getByRole("heading", {
-      name: /DefectLens — building-defect inspection assistant/i,
-    })
-  ).toBeInTheDocument();
-});
-
 test("analyze happy path shows severity banner and a guidance card", async () => {
   mockAnalyzeJob(mockAnalyzeResponse);
   render(<DefectLens />);
