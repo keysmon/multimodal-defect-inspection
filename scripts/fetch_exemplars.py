@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import time
+import urllib.error
 import urllib.request
 from io import BytesIO
 from pathlib import Path
@@ -54,9 +56,21 @@ def source_bytes(entry: dict) -> bytes:
             )
         data = path.read_bytes()
     else:
-        req = urllib.request.Request(entry["source_url"], headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = resp.read()
+        # fetch_url is the direct file; source_url stays the human credit page.
+        url = entry.get("fetch_url") or entry["source_url"]
+        data = None
+        for attempt in range(4):
+            time.sleep(3.0 * (2 ** attempt))  # politeness + 429 backoff
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = resp.read()
+                break
+            except urllib.error.HTTPError as err:
+                if err.code != 429 or attempt == 3:
+                    raise
+                print(f"{entry['id']}: 429, backing off...")
+        assert data is not None
     digest = hashlib.sha256(data).hexdigest()
     if digest != entry["sha256"]:
         raise SystemExit(
@@ -105,6 +119,10 @@ def main() -> None:
         "--check-only", action="store_true",
         help="verify sources + hashes without writing derivatives",
     )
+    parser.add_argument(
+        "--refresh", action="store_true",
+        help="re-fetch and re-verify entries whose derivatives already exist",
+    )
     args = parser.parse_args()
 
     entries = load_manifest()
@@ -112,11 +130,16 @@ def main() -> None:
     for entry in entries:
         if entry["license"] not in ALLOWED_LICENSES:
             raise SystemExit(f"{entry['id']}: license {entry['license']!r} not allowed")
+        full = OUT_FULL / f"{entry['id']}.jpg"
+        thumb = OUT_THUMB / f"{entry['id']}.jpg"
+        if not args.check_only and not args.refresh and full.is_file() and thumb.is_file():
+            total += full.stat().st_size + thumb.stat().st_size
+            continue  # resumable: hash was verified when first materialized
         data = source_bytes(entry)
         if args.check_only:
             continue
-        total += write_resized(data, OUT_FULL / f"{entry['id']}.jpg", FULL_SIDE, 85)
-        total += write_resized(data, OUT_THUMB / f"{entry['id']}.jpg", THUMB_SIDE, 80)
+        total += write_resized(data, full, FULL_SIDE, 85)
+        total += write_resized(data, thumb, THUMB_SIDE, 80)
     if args.check_only:
         print(f"OK: {len(entries)} entries verified (hashes + licenses)")
         return

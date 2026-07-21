@@ -560,3 +560,153 @@ exemplars:
     card_ids: [eng-034, eng-062]
     class_tags: [peeling_paint]
     caption: "Peeling paint close-up, abandoned building interior wall"
+  - id: wm-efflorescence-001
+    source_url: https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_01.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/2/2f/2ndary_efflorescence_01.jpg
+    sha256: 05754a465d63866aa26e7f4ae4056d0c52d57ca81459961a612799d8e8066164
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence and lime deposits on a basement ceiling near corroded pipework"
+  - id: wm-efflorescence-002
+    source_url: https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_08.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/5/54/2ndary_efflorescence_08.jpg
+    sha256: 159222fd1909f64489a9fdfdd44fe459daeed6dbf5770b460bfb5a90eb04ebe1
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Calthemite/efflorescence run down a concrete face"
+  - id: wm-efflorescence-003
+    source_url: https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_10.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/9/90/2ndary_efflorescence_10.jpg
+    sha256: 5ad876f13cf4f9de9835265f82ebdd054aaf453d570ebdddab112221bc98dbb5
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence along a cracked concrete soffit"
+  - id: wm-efflorescence-004
+    source_url: https://commons.wikimedia.org/wiki/File:Primary_efflorescence_decades_later_001.png
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/5/52/Primary_efflorescence_decades_later_001.png
+    sha256: 8761565b908e1087e32f32df82c3a292db5e4ff225886d0cf586ae0b88bbceb8
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence crust on a concrete slab"
+  - id: wm-efflorescence-005
+    source_url: https://commons.wikimedia.org/wiki/File:Robert_moses_secondary_efflorescence_2.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/8/8a/Robert_moses_secondary_efflorescence_2.jpg
+    sha256: 81c82cc63112b20ee08872e5a694ff091f7c39a993ec7ad93cb2406ca260bcaa
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence streaking on precast panels"
+  - id: wm-efflorescence-006
+    source_url: https://commons.wikimedia.org/wiki/File:Secondary_efflorescence_2_of_2.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/9/96/Secondary_efflorescence_2_of_2.jpg
+    sha256: 87e29da49718750768825811b191a23c4a0efafb1da1a423b4783009b81ae88c
+    license: public_domain
+    credit: "Achim Hering (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence and runoff staining on a concrete beam"
+  - id: wm-spalling-001
+    source_url: https://commons.wikimedia.org/wiki/File:Lewis_River_Bridge_-_Spalling_concrete_(42223630094).jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/a/a0/Lewis_River_Bridge_-_Spalling_concrete_%2842223630094%29.jpg
+    sha256: 826db297ef12357a9c05208f08b3eccc9ce495fd79428d87c18fdf20f857db5d
+    license: public_domain
+    credit: "Yellowstone National Park (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-013, eng-014]
+    class_tags: [spalling]
+    caption: "Concrete spalling on a bridge soffit"
+  - id: wm-spalling-002
+    source_url: https://commons.wikimedia.org/wiki/File:Northeast_Entrance_Road_bridge_with_spalling_concrete_(52910290724).jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/16/Northeast_Entrance_Road_bridge_with_spalling_concrete_%2852910290724%29.jpg
+    sha256: 7f030e878d474376ec012b44d1fdc07883b3e006b80ee7d46aac2696554377d1
+    license: public_domain
+    credit: "YellowstoneNPS (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-013, eng-014]
+    class_tags: [spalling]
+    caption: "Severe edge spalling on an abandoned bridge deck"
+  - id: wm-spalling-003
+    source_url: https://commons.wikimedia.org/wiki/File:Spalling_concrete_on_the_pier_columns.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/6/6c/Spalling_concrete_on_the_pier_columns.jpg
+    sha256: 73b4d8d7c6ed63b2783a86ac733c815d75e6881023e30556aa15f1d3fcf10c61
+    license: cc_by
+    credit: "OregonDOT (Wikimedia Commons), CC BY 2.0"
+    license_check: "LicenseShortName 'CC BY 2.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-010, eng-013]
+    class_tags: [spalling, exposed_rebar]
+    caption: "Corner spall with exposed corroding rebar on a concrete pier"
+  - id: wm-rebar-001
+    source_url: https://commons.wikimedia.org/wiki/File:Wil-Cox_Bridge_Improvements_-_5470913239.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/5/50/Wil-Cox_Bridge_Improvements_-_5470913239.jpg
+    sha256: f5979428986402fc3fc7b6e5677e8ee25142f4c505418bfec32ed65e83ae3d21
+    license: cc_by
+    credit: "NCDOTcommunications (Wikimedia Commons), CC BY 2.0"
+    license_check: "LicenseShortName 'CC BY 2.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-010, eng-011]
+    class_tags: [exposed_rebar]
+    caption: "Deteriorated parapet with exposed reinforcement, road bridge"
+  - id: wm-water-002
+    source_url: https://commons.wikimedia.org/wiki/File:7_Mammoth_Cave_Hotel_Water_Damage_(07718eef-10d9-4b15-b3d0-573126bcbb8b).JPG
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/12/7_Mammoth_Cave_Hotel_Water_Damage_%2807718eef-10d9-4b15-b3d0-573126bcbb8b%29.JPG
+    sha256: 37d0a14502e1c5045238d7c8610027305894390251b2f8c3768326e59ae462c6
+    license: public_domain
+    credit: "NPS Photo (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Ceiling water staining above a closet after a roof leak"
+  - id: wm-water-003
+    source_url: https://commons.wikimedia.org/wiki/File:Ceiling_sheetrock_damaged_by_water_so_paint_was_peeling.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/1a/Ceiling_sheetrock_damaged_by_water_so_paint_was_peeling.jpg
+    sha256: dabfd2227a33efa7b085d6f8519bec47f43b1542c7eaafed81047abb3d52eb8d
+    license: cc0
+    credit: "Tomwsulcer (Wikimedia Commons), CC0"
+    license_check: "LicenseShortName 'CC0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water stains spreading across a plasterboard ceiling"
+  - id: wm-water-004
+    source_url: https://commons.wikimedia.org/wiki/File:Ceiling_water_damage.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/b/b9/Ceiling_water_damage.jpg
+    sha256: 4f1ad9a780a1cb2a28ef1230e8f4c094d544615ef8e8da97edb0739af2f7d6dd
+    license: cc_by
+    credit: "Atomicdragon136 (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water-damaged suspended ceiling tile"
+  - id: wm-water-005
+    source_url: https://commons.wikimedia.org/wiki/File:EFTA00001763_-_Room_with_blue_ceiling_beams_wooden_cabinet_and_water-damaged_floor_featuring_a_drying_machine_in_foreground_and_artwork_on_wall.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/1e/EFTA00001763_-_Room_with_blue_ceiling_beams_wooden_cabinet_and_water-damaged_floor_featuring_a_drying_machine_in_foreground_and_artwork_on_wall.jpg
+    sha256: f7784b57226cff7c56f25e3e0b4f77a94ed6d232d891f2bb601240cd752121c8
+    license: public_domain
+    credit: "Federal Bureau of Investigation (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Interior flood aftermath in a utility room"
+  - id: wm-water-006
+    source_url: https://commons.wikimedia.org/wiki/File:Mold_on_Ceiling_on_House_on_Dublin_Street_New_Orleans_after_Katrina.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/0/02/Mold_on_Ceiling_on_House_on_Dublin_Street_New_Orleans_after_Katrina.jpg
+    sha256: 63b2b0d7c458858d5cf159cffdb14424a043f187bdee0e3fd1b58e6f325deb3f
+    license: cc_by
+    credit: "Infrogmation (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-028, eng-024]
+    class_tags: [mold_algae, water_damage]
+    caption: "Mold growth across a water-damaged ceiling (post-Katrina, New Orleans)"

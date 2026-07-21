@@ -64,3 +64,18 @@ sources; per-image license checks are recorded in the manifest's
 | sdnet-non-cracked-003 | cc_by | SDNET2018 concrete crack dataset (Utah State University), CC BY 4.0 | https://digitalcommons.usu.edu/all_datasets/48/ |
 | wm-water-001 | public_domain | Patsy Lynch / FEMA (Wikimedia Commons), public domain (US federal) | https://commons.wikimedia.org/wiki/File:FEMA_-_17647_-_Photograph_by_Patsy_Lynch_taken_on_10-18-2005_in_Louisiana.jpg |
 | wm-paint-001 | cc_by | Ivan Radic (Wikimedia Commons), CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Close-up_of_peeling_paint_on_the_wall_in_an_old_abandoned_building_(48652561603).jpg |
+| wm-efflorescence-001 | cc_by | Achim Hering (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_01.jpg |
+| wm-efflorescence-002 | cc_by | Achim Hering (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_08.jpg |
+| wm-efflorescence-003 | cc_by | Achim Hering (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_10.jpg |
+| wm-efflorescence-004 | cc_by | Achim Hering (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:Primary_efflorescence_decades_later_001.png |
+| wm-efflorescence-005 | cc_by | Achim Hering (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:Robert_moses_secondary_efflorescence_2.jpg |
+| wm-efflorescence-006 | public_domain | Achim Hering (Wikimedia Commons), Public domain | https://commons.wikimedia.org/wiki/File:Secondary_efflorescence_2_of_2.jpg |
+| wm-spalling-001 | public_domain | Yellowstone National Park (Wikimedia Commons), Public domain | https://commons.wikimedia.org/wiki/File:Lewis_River_Bridge_-_Spalling_concrete_(42223630094).jpg |
+| wm-spalling-002 | public_domain | YellowstoneNPS (Wikimedia Commons), Public domain | https://commons.wikimedia.org/wiki/File:Northeast_Entrance_Road_bridge_with_spalling_concrete_(52910290724).jpg |
+| wm-spalling-003 | cc_by | OregonDOT (Wikimedia Commons), CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Spalling_concrete_on_the_pier_columns.jpg |
+| wm-rebar-001 | cc_by | NCDOTcommunications (Wikimedia Commons), CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Wil-Cox_Bridge_Improvements_-_5470913239.jpg |
+| wm-water-002 | public_domain | NPS Photo (Wikimedia Commons), Public domain | https://commons.wikimedia.org/wiki/File:7_Mammoth_Cave_Hotel_Water_Damage_(07718eef-10d9-4b15-b3d0-573126bcbb8b).JPG |
+| wm-water-003 | cc0 | Tomwsulcer (Wikimedia Commons), CC0 | https://commons.wikimedia.org/wiki/File:Ceiling_sheetrock_damaged_by_water_so_paint_was_peeling.jpg |
+| wm-water-004 | cc_by | Atomicdragon136 (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:Ceiling_water_damage.jpg |
+| wm-water-005 | public_domain | Federal Bureau of Investigation (Wikimedia Commons), Public domain | https://commons.wikimedia.org/wiki/File:EFTA00001763_-_Room_with_blue_ceiling_beams_wooden_cabinet_and_water-damaged_floor_featuring_a_drying_machine_in_foreground_and_artwork_on_wall.jpg |
+| wm-water-006 | cc_by | Infrogmation (Wikimedia Commons), CC BY 3.0 | https://commons.wikimedia.org/wiki/File:Mold_on_Ceiling_on_House_on_Dublin_Street_New_Orleans_after_Katrina.jpg |
