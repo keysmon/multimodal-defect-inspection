@@ -54,10 +54,6 @@ EXEMPLAR_EMB = "exemplar_embeddings"
 FORMAT = "format_version"
 FORMAT_VERSION = 3
 
-# Visual ``kinds`` map to the two per-card embedding matrices. Mirrors the
-# ``kind`` CHECK constraint in rag/db.py's card_vectors table.
-_VISUAL_KIND_KEY = {"text": VISUAL_TEXT, "image_centroid": VISUAL_CENTROID}
-
 Row = tuple[str, list[str], float]
 
 
