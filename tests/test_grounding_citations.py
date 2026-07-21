@@ -28,11 +28,26 @@ def test_class_relevance_predicate():
     assert not citation_is_class_relevant("ghost-99", "crack", tags)
 
 
-def test_validate_keeps_grounded_and_strips_invalid_ids():
+def test_validate_keeps_grounded_and_records_stripped_invalid_ids():
     claims = [{"text": "crack near sill", "citations": ["crack-01", "ghost-99"], "photo_id": "photo_1"}]
     kept, flagged = validate_citations(claims, {"crack-01", "spall-02"})
-    assert flagged == []
     assert kept == [{"text": "crack near sill", "citations": ["crack-01"], "photo_id": "photo_1"}]
+    # the hallucinated id is recorded, not silently stripped
+    assert flagged == [
+        {
+            "text": "crack near sill",
+            "citations": ["ghost-99"],
+            "photo_id": "photo_1",
+            "reason": "invalid_citation_stripped",
+        }
+    ]
+
+
+def test_validate_all_valid_flags_nothing():
+    kept, flagged = validate_citations(
+        [{"text": "ok", "citations": ["crack-01"]}], {"crack-01"}
+    )
+    assert kept == [{"text": "ok", "citations": ["crack-01"]}] and flagged == []
 
 
 def test_validate_drops_ungrounded_to_flagged_with_original_citations():

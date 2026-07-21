@@ -19,3 +19,5 @@ docs-private/
 results/agent_eval.rejected.json
 # per-run agent reports + JSONL traces (default out_dir); transient, never committed
 results/agent_runs/
+results/walkthrough_eval.rejected.json
+results/walkthrough_runs/

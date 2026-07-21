@@ -6,14 +6,27 @@ Usage (from the repo root):
   .venv/bin/python scripts/eval_walkthrough.py --diff-only          # re-check gate
   .venv/bin/python scripts/eval_walkthrough.py --provider bedrock --limit 1  # smoke
 
-Metrics (honest, mirrors agent_eval):
-- groundedness (post-gate): kept claims carrying citations / kept claims.
+Metrics (honest, mirrors agent_eval). IMPORTANT SEMANTICS: "grounded" here
+means CITATION-PRESENT - the claim cites a card retrieved for this
+walkthrough (per-photo claims: that photo's own retrieval + concern
+retrievals; visit-level claims incl. the assessment: the walkthrough
+union). It does NOT verify the card's content supports the claim; support
+is covered only by the hand-rated spot-check.
+- groundedness (post-gate): kept claims (per-photo findings, action items,
+  cited answers, the shipped assessment) carrying citations / kept claims.
   1.0 by construction of the gate; measured, not assumed.
 - raw_groundedness (pre-gate): kept / (kept + dropped no_valid_citation).
   The drift signal - if it slides, tighten the synthesis prompt.
-- coverage: concerns Haiku answered on its own / concerns. The gate patches
-  misses with not-observed answers, but a patched miss counts AGAINST this.
-- answered_with_evidence_rate, flagged_rate, latency, cost: reported only.
+- coverage: concerns Haiku answered on its own / concerns. Only a
+  missing_answer (Haiku skipped the concern) lowers it; an answer dropped
+  for bad citations lowers raw_groundedness and answered_with_evidence_rate
+  instead.
+- answered_with_evidence_rate: cited (non-not-observed) answers / concerns.
+  GATED: the golden set is frozen, so a drop means degradation, not an
+  honestly-unanswerable input.
+- flagged_rate, latency, cost: reported only. flagged_claims reasons are
+  heterogeneous (dropped claims, stripped invalid ids, overflow) - the rate
+  measures total gate activity.
 - Visual accuracy is NOT auto-measured (no labels for "did Haiku read the
   photo right"): results/walkthrough_spotcheck.md is the hand-rating
   template; the results file states the limitation.
@@ -33,10 +46,15 @@ REJECTED = Path("results/walkthrough_eval.rejected.json")
 GOLDEN = Path("data/manifests/walkthrough_golden.json")
 SPOTCHECK = Path("results/walkthrough_spotcheck.md")
 RUNS_DIR = Path("results/walkthrough_runs")
-GATED_METRICS = ("raw_groundedness", "coverage")
+GATED_METRICS = ("raw_groundedness", "coverage", "answered_with_evidence_rate")
 VISUAL_ACCURACY_NOTE = (
     "not auto-measured (no labels for visual correctness); "
     "hand-rated spot-check template at results/walkthrough_spotcheck.md"
+)
+GROUNDEDNESS_NOTE = (
+    "groundedness = citation-presence within the walkthrough's retrieved set "
+    "(per-photo scoped); card-content support is NOT auto-verified - see the "
+    "hand-rated spot-check"
 )
 
 
@@ -52,6 +70,11 @@ def report_metrics(report: dict) -> dict:
         + list(action_items)
         + [a for a in answers if not a.get("not_observed")]
     )
+    # The assessment narrative is a gated claim too: it counts as kept only
+    # when it shipped with citations (the uncited case is the deterministic
+    # fallback, whose dropped original already sits in flagged_claims).
+    if report["summary"].get("assessment_citations"):
+        kept.append({"citations": report["summary"]["assessment_citations"]})
 
     def _cites(claim: dict) -> list:
         return claim.get("cited", claim.get("citations", []))
@@ -214,6 +237,9 @@ def main() -> int:
         return 2
     n_success = len(latencies)
     metrics["latency_s_per_walkthrough"] = round(sum(latencies) / n_success, 2)
+    # Total run spend over DELIVERED reports: spend on walkthroughs that later
+    # crashed is included in the numerator, so this slightly overstates the
+    # marginal cost of a successful report - deliberate (it is what a run costs).
     metrics["cost_usd_per_walkthrough"] = round(provider.usage().cost_usd / n_success, 5)
 
     if reports:
@@ -230,6 +256,7 @@ def main() -> int:
             "provider": provider.name,
             "n_walkthroughs": len(per_walkthrough),
             "visual_accuracy": VISUAL_ACCURACY_NOTE,
+            "groundedness_semantics": GROUNDEDNESS_NOTE,
         },
         "metrics": metrics,
         "per_walkthrough": per_walkthrough,

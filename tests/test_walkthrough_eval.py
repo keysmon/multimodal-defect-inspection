@@ -21,6 +21,7 @@ def _report(flagged=None, answers=None, per_photo=None, action_items=None, conce
         ],
         "summary": {
             "overall_assessment": "ok",
+            "assessment_citations": ["crack-01"],
             "action_items": action_items
             if action_items is not None
             else [{"priority": "high", "text": "t", "citations": ["crack-01"], "photo_refs": []}],
@@ -47,9 +48,9 @@ def test_clean_report_metrics():
 def test_dropped_claims_lower_raw_groundedness_not_post_gate():
     m = report_metrics(_report(flagged=[{"text": "x", "reason": "no_valid_citation"}]))
     assert m["groundedness"] == 1.0
-    # 3 kept claims (photo_1 + action + c1 answer) vs 1 dropped
-    assert m["raw_groundedness"] == 0.75
-    assert m["flagged_rate"] == 0.25
+    # 4 kept claims (photo_1 + action + c1 answer + cited assessment) vs 1 dropped
+    assert m["raw_groundedness"] == 0.8
+    assert m["flagged_rate"] == 0.2
 
 
 def test_missing_answer_flag_lowers_coverage():

@@ -95,6 +95,7 @@ def test_bedrock_provider_sends_one_block_per_image():
     image_blocks = [b for b in content if "image" in b]
     assert len(image_blocks) == 2
     assert content[-1] == {"text": "prompt"}
+    assert captured["inferenceConfig"]["temperature"] == 0.0
 
 
 def test_local_provider_forwards_images_to_chat():

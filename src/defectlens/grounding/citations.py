@@ -32,14 +32,26 @@ def validate_citations(
     Each claim: {"text": str, "citations": [card_id], **extra}. Citations not
     in allowed_ids are stripped; a claim left with none is moved to flagged
     (original citations preserved, reason recorded) instead of shipping
-    ungrounded. Extra keys pass through untouched on both sides.
+    ungrounded. A kept claim that had invalid ids stripped also leaves a
+    flagged record (reason "invalid_citation_stripped") so a hallucinated
+    card id never disappears silently. Extra keys pass through untouched.
+
+    Honesty scope: this checks citation MEMBERSHIP in the allowed set, not
+    that the card's content supports the claim - support is covered by the
+    hand-rated spot-check, and callers must not advertise more than this.
     """
     kept: list[dict] = []
     flagged: list[dict] = []
     for claim in claims:
-        valid = [c for c in claim.get("citations", []) if c in allowed_ids]
+        cites = claim.get("citations", [])
+        valid = [c for c in cites if c in allowed_ids]
+        invalid = [c for c in cites if c not in allowed_ids]
         if valid:
             kept.append({**claim, "citations": valid})
+            if invalid:
+                flagged.append(
+                    {**claim, "citations": invalid, "reason": "invalid_citation_stripped"}
+                )
         else:
             flagged.append({**claim, "reason": "no_valid_citation"})
     return kept, flagged

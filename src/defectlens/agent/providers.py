@@ -151,7 +151,10 @@ class BedrockHaikuProvider:
         resp = self._ensure_client().converse(
             modelId=self._model_id,
             messages=[{"role": "user", "content": content}],
-            inferenceConfig={"maxTokens": max_tokens},
+            # temperature 0 (matches bedrock_describer): the walkthrough eval
+            # regression-gates on a frozen golden set, so sampling noise would
+            # false-positive the 0.02 tolerance.
+            inferenceConfig={"maxTokens": max_tokens, "temperature": 0.0},
         )
         u = resp.get("usage", {})
         self._usage.calls += 1

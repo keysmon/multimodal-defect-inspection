@@ -67,6 +67,10 @@ class ConcernAnswer(BaseModel):
 
 class WalkthroughSummary(BaseModel):
     overall_assessment: str = Field(min_length=1)
+    # Citations backing the LLM-written assessment narrative. Empty ONLY when
+    # the assessment is the deterministic fallback derived from already-gated
+    # content - an uncited LLM narrative never ships (gate rule, C+ design).
+    assessment_citations: list[str] = Field(default_factory=list)
     action_items: list[ActionItem]
     answers: list[ConcernAnswer]
 
