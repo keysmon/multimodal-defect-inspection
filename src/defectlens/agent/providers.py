@@ -52,6 +52,23 @@ def _image_to_png_bytes(image) -> bytes:
     return buf.getvalue()
 
 
+def _encode_image_for_converse(image) -> tuple[bytes, str]:
+    """(bytes, format) for a Bedrock Converse image block.
+
+    JPEG (q90) for photographic RGB: Converse caps each image at 5 MB and a
+    lossless PNG of a real 2 MP photo exceeds it (observed 5.3 MB on the
+    realistic eval set); JPEG q90 lands well under. PNG only when the image
+    carries alpha/palette data JPEG cannot represent.
+    """
+    if image.mode in ("RGBA", "LA", "P", "PA"):
+        return _image_to_png_bytes(image), "png"
+    import io
+
+    buf = io.BytesIO()
+    image.convert("RGB").save(buf, format="JPEG", quality=90)
+    return buf.getvalue(), "jpeg"
+
+
 class LLMProvider(Protocol):
     name: str
 
@@ -143,10 +160,10 @@ class BedrockHaikuProvider:
     def complete(
         self, prompt: str, image=None, max_tokens: int = 1024, images: list | None = None
     ) -> str:
-        content: list[dict] = [
-            {"image": {"format": "png", "source": {"bytes": _image_to_png_bytes(img)}}}
-            for img in _as_image_list(image, images)
-        ]
+        content: list[dict] = []
+        for img in _as_image_list(image, images):
+            data, fmt = _encode_image_for_converse(img)
+            content.append({"image": {"format": fmt, "source": {"bytes": data}}})
         content.append({"text": prompt})
         resp = self._ensure_client().converse(
             modelId=self._model_id,

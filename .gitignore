@@ -21,3 +21,5 @@ results/agent_eval.rejected.json
 results/agent_runs/
 results/walkthrough_eval.rejected.json
 results/walkthrough_runs/
+results/walkthrough_eval_realistic.rejected.json
+results/walkthrough_runs_realistic/

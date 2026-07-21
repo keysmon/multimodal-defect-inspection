@@ -121,3 +121,21 @@ def test_providers_reject_both_image_and_images():
     p = MockProvider(responses=["ok"])
     with pytest.raises(ValueError):
         p.complete("prompt", image="a", images=["b"])
+
+
+def test_converse_encoding_photographic_rgb_is_jpeg_under_cap():
+    """Bedrock Converse caps images at 5 MB; a 2 MP photographic PNG exceeds
+    it (realistic-eval regression). RGB encodes as JPEG well under the cap;
+    alpha keeps lossless PNG."""
+    from PIL import Image
+
+    from defectlens.agent.providers import _encode_image_for_converse
+
+    rgb = Image.effect_noise((1700, 1200), 64).convert("RGB")  # photo-like noise
+    data, fmt = _encode_image_for_converse(rgb)
+    assert fmt == "jpeg"
+    assert len(data) < 5 * 1024 * 1024
+
+    rgba = Image.new("RGBA", (32, 32), (10, 20, 30, 128))
+    data, fmt = _encode_image_for_converse(rgba)
+    assert fmt == "png"

@@ -130,8 +130,8 @@ def write_spotcheck_template(reports: dict[str, dict], path: Path) -> None:
     path.write_text("\n".join(lines))
 
 
-def load_golden() -> list[dict]:
-    return json.loads(GOLDEN.read_text())["walkthroughs"]
+def load_golden(path: Path = GOLDEN) -> list[dict]:
+    return json.loads(path.read_text())["walkthroughs"]
 
 
 def build_components(provider_name: str):
@@ -171,18 +171,29 @@ def main() -> int:
     parser.add_argument("--tolerance", type=float, default=0.02)
     parser.add_argument("--limit", type=int, default=None, metavar="N",
                         help="run only the first N walkthroughs (smoke; no gate, no persist)")
+    # A second golden set (e.g. the realistic Wikimedia photos) evaluates with
+    # its own results/spotcheck/runs files; the frozen dataset-crop set stays
+    # the default so existing invocations are unchanged.
+    parser.add_argument("--golden", type=Path, default=GOLDEN)
+    parser.add_argument("--results", type=Path, default=RESULTS)
+    parser.add_argument("--spotcheck", type=Path, default=SPOTCHECK)
+    parser.add_argument("--runs-dir", type=Path, default=RUNS_DIR)
     args = parser.parse_args()
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be >= 1")
     if args.limit is not None and args.diff_only:
         parser.error("--limit cannot be combined with --diff-only")
-    if args.diff_only and not RESULTS.exists():
-        parser.error(f"--diff-only needs an existing {RESULTS}; run the eval first")
+    if args.diff_only and not args.results.exists():
+        parser.error(f"--diff-only needs an existing {args.results}; run the eval first")
+    results_path = args.results
+    rejected_path = results_path.with_suffix(".rejected.json")
 
-    previous = json.loads(RESULTS.read_text())["metrics"] if RESULTS.exists() else None
+    previous = (
+        json.loads(results_path.read_text())["metrics"] if results_path.exists() else None
+    )
 
     if args.diff_only:
-        metrics = json.loads(RESULTS.read_text())["metrics"]
+        metrics = json.loads(results_path.read_text())["metrics"]
         print(json.dumps(metrics, indent=2))
         if previous:
             failed = regression_check(previous, metrics, GATED_METRICS, tolerance=args.tolerance)
@@ -194,7 +205,7 @@ def main() -> int:
     from defectlens.report.synthesize import run_walkthrough
 
     recognizer, provider = build_components(args.provider)
-    walks = load_golden()
+    walks = load_golden(args.golden)
     if args.limit is not None:
         walks = walks[: args.limit]
 
@@ -220,8 +231,8 @@ def main() -> int:
                 provider=provider,
             )
             report_dict = json.loads(report.model_dump_json())
-            RUNS_DIR.mkdir(parents=True, exist_ok=True)
-            (RUNS_DIR / f"report_{wid}.json").write_text(json.dumps(report_dict, indent=2))
+            args.runs_dir.mkdir(parents=True, exist_ok=True)
+            (args.runs_dir / f"report_{wid}.json").write_text(json.dumps(report_dict, indent=2))
             reports[wid] = report_dict
             per_walkthrough[wid] = report_metrics(report_dict)
             latencies.append(time.perf_counter() - t0)
@@ -243,7 +254,7 @@ def main() -> int:
     metrics["cost_usd_per_walkthrough"] = round(provider.usage().cost_usd / n_success, 5)
 
     if reports:
-        write_spotcheck_template(reports, SPOTCHECK)
+        write_spotcheck_template(reports, args.spotcheck)
 
     if args.limit is not None:
         print(json.dumps(metrics, indent=2))
@@ -254,8 +265,11 @@ def main() -> int:
     payload = {
         "run_config": {
             "provider": provider.name,
+            "golden": str(args.golden),
             "n_walkthroughs": len(per_walkthrough),
-            "visual_accuracy": VISUAL_ACCURACY_NOTE,
+            "visual_accuracy": VISUAL_ACCURACY_NOTE.replace(
+                str(SPOTCHECK), str(args.spotcheck)
+            ),
             "groundedness_semantics": GROUNDEDNESS_NOTE,
         },
         "metrics": metrics,
@@ -263,7 +277,7 @@ def main() -> int:
     }
     return finalize_run(
         payload, previous,
-        results_path=RESULTS, rejected_path=REJECTED,
+        results_path=results_path, rejected_path=rejected_path,
         gated=GATED_METRICS, tolerance=args.tolerance,
     )
 

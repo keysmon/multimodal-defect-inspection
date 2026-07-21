@@ -1,0 +1,24 @@
+{
+  "walkthroughs": [
+    {
+      "walkthrough_id": "realistic_01",
+      "visit_note": "Damp survey of an older commercial building. The ground-floor rear wall by the drainpipes smells musty and has dark staining spreading up from the base - is that active damp or just surface dirt? One flood-affected room has dark growth covering most of the walls - how urgent is remediation? A corridor wall is shedding paint in large sheets. The painted entrance pillar also has a few small blisters - cosmetic, or an early moisture sign?",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/realistic/water_damaged_pub_wall.jpg", "note": "rear wall by the drainpipes, musty smell"},
+        {"photo_id": "photo_2", "image_path": "data/raw/realistic/fema_louisiana_interior.jpg", "note": "flood-affected room"},
+        {"photo_id": "photo_3", "image_path": "data/raw/realistic/peeling_paint_closeup.jpg", "note": "corridor wall"},
+        {"photo_id": "photo_4", "image_path": "data/raw/realistic/cochem_facade.jpg", "note": "entrance pillar"}
+      ]
+    },
+    {
+      "walkthrough_id": "realistic_02",
+      "visit_note": "Exterior structural check after a purchase inquiry. A low garden wall shows rusted reinforcement mesh with the concrete cover coming off - how far gone is it? The old boundary brick wall has a wide crack running right through it - is it stable? Inside the arched passage there is a long stepped crack from the brickwork down into the stone - does that need a structural engineer? Around one window the render has fallen away and there is green growth along the base of the wall.",
+      "photos": [
+        {"photo_id": "photo_1", "image_path": "data/raw/realistic/funchal_carbonation_rebar.jpg", "note": "low garden wall coping"},
+        {"photo_id": "photo_2", "image_path": "data/raw/realistic/cracked_wall.jpg", "note": "boundary wall"},
+        {"photo_id": "photo_3", "image_path": "data/raw/realistic/clifton_viaduct_cracks.jpg", "note": "arched passage, floor to ceiling"},
+        {"photo_id": "photo_4", "image_path": "data/raw/realistic/kellokoski_wall_detail.jpg", "note": "window on the north side"}
+      ]
+    }
+  ]
+}
