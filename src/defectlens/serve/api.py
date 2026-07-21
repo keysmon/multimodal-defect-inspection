@@ -205,6 +205,9 @@ def _lazy_mode() -> bool:
     return os.environ.get("DEFECTLENS_LAZY_LOAD", "").strip() == "1"
 
 
+_ENSURE_LOADED_LOCK = threading.Lock()
+
+
 def ensure_loaded(app: FastAPI) -> None:
     """Idempotently load the heavyweight components onto app.state.
 
@@ -213,8 +216,15 @@ def ensure_loaded(app: FastAPI) -> None:
     submit/status/health routes never call it, so they stay fast even on a cold
     env - the point of the async path. Each block is a no-op when its component
     is already set (injected stubs in tests, or a prior call), so this is safe
-    to call on every request.
+    to call on every request. The lock serializes concurrent callers - in
+    Lambda each env handles one request, but LocalCpuJobStore's worker threads
+    (local dev) would otherwise double-load models.
     """
+    with _ENSURE_LOADED_LOCK:
+        _ensure_loaded_locked(app)
+
+
+def _ensure_loaded_locked(app: FastAPI) -> None:
     vector_store = None
     card_vectors_path = os.environ.get("CARD_VECTORS_PATH")
     if card_vectors_path and (
@@ -573,9 +583,6 @@ def create_app(
     async def submit_walkthrough_enrichment(request: Request, job_id: str) -> dict:
         store = _require_cpu_jobs(request)
         gateway = _require_gateway(request)
-        existing = store.get_enrichment(job_id)
-        if existing is not None:  # idempotent: never resubmit (GPU wake is $)
-            return {"status": "submitted", "photos": len(existing)}
         state, _report = store.status(job_id)
         if state != "ready":
             raise HTTPException(
@@ -586,14 +593,29 @@ def create_app(
         payload = parse_job_payload(store.get_input(job_id))
         if payload.get("kind") != "walkthrough":
             raise HTTPException(status_code=409, detail="not a walkthrough job")
-        mapping: dict[str, dict] = {}
-        for photo in payload["photos"]:
+        photos = payload["photos"]
+
+        # Idempotent AND resumable: the mapping is claimed BEFORE the first GPU
+        # submit and re-persisted after EVERY successful one, so a partial
+        # fan-out failure (throttle, transient network) plus the frontend's
+        # retry resumes the missing photos instead of re-waking - and
+        # re-billing - the already-submitted ones.
+        env = store.get_enrichment(job_id)
+        mapping: dict[str, dict] = dict(env["photos"]) if env else {}
+        if env is not None and len(mapping) >= len(photos):
+            return {"status": "submitted", "photos": len(mapping)}
+        if env is None:
+            store.put_enrichment(job_id, {"photos": mapping, "merged": False})
+        for photo in photos:
+            pid = photo["photo_id"]
+            if pid in mapping:
+                continue  # resumed retry: this photo's GPU job is already live
             result = gateway.submit(photo["image_bytes"], photo.get("note"))
-            mapping[photo["photo_id"]] = {
+            mapping[pid] = {
                 "output_location": result["output_location"],
                 "failure_location": result.get("failure_location"),
             }
-        store.put_enrichment(job_id, mapping)
+            store.put_enrichment(job_id, {"photos": mapping, "merged": False})
         return {"status": "submitted", "photos": len(mapping)}
 
     @app.get("/walkthrough-jobs/{job_id}/enrich")
@@ -602,9 +624,16 @@ def create_app(
     ) -> dict:
         store = _require_cpu_jobs(request)
         gateway = _require_gateway(request)
-        mapping = store.get_enrichment(job_id)
-        if mapping is None:
+        env = store.get_enrichment(job_id)
+        if env is None:
             raise HTTPException(status_code=404, detail="enrichment not requested")
+        mapping = env["photos"]
+        if env.get("merged"):
+            # Terminal: the merge already happened - serve the stored result
+            # instead of re-reading every GPU status and re-merging per poll.
+            state, report = store.status(job_id)
+            if state == "ready":
+                return {"status": "ready", "report": report, "gate": env.get("gate", {})}
 
         labels: dict[str, tuple[str, float]] = {}
         gpu_failures: list[str] = []
@@ -636,7 +665,16 @@ def create_app(
                 {"photo_id": photo_id, "label": None, "confidence": None,
                  "reason": "gpu_failed"}
             )
+        for finding in report.get("per_photo", []):
+            # Photos the fan-out never reached (partial submit failure that was
+            # not retried): accounted honestly, never silently absent.
+            if finding["photo_id"] not in mapping:
+                gate["dropped"].append(
+                    {"photo_id": finding["photo_id"], "label": None,
+                     "confidence": None, "reason": "not_submitted"}
+                )
         store.put_output(job_id, merged)
+        store.put_enrichment(job_id, {"photos": mapping, "merged": True, "gate": gate})
         return {"status": "ready", "report": merged, "gate": gate}
 
     # -----------------------------------------------------------------------

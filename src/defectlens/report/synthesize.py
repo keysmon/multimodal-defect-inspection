@@ -44,6 +44,11 @@ logger = logging.getLogger(__name__)
 MAX_PHOTOS = 10        # multi-image context cap (design "Risks")
 MAX_CONCERNS = 8       # coverage-checklist cap; overflow lands in flagged_claims
 MAX_VISIT_NOTE_CHARS = 4000  # bounds prompt size/cost; photos carry the evidence
+# Per-photo pixel budget for the multi-image call. The route caps each upload
+# at 50 MP, but ten 50 MP RGB buffers (~1.5 GB) would press the 3 GB worker;
+# Bedrock also resizes internally, so downscaling to ~2 MP loses nothing the
+# reasoner would have used while bounding memory AND the converse payload.
+MAX_PIXELS_PER_PHOTO = 2_000_000
 PHOTO_K = 5            # candidate cards per photo (matches /analyze's k)
 CONCERN_K = 3          # candidate cards per extracted concern (matches agent's k)
 _PRIORITIES = ("high", "medium", "low")
@@ -120,6 +125,15 @@ def _clip_note(note, limit: int):
     return note or None
 
 
+def _bounded_image(img: Image.Image, max_pixels: int = MAX_PIXELS_PER_PHOTO) -> Image.Image:
+    """Downscale to the per-photo pixel budget (aspect preserved); no-op below it."""
+    if img.width * img.height <= max_pixels:
+        return img
+    scale = (max_pixels / (img.width * img.height)) ** 0.5
+    size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
+    return img.resize(size, Image.Resampling.LANCZOS)
+
+
 def run_walkthrough(
     *,
     photos: list[dict],
@@ -154,7 +168,7 @@ def run_walkthrough(
     for photo in photos:
         pid = photo["photo_id"]
         photo_ids.append(pid)
-        images.append(Image.open(BytesIO(photo["image_bytes"])).convert("RGB"))
+        images.append(_bounded_image(Image.open(BytesIO(photo["image_bytes"])).convert("RGB")))
         note = _clip_note(photo.get("note"), MAX_NOTE_CHARS)
         own_ids: set[str] = set()
         for card in retrieve_for_photo(

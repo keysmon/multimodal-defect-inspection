@@ -102,3 +102,24 @@ def test_input_report_not_mutated():
     merged, _ = merge_enrichment(original, {"photo_1": ("spalling", 0.82)})
     assert original["per_photo"][0]["enrichment"] is None
     assert merged is not original
+
+
+def test_negated_mention_is_not_consistent():
+    """Review M1: 'no active spalling observed' must NOT merge a spalling label."""
+    assert not is_consistent("spalling", "no active spalling observed")
+    assert not is_consistent("crack", "surface is without cracks or damage")
+    assert not is_consistent("mold_algae", "wall shows an absence of mold growth")
+    # a clean mention elsewhere still wins
+    assert is_consistent("crack", "no staining, but a hairline crack at the corner")
+
+
+def test_no_defect_never_merges_onto_a_grounded_finding():
+    """A grounded finding means Haiku matched a defect; no_defect contradicts it."""
+    assert not is_consistent("no_defect", "the surface is clean but shows hairline cracks")
+    report, gate = merge_enrichment(_report_dict(), {"photo_1": ("no_defect", 0.97)})
+    assert report["per_photo"][0]["enrichment"] is None
+    assert gate["dropped"][0]["reason"] == "inconsistent_with_observation"
+
+
+def test_multiword_keyword_still_matches():
+    assert is_consistent("spalling", "chunks of missing concrete near the joint")

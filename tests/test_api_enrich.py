@@ -67,13 +67,18 @@ class MemoryStore:
 class FakeGateway:
     enabled = True
 
-    def __init__(self, statuses=None):
+    def __init__(self, statuses=None, fail_on_submit_n=None):
         self.submitted = []
+        self.status_calls = 0
         # keyed by output_location; default: everything pending
         self.statuses = statuses or {}
+        self._fail_on = fail_on_submit_n  # raise on the Nth submit (1-based)
 
     def submit(self, image_bytes, note):
         n = len(self.submitted) + 1
+        if self._fail_on is not None and n == self._fail_on:
+            self._fail_on = None  # fail once, succeed on retry
+            raise RuntimeError("throttled")
         self.submitted.append({"image_bytes": image_bytes, "note": note})
         return {
             "job_id": f"sm-{n}",
@@ -82,12 +87,13 @@ class FakeGateway:
         }
 
     def status(self, output_location, failure_location=None):
+        self.status_calls += 1
         return self.statuses.get(output_location, ("pending", None))
 
 
-def _client(store, gateway):
+def _client(store, gateway, raise_server_exceptions=True):
     app = create_app(cpu_job_store=store, vlm_gateway=gateway)
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def test_submit_fans_out_one_gpu_job_per_photo():
@@ -98,8 +104,9 @@ def test_submit_fans_out_one_gpu_job_per_photo():
     assert resp.json() == {"status": "submitted", "photos": 2}
     assert len(gateway.submitted) == 2
     assert gateway.submitted[0]["note"] == "chunks below"
-    mapping = store.enrichments["wt-1"]
-    assert mapping["photo_1"]["output_location"] == "s3://out/1.json"
+    env = store.enrichments["wt-1"]
+    assert env["merged"] is False
+    assert env["photos"]["photo_1"]["output_location"] == "s3://out/1.json"
 
 
 def test_submit_idempotent_no_resubmission():
@@ -184,3 +191,58 @@ def test_poll_404_when_enrichment_never_requested():
     client = _client(MemoryStore(report=_report()), FakeGateway())
     resp = client.get("/walkthrough-jobs/wt-1/enrich")
     assert resp.status_code == 404
+
+
+def test_partial_fanout_failure_resumes_without_rewaking():
+    """Review H1: a mid-fan-out submit failure + retry must resume the missing
+    photos only - never re-submit (re-wake, re-bill) the already-live jobs."""
+    store = MemoryStore(report=_report())
+    gateway = FakeGateway(fail_on_submit_n=2)  # photo_1 ok, photo_2 raises once
+    client = _client(store, gateway, raise_server_exceptions=False)
+
+    first = client.post("/walkthrough-jobs/wt-1/enrich")
+    assert first.status_code == 500  # surfaced; frontend invites a retry
+    env = store.enrichments["wt-1"]
+    assert set(env["photos"]) == {"photo_1"}  # partial progress persisted
+
+    retry = client.post("/walkthrough-jobs/wt-1/enrich")
+    assert retry.status_code == 202
+    assert retry.json() == {"status": "submitted", "photos": 2}
+    # photo_1 submitted exactly once across both calls, photo_2 exactly once
+    assert len(gateway.submitted) == 2
+
+
+def test_never_submitted_photo_counted_in_gate_log():
+    store = MemoryStore(report=_report())
+    gateway = FakeGateway(
+        fail_on_submit_n=2,
+        statuses={"s3://out/1.json": ("ready", [{"label": "spalling", "score": 0.82}])},
+    )
+    client = _client(store, gateway, raise_server_exceptions=False)
+    client.post("/walkthrough-jobs/wt-1/enrich")  # 500: photo_2 never submitted
+    resp = client.get("/walkthrough-jobs/wt-1/enrich")
+    assert resp.status_code == 200
+    assert {"photo_id": "photo_2", "label": None, "confidence": None,
+            "reason": "not_submitted"} in resp.json()["gate"]["dropped"]
+
+
+def test_ready_poll_is_terminal_no_regpu_or_remerge():
+    """Review m2: after the merge, polls serve the stored result without
+    re-reading GPU statuses or re-merging."""
+    gateway = FakeGateway(
+        statuses={
+            "s3://out/1.json": ("ready", [{"label": "spalling", "score": 0.82}]),
+            "s3://out/2.json": ("ready", [{"label": "spalling", "score": 0.95}]),
+        }
+    )
+    store = MemoryStore(report=_report())
+    client = _client(store, gateway)
+    client.post("/walkthrough-jobs/wt-1/enrich")
+    first = client.get("/walkthrough-jobs/wt-1/enrich")
+    assert first.status_code == 200
+    calls_after_merge = gateway.status_calls
+
+    second = client.get("/walkthrough-jobs/wt-1/enrich")
+    assert second.status_code == 200
+    assert second.json()["gate"] == first.json()["gate"]  # gate persisted
+    assert gateway.status_calls == calls_after_merge  # no GPU re-reads

@@ -1,6 +1,6 @@
 // Walkthrough diagnostic report (P3): N photos + a visit note -> a grounded,
 // cited initial-diagnostic report from the async /walkthrough-jobs path.
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { isColdStartError, sleep } from "./apiHelpers";
 
@@ -151,6 +151,16 @@ function Walkthrough({
   const [gate, setGate] = useState(null);
   const genRef = useRef(0); // supersede stale polls, like the analyze flow
 
+  // Blob-URL hygiene: previews are created per added photo; revoke them when
+  // a photo is removed and when the component unmounts (photosRef mirrors
+  // state so the unmount cleanup sees the latest list).
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  useEffect(
+    () => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)),
+    []
+  );
+
   const resetEnrich = () => {
     setIsEnriching(false);
     setEnrichStatus("");
@@ -180,7 +190,11 @@ function Walkthrough({
     setReport(null);
     setJobId(null);
     resetEnrich();
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotos((prev) => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const setPhotoNote = (index, value) => {
@@ -267,6 +281,11 @@ function Walkthrough({
 
   const handleEnrich = async () => {
     if (!jobId || isEnriching) return;
+    // Same supersede discipline as the submit flow: a photo removal or a new
+    // report invalidates this enrich run; a late "ready" must not resurrect
+    // a stale report onto the cleared/replaced UI.
+    const gen = genRef.current;
+    const isCurrent = () => gen === genRef.current;
     setIsEnriching(true);
     setEnrichError("");
     setGate(null);
@@ -275,14 +294,16 @@ function Walkthrough({
     try {
       await axios.post(`${API}/walkthrough-jobs/${jobId}/enrich`);
       let settled = false;
-      for (let i = 0; i < ENRICH_MAX_POLLS && !settled; i++) {
+      for (let i = 0; i < ENRICH_MAX_POLLS && !settled && isCurrent(); i++) {
         const poll = await axios.get(`${API}/walkthrough-jobs/${jobId}/enrich`);
         if (poll.data.status === "ready") {
-          setReport(poll.data.report);
-          setGate(poll.data.gate);
+          if (isCurrent()) {
+            setReport(poll.data.report);
+            setGate(poll.data.gate);
+          }
           settled = true;
         } else {
-          if (poll.data.done !== undefined) {
+          if (poll.data.done !== undefined && isCurrent()) {
             setEnrichStatus(
               `${ENRICH_WARMING} (${poll.data.done}/${poll.data.total} photos done)`
             );
@@ -290,17 +311,19 @@ function Walkthrough({
           if (i < ENRICH_MAX_POLLS - 1) await sleep(enrichPollMs);
         }
       }
-      if (!settled) {
+      if (!settled && isCurrent()) {
         setEnrichError(
           "The fine-tuned model is taking longer than expected. Please try again."
         );
       }
     } catch (err) {
       console.error("Error during enrichment:", err);
-      if (err?.response?.status === 503) {
-        setEnrichError("The fine-tuned GPU model isn't deployed for this demo.");
-      } else {
-        setEnrichError("Enrichment failed. Please try again.");
+      if (isCurrent()) {
+        if (err?.response?.status === 503) {
+          setEnrichError("The fine-tuned GPU model isn't deployed for this demo.");
+        } else {
+          setEnrichError("Enrichment failed. Please try again.");
+        }
       }
     } finally {
       setIsEnriching(false);

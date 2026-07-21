@@ -29,7 +29,9 @@ CLASS_KEYWORDS: dict[str, tuple[str, ...]] = {
     "mold_algae": ("mold", "algae", "biological growth", "green growth", "moss"),
     "water_damage": ("water", "moisture", "damp", "stain", "ingress", "leak"),
     "peeling_paint": ("peeling", "flaking", "paint"),
-    "no_defect": ("no defect", "no visible", "sound condition", "clean", "unremarkable"),
+    # no_defect has NO keywords on purpose: it can never merge onto a grounded
+    # finding (is_consistent short-circuits it) - see the docstring below.
+    "no_defect": (),
 }
 
 
@@ -37,10 +39,46 @@ def _norm(text: str) -> str:
     return " ".join(text.lower().split())
 
 
+_NEGATORS = ("no", "not", "without", "free", "absence", "lacks", "lacking", "nor")
+_NEGATION_WINDOW = 3  # tokens before the keyword that can negate it
+
+
+def _non_negated_occurrence(haystack: str, keyword: str) -> bool:
+    """True when keyword appears somewhere NOT preceded by a nearby negator.
+
+    "hairline crack at the sill" -> True for "crack";
+    "no active spalling observed" -> False for "spall". Token-window based:
+    a negator within the 3 tokens before the keyword's token negates that
+    occurrence; any clean occurrence wins.
+    """
+    tokens = haystack.split()
+    for i, token in enumerate(tokens):
+        if keyword in token or (
+            " " in keyword and keyword in " ".join(tokens[i : i + len(keyword.split())])
+        ):
+            window = tokens[max(0, i - _NEGATION_WINDOW) : i]
+            if not any(neg in window for neg in _NEGATORS):
+                return True
+    return False
+
+
 def is_consistent(label: str, observation: str) -> bool:
-    """True when the fine-tuned class is plausibly present in the observation."""
+    """True when the fine-tuned class is plausibly present in the observation.
+
+    Keyword-based per the design ("a keyword/semantic match"), hardened
+    against contradiction: a negated mention ("no active spalling") does not
+    count, and "no_defect" is NEVER consistent with a grounded finding - a
+    grounded observation means Haiku matched a defect to guidance, which a
+    no-defect label contradicts by definition (no-evidence photos are
+    already dropped before this check).
+    """
+    if label == "no_defect":
+        return False
     haystack = _norm(observation)
-    return any(keyword in haystack for keyword in CLASS_KEYWORDS.get(label, ()))
+    return any(
+        _non_negated_occurrence(haystack, keyword)
+        for keyword in CLASS_KEYWORDS.get(label, ())
+    )
 
 
 def merge_enrichment(

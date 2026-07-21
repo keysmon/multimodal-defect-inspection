@@ -228,7 +228,10 @@ function DefectLens() {
     analyzeGenRef.current += 1; // a new image supersedes any in-flight analysis
     const file = e.target.files[0];
     setSelectedFile(file || null);
-    setImagePreview(file ? URL.createObjectURL(file) : null);
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev); // don't leak the replaced preview
+      return file ? URL.createObjectURL(file) : null;
+    });
     setNote("");
     setSelectedAudio(null);
     if (audioInputRef.current) audioInputRef.current.value = "";

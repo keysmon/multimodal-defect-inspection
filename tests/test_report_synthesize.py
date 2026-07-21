@@ -370,3 +370,15 @@ def test_concern_cards_citable_by_photo_observations():
         photos=_photos(1), visit_note="damp smell", recognizer=FakeRecognizer(), provider=provider
     )
     assert report.per_photo[0].cited == ["damp-02"]
+
+
+def test_oversized_photo_downscaled_before_synthesis():
+    """Review M4: the multi-image call gets bounded images, not raw 50 MP ones."""
+    from defectlens.report.synthesize import MAX_PIXELS_PER_PHOTO, _bounded_image
+
+    big = Image.new("RGB", (3000, 2000))  # 6 MP > the 2 MP budget
+    bounded = _bounded_image(big)
+    assert bounded.width * bounded.height <= MAX_PIXELS_PER_PHOTO
+    assert abs(bounded.width / bounded.height - 1.5) < 0.01  # aspect preserved
+    small = Image.new("RGB", (800, 600))
+    assert _bounded_image(small) is small  # no-op below the budget
