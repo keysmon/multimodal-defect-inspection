@@ -91,3 +91,14 @@ def test_scan_raises_on_double_labeled(tmp_path):
     mapping = load_mapping(repo / "configs" / "mapping.yaml")
     with pytest.raises(ValueError, match="two labels"):
         scan_dataset(repo, "bd3", mapping)
+
+
+def test_select_dataset_dirs_skips_non_taxonomy(tmp_path):
+    """audio/ood_crack/realistic serve other pipelines; re-ingest must not
+    trip over them (they carry labels the taxonomy mapping never covers)."""
+    for name in ("audio", "ood_crack", "realistic", "codebrim", "mbdd2025"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "loose_file.txt").write_text("not a dataset")
+    from defectlens.ingest import select_dataset_dirs
+
+    assert [d.name for d in select_dataset_dirs(tmp_path)] == ["codebrim", "mbdd2025"]

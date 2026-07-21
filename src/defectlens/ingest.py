@@ -15,6 +15,20 @@ from defectlens.taxonomy import LabelMapping, load_mapping, map_label
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 FIELDS = ["image_path", "source_dataset", "source_label", "unified_label"]
 
+# data/raw/ dirs consumed by OTHER pipelines, not the classification manifest:
+# audio (CLAP equipment-sound cards), ood_crack (ood_test.csv OOD eval),
+# realistic (walkthrough golden-set photos). main() skips them loudly; every
+# OTHER dir must have complete label mappings or map_label raises.
+NON_TAXONOMY_DIRS = frozenset({"audio", "ood_crack", "realistic"})
+
+
+def select_dataset_dirs(raw_root: Path) -> list[Path]:
+    """Sorted taxonomy dataset dirs under data/raw (non-taxonomy dirs skipped)."""
+    return sorted(
+        d for d in raw_root.iterdir()
+        if d.is_dir() and d.name not in NON_TAXONOMY_DIRS
+    )
+
 
 @dataclass(frozen=True)
 class ManifestRow:
@@ -129,10 +143,15 @@ def main() -> None:
     mapping = load_mapping(repo / "configs" / "label_mapping.yaml")
     sampling = yaml.safe_load((repo / "configs" / "sampling.yaml").read_text(encoding="utf-8"))
 
+    skipped = sorted(
+        d.name for d in raw_root.iterdir()
+        if d.is_dir() and d.name in NON_TAXONOMY_DIRS
+    )
+    if skipped:
+        print(f"Skipping non-taxonomy dirs: {', '.join(skipped)}")
     rows: list[ManifestRow] = []
-    for dataset_dir in sorted(raw_root.iterdir()):
-        if dataset_dir.is_dir():
-            rows.extend(scan_dataset(repo, dataset_dir.name, mapping))
+    for dataset_dir in select_dataset_dirs(raw_root):
+        rows.extend(scan_dataset(repo, dataset_dir.name, mapping))
     rows = apply_caps(rows, sampling.get("caps", {}), sampling["seed"])
     write_manifest(rows, repo / args.out)
 
