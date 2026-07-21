@@ -4,12 +4,16 @@ A full-stack, ML-powered building-defect inspection assistant: upload a defect
 photo and get ranked fine-grained defect classes, a severity band, a
 natural-language condition description, and cited remediation guidance drawn
 from an inspection-standards corpus - with optional equipment-audio anomaly
-screening in the same request. Built end to end: data pipeline, fine-tuning,
-retrieval, serving API, web UI, and cloud infrastructure.
+screening in the same request. Its flagship feature is the **walkthrough
+diagnostic report**: a technician's first site visit (up to 10 photos + a
+free-text concern note) becomes a grounded, cited draft diagnostic in which
+every claim either cites a retrieved standards card or is replaced by an
+explicit "not observed - verify on-site". Built end to end: data pipeline,
+fine-tuning, retrieval, serving API, web UI, and cloud infrastructure.
 
-| Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval |
-| :---: | :---: | :---: |
-| **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 |
+| Fine-tuned classifier | Equipment-audio anomaly (pump) | Guidance retrieval | Walkthrough groundedness |
+| :---: | :---: | :---: | :---: |
+| **0.851** macro top-1 | **0.801** AUC vs 0.726 baseline | **0.863** recall@5 | **1.0** measured pre-gate |
 
 ## Stack
 
@@ -33,6 +37,12 @@ retrieval, serving API, web UI, and cloud infrastructure.
   planner) with an offline eval harness: frozen golden set, deterministic
   task metrics, per-step tracing, and a regression gate that only promotes
   passing baselines.
+- **Walkthrough reports** - one multi-image VLM call reasons across the whole
+  photo set, constrained by a deterministic citation gate (shared `grounding/`
+  module): claims cite retrieved cards or are dropped and logged; per-photo
+  claims are scoped to that photo's own retrieval; the headline narrative is
+  itself a gated claim. Two frozen golden sets (hard dataset crops + realistic
+  field photos) with independent regression-gated baselines.
 
 ## Architecture
 
@@ -66,10 +76,77 @@ manual dispatch with a least-privilege role split.
 With `DEFECTLENS_NO_VLM=1` (or no adapter present) classification falls back to the
 measured CLIP RRF-fusion pipeline; `/health` reports which classifier is active.
 
+The walkthrough report runs on the async job path; locally, set
+`DEFECTLENS_LOCAL_JOBS=1` (in-process worker, no AWS queue) and
+`DEFECTLENS_DESCRIBER=bedrock` (the reasoning LLM) on the API process.
+
 ---
 
 The sections below capture the per-phase methodology and measured results. They are
 collapsed for readability - expand any one for the full write-up.
+
+<details>
+<summary><b>Walkthrough diagnostic report (grounded multi-photo reasoning)</b></summary>
+
+![Walkthrough report](docs/images/walkthrough-report.png)
+
+A technician's first site visit - up to 10 photos, optional per-photo notes,
+and a free-text concern note - becomes a structured initial diagnostic:
+per-photo grounded observations, a prioritized cited action list, an answer
+to every extracted concern, and a fixed "initial diagnostic - verify before
+acting" framing. One multimodal call sees all photos at once, so the report
+reasons ACROSS them ("the staining at the crack in photo 4 means the photo-1
+crack is an active moisture pathway") - something a per-photo classifier
+cannot do. CLIP is demoted to retrieval only.
+
+**The trust story is deterministic, not prompt-deep.** The LLM proposes; a
+citation gate disposes:
+
+- every claim (observations, action items, answers, and the headline
+  narrative itself) must cite guidance cards retrieved for THIS walkthrough,
+  or it is dropped and recorded in `flagged_claims` - never silently kept;
+- per-photo claims may cite only that photo's own retrieval (plus
+  concern-driven retrieval), so an observation cannot borrow another photo's
+  evidence;
+- every input photo appears exactly once and every extracted concern gets an
+  answer - cited, or an explicit "not observed - verify on-site" (the
+  anti-hallucination rule is a first-class output, enforced by schema
+  validators that make an ungrounded claim unconstructible);
+- an optional user-triggered enrichment runs the fine-tuned classifier on
+  the GPU path and merges its narrow-taxonomy label ONLY when confident and
+  consistent with the observation (negation-aware; a no-defect label can
+  never land on a grounded finding) - it annotates the report and never
+  blocks it.
+
+**Eval** - two frozen golden sets, each with a regression-gated baseline
+(`results/walkthrough_eval*.json`). Groundedness here means
+citation-presence within the retrieved set; whether the model *read the
+photo correctly* is deliberately not auto-measured (no labels exist) and is
+covered by a hand-rated spot-check, committed alongside the metrics:
+
+| Metric | Dataset crops (6 walkthroughs) | Realistic field photos (2 walkthroughs) |
+|---|---|---|
+| raw groundedness (pre-gate) | 1.0 | 1.0 |
+| concern coverage | 1.0 | 1.0 |
+| answers with cited evidence | 1.0 | 1.0 |
+| spot-check: accurate observations | 17/30 strict | 8/8 primary |
+
+The split in the last row is the honest headline: on deliberately hard
+256px context-free crops the model over-calls hairline cracks on clean
+textured concrete (a false-positive lean, consistent with the OOD study);
+on realistic full-context field photos (Wikimedia Commons, licensed,
+pinned-hash fetch script) its primary observations were all accurate. The
+realistic set also caught a real serving bug on day one - photographic PNG
+re-encoding exceeded the model API's per-image size cap - now fixed and
+regression-locked.
+
+Reproduce: `bash scripts/fetch_realistic_walkthrough.sh`, then
+`python scripts/eval_walkthrough.py --provider bedrock` (dataset crops) or
+`--golden data/manifests/walkthrough_golden_realistic.json` with its own
+`--results` path. Regressed runs are written aside and fail loudly; they
+never overwrite a committed baseline.
+
+</details>
 
 <details>
 <summary><b>Inspection agent + eval harness (v1)</b></summary>
