@@ -1,0 +1,59 @@
+{
+  "metric": "top-1 retrieved exemplar shares the query's unified class (class-consistency proxy, NOT a correctness/usefulness claim)",
+  "test_manifest": "data/manifests/test.csv",
+  "n_queries": 4824,
+  "n_exemplars": 70,
+  "subset": null,
+  "seed": 42,
+  "overall_hit_rate": 0.4357,
+  "per_class_hit_rate": {
+    "bulge_deformation": {
+      "hit_rate": 0.6068,
+      "n": 117
+    },
+    "corrosion_stain": {
+      "hit_rate": 0.2542,
+      "n": 480
+    },
+    "crack": {
+      "hit_rate": 0.8337,
+      "n": 1461
+    },
+    "efflorescence": {
+      "hit_rate": 0.0513,
+      "n": 78
+    },
+    "exposed_rebar": {
+      "hit_rate": 0.0,
+      "n": 12
+    },
+    "finish_detachment": {
+      "hit_rate": 0.2773,
+      "n": 375
+    },
+    "insulator_damage": {
+      "hit_rate": 0.4393,
+      "n": 453
+    },
+    "mold_algae": {
+      "hit_rate": 0.0108,
+      "n": 93
+    },
+    "no_defect": {
+      "hit_rate": 0.3182,
+      "n": 1103
+    },
+    "peeling_paint": {
+      "hit_rate": 0.0,
+      "n": 78
+    },
+    "spalling": {
+      "hit_rate": 0.0,
+      "n": 121
+    },
+    "water_damage": {
+      "hit_rate": 0.0706,
+      "n": 453
+    }
+  }
+}
