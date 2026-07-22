@@ -22,6 +22,11 @@ set -euxo pipefail
 : "${AWS_REGION:=us-east-1}"
 : "${IDLE_TIMEOUT_SEC:=1800}"
 : "${CHECKPOINT_SYNC_INTERVAL:=120}"
+# Per-run S3 checkpoint namespace. Distinct values isolate runs: the resume
+# logic scans ONLY this prefix, so a smoke run can never resume a prior
+# full run's checkpoints (the 2026-07-21 incident: a v2 smoke auto-resumed
+# the completed v1 run at phase3/checkpoints/ and clobbered its adapter).
+: "${CKPT_SUBDIR:=checkpoints}"
 : "${EVAL_ARGS:=}"
 : "${SMOKE_RESUME_ARGS:=}"
 
@@ -95,9 +100,9 @@ WHEEL=$(ls "${WORKDIR}/dist/"defectlens-*.whl | head -n1)
 # Spot-interruption self-healing: if a prior run of THIS training already
 # synced checkpoints to S3, pull them down and resume instead of restarting.
 # (Smoke-run artifacts live under a different prefix so they never match.)
-if aws s3 ls "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" 2>/dev/null | grep -q "checkpoint-"; then
+if aws s3 ls "${S3_PREFIX}/${CKPT_SUBDIR}/" --region "$AWS_REGION" 2>/dev/null | grep -q "checkpoint-"; then
   echo "== prior checkpoints found in S3 — downloading and enabling --resume =="
-  aws s3 sync "${S3_PREFIX}/checkpoints/" "$CKPT_DIR" --region "$AWS_REGION"
+  aws s3 sync "${S3_PREFIX}/${CKPT_SUBDIR}/" "$CKPT_DIR" --region "$AWS_REGION"
   TRAIN_ARGS="$TRAIN_ARGS --resume"
 fi
 
@@ -105,7 +110,7 @@ echo "== starting background checkpoint sync (every ${CHECKPOINT_SYNC_INTERVAL}s
 (
   while true; do
     sleep "$CHECKPOINT_SYNC_INTERVAL"
-    aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || true
+    aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/${CKPT_SUBDIR}/" --region "$AWS_REGION" || true
   done
 ) &
 SYNC_PID=$!
@@ -162,7 +167,7 @@ fi
 kill "$WATCHDOG_PID" 2>/dev/null || true
 
 echo "== final checkpoint sync =="
-aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || true
+aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/${CKPT_SUBDIR}/" --region "$AWS_REGION" || true
 
 if [[ "$TRAIN_EXIT" -eq 0 ]]; then
   echo "== training succeeded — running eval on frozen test split =="

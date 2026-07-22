@@ -174,6 +174,7 @@ trap cleanup EXIT
   echo "export EVAL_ARGS=\"${EVAL_ARGS:-}\""
   echo "export SMOKE_RESUME_ARGS=\"${SMOKE_RESUME_ARGS:-}\""
   echo "export CHECKPOINT_SYNC_INTERVAL=\"${CHECKPOINT_SYNC_INTERVAL}\""
+  echo "export CKPT_SUBDIR=\"${CKPT_SUBDIR:-checkpoints}\""
   cat "${BOOTSTRAP_FILE}"
 } > "$USER_DATA_FILE"
 
