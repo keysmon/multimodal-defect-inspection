@@ -12,6 +12,7 @@ stays cheap (see tests/test_vlm_topk.py's import sanity check).
 from __future__ import annotations
 
 import argparse
+import math
 import json
 import math
 from pathlib import Path
@@ -48,6 +49,28 @@ def rank_answers(loglik: dict[str, float]) -> list[str]:
 def _nan_to_none(value: float) -> float | None:
     """NaN (absent class) -> null in JSON; json.dumps NaN is invalid per RFC 8259."""
     return None if math.isnan(value) else value
+
+
+def per_image_record(row, loglik: dict[str, float]) -> dict:
+    """Per-image dump row for gate-floor + severity analyses (--dump-per-image).
+
+    Probabilities are the softmax of the length-normalized answer logliks —
+    the same transform serving's rank_classes/softmax_rank apply, so a floor
+    derived from these is directly comparable to the live enrich gate's
+    confidence.
+    """
+    m = max(loglik.values())
+    exps = {label: math.exp(v - m) for label, v in loglik.items()}
+    z = sum(exps.values())
+    ranked = rank_answers(loglik)
+    return {
+        "image_path": row.image_path,
+        "source_dataset": row.source_dataset,
+        "source_label": row.source_label,
+        "true": row.unified_label,
+        "ranked": ranked,
+        "probs": {label: round(exps[label] / z, 6) for label in ranked},
+    }
 
 
 def results_payload(
@@ -190,6 +213,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--max-pixels", type=int, default=589824,
         help="processor pixel budget — MUST match the value used at training",
     )
+    parser.add_argument(
+        "--dump-per-image", type=str, default=None,
+        help="also write one JSON record per image (JSONL) to out-dir/<name> "
+        "for gate-floor derivation + the VT severity metric",
+    )
     return parser
 
 
@@ -215,10 +243,13 @@ def main(argv: list[str] | None = None) -> None:
 
     y_true = [r.unified_label for r in rows]
     ranked: list[list[str]] = []
+    dump_records: list[dict] = []
     for row in tqdm(rows, desc="images"):
         image = Image.open(row.image_path).convert("RGB")
         loglik = score_answers(model, processor, image, device)
         ranked.append(rank_answers(loglik))
+        if args.dump_per_image:
+            dump_records.append(per_image_record(row, loglik))
 
     payload = results_payload(y_true, ranked, k_values=(1, 3))
     payload.update(
@@ -230,6 +261,12 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     args.out_dir.mkdir(exist_ok=True, parents=True)
+    if args.dump_per_image:
+        dump_path = args.out_dir / args.dump_per_image
+        with dump_path.open("w", encoding="utf-8") as f:
+            for record in dump_records:
+                f.write(json.dumps(record) + "\n")
+        print(f"per-image dump: {dump_path} ({len(dump_records)} records)")
     out_json = args.out_dir / args.out_name
     out_json.write_text(json.dumps(payload, indent=2, allow_nan=False), encoding="utf-8")
     print(f"macro top-1: {_fmt(payload['macro_top1'])}  macro top-3: {_fmt(payload['macro_top3'])}")

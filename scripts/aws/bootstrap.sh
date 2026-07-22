@@ -187,7 +187,7 @@ if [[ "$TRAIN_EXIT" -eq 0 ]]; then
   if [[ -n "${EVAL2_ARGS:-}" ]]; then
     echo "== running second eval (${EVAL2_ARGS}) =="
     "$PY" -m defectlens.eval.vlm_topk       --adapter "${CKPT_DIR}/adapter"       --out-dir "$WORKDIR"       $EVAL2_ARGS || echo "WARNING: second eval failed, see train.log"
-    for f in "${WORKDIR}"/*.json; do
+    for f in "${WORKDIR}"/*.json "${WORKDIR}"/*.jsonl; do
       base=$(basename "$f")
       [[ "$base" == "eval_results.json" ]] && continue
       aws s3 cp "$f" "${S3_PREFIX}/${base}" --region "$AWS_REGION" || true
