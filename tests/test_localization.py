@@ -26,9 +26,30 @@ def test_parse_boxes_extracts_bbox_entries_from_prose():
 
 def test_parse_boxes_drops_malformed_entries_never_raises():
     text = '[{"bbox_2d": [1, 2, 3], "label": "crack"}, {"bbox_2d": [30, 10, 20, 40]}, "junk"]'
-    assert parse_boxes(text) == []  # wrong arity, x1>x2 after norm-check, non-dict
+    assert parse_boxes(text) == []  # wrong arity, missing label, non-dict
     assert parse_boxes("no json at all") == []
     assert parse_boxes('[{"bbox_2d": [20, 10, 5, 40], "label": "c"}]') == []  # x1 > x2
+
+
+def test_parse_boxes_coerces_numeric_strings_but_rejects_non_finite_coords():
+    # numeric strings are valid, finite coordinates - graceful degradation accepts
+    # them, truncating to int like any other float coordinate.
+    text = '[{"bbox_2d": ["10.5", "20", "110", "220"], "label": "crack"}]'
+    assert parse_boxes(text) == [{"bbox_2d": [10, 20, 110, 220], "label": "crack"}]
+    # "inf" parses to a float but is never a valid pixel coordinate.
+    assert parse_boxes('[{"bbox_2d": [10, 20, 30, "inf"], "label": "c"}]') == []
+    # 1e400 overflows float parsing to inf; must be rejected, not raise OverflowError.
+    assert parse_boxes('[{"bbox_2d": [10, 20, 30, 1e400], "label": "c"}]') == []
+
+
+def test_parse_boxes_scans_last_array_first_like_parse_string_array():
+    # models sometimes echo an example array before the real one; the real
+    # array is the last one, matching parse_string_array's reversed scan.
+    text = (
+        'For example [{"bbox_2d": [0, 0, 10, 10], "label": "crack"}]. '
+        'Found: [{"bbox_2d": [100, 100, 200, 200], "label": "crack"}]'
+    )
+    assert parse_boxes(text) == [{"bbox_2d": [100, 100, 200, 200], "label": "crack"}]
 
 
 def test_rescale_box_maps_resized_coords_to_original_and_clamps():

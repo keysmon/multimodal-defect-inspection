@@ -9,6 +9,7 @@ if the spike passes, vendored into deploy/sagemaker/inference.py.
 from __future__ import annotations
 
 import json
+import math
 
 from defectlens.llm_json import balanced_array_candidates
 
@@ -35,7 +36,9 @@ def _valid_entry(entry) -> bool:
         return False
     try:
         x1, y1, x2, y2 = (float(v) for v in box)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        return False
+    if not all(math.isfinite(c) for c in (x1, y1, x2, y2)):
         return False
     return x1 < x2 and y1 < y2
 
@@ -47,14 +50,14 @@ def parse_boxes(text: str) -> list[dict]:
     malformed entries are dropped, never raised - grounding must degrade to
     "no boxes", not crash a report path.
     """
-    for candidate in balanced_array_candidates(text):
+    for candidate in reversed(balanced_array_candidates(text)):
         try:
             data = json.loads(candidate)
         except json.JSONDecodeError:
             continue
         if isinstance(data, list):
             kept = [
-                {"bbox_2d": [int(v) for v in e["bbox_2d"]], "label": e["label"]}
+                {"bbox_2d": [int(float(v)) for v in e["bbox_2d"]], "label": e["label"]}
                 for e in data
                 if _valid_entry(e)
             ]
