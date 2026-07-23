@@ -37,3 +37,12 @@ def test_features_unwraps_v4_tensor_and_v5_output():
         pooler_output = t
 
     assert _features(FakeV5Output()) is t
+
+
+def test_pick_device_force_cpu_env(monkeypatch):
+    """DEFECTLENS_FORCE_CPU=1 must win even where MPS/CUDA are available —
+    the escape hatch for running CLIP work while a training run owns MPS."""
+    from defectlens.eval.clip_zeroshot import pick_device
+
+    monkeypatch.setenv("DEFECTLENS_FORCE_CPU", "1")
+    assert pick_device() == "cpu"

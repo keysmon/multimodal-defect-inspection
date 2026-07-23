@@ -22,6 +22,11 @@ set -euxo pipefail
 : "${AWS_REGION:=us-east-1}"
 : "${IDLE_TIMEOUT_SEC:=1800}"
 : "${CHECKPOINT_SYNC_INTERVAL:=120}"
+# Per-run S3 checkpoint namespace. Distinct values isolate runs: the resume
+# logic scans ONLY this prefix, so a smoke run can never resume a prior
+# full run's checkpoints (the 2026-07-21 incident: a v2 smoke auto-resumed
+# the completed v1 run at phase3/checkpoints/ and clobbered its adapter).
+: "${CKPT_SUBDIR:=checkpoints}"
 : "${EVAL_ARGS:=}"
 : "${SMOKE_RESUME_ARGS:=}"
 
@@ -53,8 +58,9 @@ echo "== extracting image tars + manifests/configs into a repo-shaped tree =="
 mkdir -p "${WORKDIR}/repo/data/manifests" "${WORKDIR}/repo/configs"
 tar -xf "${WORKDIR}/dist/train_images.tar" -C "${WORKDIR}/repo"
 tar -xf "${WORKDIR}/dist/test_images.tar" -C "${WORKDIR}/repo"
-cp "${WORKDIR}/dist/manifests/train.csv" "${WORKDIR}/repo/data/manifests/train.csv"
-cp "${WORKDIR}/dist/manifests/test.csv" "${WORKDIR}/repo/data/manifests/test.csv"
+# All packaged manifests (train/test + extras like test_v1_frozen.csv for
+# the EVAL2_ARGS backward-compat pass).
+cp "${WORKDIR}"/dist/manifests/*.csv "${WORKDIR}/repo/data/manifests/"
 cp "${WORKDIR}/dist/configs/label_mapping.yaml" "${WORKDIR}/repo/configs/label_mapping.yaml"
 
 echo "== activating DLAMI PyTorch environment =="
@@ -95,9 +101,9 @@ WHEEL=$(ls "${WORKDIR}/dist/"defectlens-*.whl | head -n1)
 # Spot-interruption self-healing: if a prior run of THIS training already
 # synced checkpoints to S3, pull them down and resume instead of restarting.
 # (Smoke-run artifacts live under a different prefix so they never match.)
-if aws s3 ls "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" 2>/dev/null | grep -q "checkpoint-"; then
+if aws s3 ls "${S3_PREFIX}/${CKPT_SUBDIR}/" --region "$AWS_REGION" 2>/dev/null | grep -q "checkpoint-"; then
   echo "== prior checkpoints found in S3 — downloading and enabling --resume =="
-  aws s3 sync "${S3_PREFIX}/checkpoints/" "$CKPT_DIR" --region "$AWS_REGION"
+  aws s3 sync "${S3_PREFIX}/${CKPT_SUBDIR}/" "$CKPT_DIR" --region "$AWS_REGION"
   TRAIN_ARGS="$TRAIN_ARGS --resume"
 fi
 
@@ -105,7 +111,7 @@ echo "== starting background checkpoint sync (every ${CHECKPOINT_SYNC_INTERVAL}s
 (
   while true; do
     sleep "$CHECKPOINT_SYNC_INTERVAL"
-    aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || true
+    aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/${CKPT_SUBDIR}/" --region "$AWS_REGION" || true
   done
 ) &
 SYNC_PID=$!
@@ -162,7 +168,7 @@ fi
 kill "$WATCHDOG_PID" 2>/dev/null || true
 
 echo "== final checkpoint sync =="
-aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/checkpoints/" --region "$AWS_REGION" || true
+aws s3 sync "$CKPT_DIR" "${S3_PREFIX}/${CKPT_SUBDIR}/" --region "$AWS_REGION" || true
 
 if [[ "$TRAIN_EXIT" -eq 0 ]]; then
   echo "== training succeeded — running eval on frozen test split =="
@@ -174,6 +180,18 @@ if [[ "$TRAIN_EXIT" -eq 0 ]]; then
     $EVAL_ARGS || echo "WARNING: eval step failed, see train.log for training result"
   if [[ -f "${WORKDIR}/eval_results.json" ]]; then
     aws s3 cp "${WORKDIR}/eval_results.json" "${S3_PREFIX}/eval_results.json" --region "$AWS_REGION"
+  fi
+  # Optional second eval on the same instance (e.g. the v1 backward-compat
+  # pass over test_v1_frozen.csv - its images are a proven subset of
+  # test.csv's, so they are already in the extracted tar).
+  if [[ -n "${EVAL2_ARGS:-}" ]]; then
+    echo "== running second eval (${EVAL2_ARGS}) =="
+    "$PY" -m defectlens.eval.vlm_topk       --adapter "${CKPT_DIR}/adapter"       --out-dir "$WORKDIR"       $EVAL2_ARGS || echo "WARNING: second eval failed, see train.log"
+    for f in "${WORKDIR}"/*.json "${WORKDIR}"/*.jsonl; do
+      base=$(basename "$f")
+      [[ "$base" == "eval_results.json" ]] && continue
+      aws s3 cp "$f" "${S3_PREFIX}/${base}" --region "$AWS_REGION" || true
+    done
   fi
 else
   echo "== training FAILED (exit ${TRAIN_EXIT}) — skipping eval =="

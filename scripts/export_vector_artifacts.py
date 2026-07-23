@@ -42,11 +42,16 @@ from pathlib import Path
 
 import numpy as np
 
+import yaml
+
 from defectlens.rag import audio_db, db
 from defectlens.rag.vector_store import (
     AUDIO_EMB,
     AUDIO_IDS,
     AUDIO_TAGS,
+    EXEMPLAR_EMB,
+    EXEMPLAR_IDS,
+    EXEMPLAR_META,
     FORMAT,
     FORMAT_VERSION,
     SEARCH_IDS,
@@ -59,6 +64,8 @@ from defectlens.rag.vector_store import (
 )
 
 DEFAULT_OUT = Path("models/cloud_artifacts/card_vectors.npz")
+EXEMPLAR_MANIFEST = Path("data/exemplars/manifest.yaml")
+EXEMPLAR_IMAGE_DIR = Path("frontend/public/exemplars")
 
 
 def _to_np(emb) -> np.ndarray:
@@ -144,11 +151,53 @@ def build_search(v_ids, v_text, corpus_dir: Path):
     return search_ids, search_text
 
 
-def export(out: Path, corpus_dir: Path = Path("corpus")) -> tuple[int, int, int]:
+def build_exemplars(manifest_path: Path = EXEMPLAR_MANIFEST,
+                    image_dir: Path = EXEMPLAR_IMAGE_DIR):
+    """Exemplar-image index (format v3): CLIP-image-embed the SERVED 1024px
+    derivatives (scripts/fetch_exemplars.py output — the exact pixels users
+    see) and carry the manifest metadata as one JSON row per exemplar, with
+    frontend-relative image/thumb URLs baked in.
+    """
+    entries = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))["exemplars"]
+    ids, meta_json, paths = [], [], []
+    for e in entries:
+        image = image_dir / f"{e['id']}.jpg"
+        if not image.is_file():
+            raise SystemExit(
+                f"{image} missing — run scripts/fetch_exemplars.py before exporting"
+            )
+        ids.append(e["id"])
+        paths.append(str(image))
+        meta_json.append(json.dumps({
+            "id": e["id"],
+            "card_ids": e.get("card_ids", []),
+            "class_tags": e["class_tags"],
+            "license": e["license"],
+            "credit": e["credit"],
+            "source_url": e["source_url"],
+            "caption": e.get("caption", ""),
+            "image_url": f"/exemplars/{e['id']}.jpg",
+            "thumb_url": f"/exemplars/thumbs/{e['id']}.jpg",
+        }))
+
+    from transformers import CLIPModel, CLIPProcessor
+
+    from defectlens.eval.clip_zeroshot import pick_device
+    from defectlens.rag.embed import CLIP_MODEL, embed_images
+
+    device = pick_device()
+    model = CLIPModel.from_pretrained(CLIP_MODEL).to(device).eval()
+    processor = CLIPProcessor.from_pretrained(CLIP_MODEL)
+    emb = embed_images(model, processor, paths, device)
+    return ids, meta_json, emb
+
+
+def export(out: Path, corpus_dir: Path = Path("corpus")) -> tuple[int, int, int, int]:
     conn = db.connect()  # same DB holds card_vectors and audio_card_vectors
     v_ids, v_tags, v_text, v_centroid = read_visual(conn)
     a_ids, a_tags, a_emb = read_audio(conn)
     s_ids, s_text = build_search(v_ids, v_text, corpus_dir)
+    e_ids, e_meta, e_emb = build_exemplars()
 
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
@@ -163,10 +212,13 @@ def export(out: Path, corpus_dir: Path = Path("corpus")) -> tuple[int, int, int]
             AUDIO_EMB: a_emb,
             SEARCH_IDS: np.array(s_ids),
             SEARCH_TEXT: s_text,
+            EXEMPLAR_IDS: np.array(e_ids),
+            EXEMPLAR_META: np.array(e_meta),
+            EXEMPLAR_EMB: e_emb,
             FORMAT: np.array(FORMAT_VERSION),
         },
     )
-    return len(v_ids), len(a_ids), len(s_ids)
+    return len(v_ids), len(a_ids), len(s_ids), len(e_ids)
 
 
 def verify(out: Path, queries: int = 5, seed: int = 11) -> bool:
@@ -214,6 +266,18 @@ def verify(out: Path, queries: int = 5, seed: int = 11) -> bool:
             ok = False
             print(f"MISMATCH search self-retrieval: {store.search_ids[i]} -> {top}")
 
+    # Exemplar index (v3) is likewise DB-less: check self-retrieval alignment
+    # and that metadata joins resolve (every meta row parses with an id).
+    if store.exemplar_count() == 0:
+        ok = False
+        print("MISMATCH exemplar: index is empty")
+    m = store.exemplar_count()
+    for i in rng.choice(m, size=min(queries, m), replace=False):
+        top_id, top_meta, _dist = store.exemplar_top_k(store._exemplar[i], 1)[0]
+        if top_id != store.exemplar_ids[i] or top_meta.get("id") != top_id:
+            ok = False
+            print(f"MISMATCH exemplar self-retrieval: {store.exemplar_ids[i]} -> {top_id}")
+
     return ok
 
 
@@ -224,10 +288,11 @@ def main() -> None:
     parser.add_argument("--queries", type=int, default=5)
     args = parser.parse_args()
 
-    n_visual, n_audio, n_search = export(args.out)
+    n_visual, n_audio, n_search, n_exemplar = export(args.out)
     print(
         f"Wrote {args.out} — {n_visual} visual + {n_audio} audio cards; "
-        f"{n_search} search-scoped cards (visual + hvac)"
+        f"{n_search} search-scoped cards (visual + hvac); "
+        f"{n_exemplar} exemplar images"
     )
     if n_visual == 0 and n_audio == 0:
         raise SystemExit(

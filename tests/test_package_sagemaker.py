@@ -61,11 +61,11 @@ def test_softmax_rank_normalizes_and_sorts_descending():
     assert all(isinstance(pair, list) and len(pair) == 2 for pair in ranked)
 
 
-def test_softmax_rank_covers_all_nine_classes_and_ties_break_by_name():
+def test_softmax_rank_covers_all_twelve_classes_and_ties_break_by_name():
     mod = _inference()
     loglik = {label: 0.0 for label in mod.UNIFIED_CLASSES}  # all equal -> tie
     ranked = mod.softmax_rank(loglik)
-    assert len(ranked) == 9
+    assert len(ranked) == 12
     assert [label for label, _ in ranked] == sorted(mod.UNIFIED_CLASSES)
     assert abs(sum(p for _, p in ranked) - 1.0) < 1e-9
 

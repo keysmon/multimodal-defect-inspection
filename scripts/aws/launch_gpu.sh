@@ -34,6 +34,7 @@ ASSUME_YES=false
 DRY_RUN=false
 TRAIN_ARGS="${TRAIN_ARGS:-}"
 INSTANCE_TYPE="${INSTANCE_TYPE:-}"
+ON_DEMAND="${ON_DEMAND:-false}"
 
 usage() {
   cat <<USAGE
@@ -54,6 +55,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --yes) ASSUME_YES=true; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
+    --on-demand) ON_DEMAND=true; shift ;;
     --instance-type) INSTANCE_TYPE="$2"; shift 2 ;;
     --train-args) TRAIN_ARGS="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -174,6 +176,8 @@ trap cleanup EXIT
   echo "export EVAL_ARGS=\"${EVAL_ARGS:-}\""
   echo "export SMOKE_RESUME_ARGS=\"${SMOKE_RESUME_ARGS:-}\""
   echo "export CHECKPOINT_SYNC_INTERVAL=\"${CHECKPOINT_SYNC_INTERVAL}\""
+  echo "export CKPT_SUBDIR=\"${CKPT_SUBDIR:-checkpoints}\""
+  echo "export EVAL2_ARGS=\"${EVAL2_ARGS:-}\""
   cat "${BOOTSTRAP_FILE}"
 } > "$USER_DATA_FILE"
 
@@ -211,7 +215,6 @@ RUN_ARGS=(
   --iam-instance-profile "Name=${ROLE_NAME}"
   --security-group-ids "$SG_ID"
   --subnet-id "$SUBNET_ID"
-  --instance-market-options "{\"MarketType\":\"spot\",\"SpotOptions\":{\"SpotInstanceType\":\"one-time\",\"InstanceInterruptionBehavior\":\"terminate\"}}"
   --block-device-mappings "[{\"DeviceName\":\"${ROOT_DEVICE}\",\"Ebs\":{\"VolumeSize\":${ROOT_VOLUME_GB},\"VolumeType\":\"gp3\",\"Encrypted\":true,\"DeleteOnTermination\":true}}]"
   --metadata-options "HttpTokens=required,HttpPutResponseHopLimit=1,HttpEndpoint=enabled"
   --tag-specifications "ResourceType=instance,Tags=[{Key=Project,Value=defectlens},{Key=Phase,Value=3},{Key=Name,Value=defectlens-gpu}]" \
@@ -221,6 +224,11 @@ RUN_ARGS=(
   --region "$REGION"
   --profile "$PROFILE"
 )
+# Spot by default; --on-demand / ON_DEMAND=true omits the market options
+# (capacity fallback, e.g. the 2026-07-22 region-wide g5/g6 spot drought).
+if [[ "$ON_DEMAND" != "true" ]]; then
+  RUN_ARGS+=(--instance-market-options "{\"MarketType\":\"spot\",\"SpotOptions\":{\"SpotInstanceType\":\"one-time\",\"InstanceInterruptionBehavior\":\"terminate\"}}")
+fi
 if [[ "$DRY_RUN" == "true" ]]; then
   RUN_ARGS+=(--dry-run)
 fi

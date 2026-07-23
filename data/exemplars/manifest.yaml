@@ -1,0 +1,712 @@
+# DefectLens exemplar-image manifest (plan Task C1; schema per the
+# 2026-07-21 expansion plan). CONTRACT:
+# - license MUST be one of: public_domain | cc0 | cc_by. Nothing else is
+#   ever served (CC BY-SA and NC variants are NOT allowed).
+# - credit is required for every entry (shown in the UI for cc_by).
+# - license_check records HOW the license was verified, per image/source.
+# - card_ids may be empty for classes with no corpus cards yet (the three
+#   v2 classes); such exemplars surface only via image-similarity
+#   (similar documented cases), never on card thumb strips.
+# - local_path entries resolve inside this repo's gitignored data/raw
+#   trees (fetch scripts in scripts/ recreate them); sha256 pins content.
+exemplars:
+  - id: mbdd-crack-001
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10627_0.jpg
+    sha256: a8a56b6302fac33ba9b1e4fe390df9a48feb3377962a14a2e057d22e622eea68
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-002
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10590_1.jpg
+    sha256: f9a260371bd08d9e3138c54b08f96fc7fd5021957da912576cb898cbbce4f238
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-003
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10591_0.jpg
+    sha256: 6db81addbd57fe7eb17df0866fed40197b3dd8d47c1a7de6cfadf3145ee5606a
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-004
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10648_2.jpg
+    sha256: ae7ea1a30c34a4246c17ce0920cf22392ee05463920202a726bcf831cbc1013f
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-005
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei9730_1.jpg
+    sha256: d0cf9db627c0274f004f51c1719b5fa5028b0fc46a74a777811f20a353c089bd
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-006
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10654_1.jpg
+    sha256: d72c56fdfdb9a2ca2a3af7bfd49a26f85cf3a52aa1193500d4f13fb1c469ab3b
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-007
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10560_2.jpg
+    sha256: 3972b494bc1e60622856e8e412787396c0e0c1a41727cd75c27ed4df391419c9
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-crack-008
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/crack/crack__Hefei10344_0.jpg
+    sha256: 87159273b743a9a9e4f679479c699a00a944c26a72bb710b1771d87e8403a506
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Facade crack, UAV survey crop (multi-material building walls)"
+  - id: mbdd-leakage-001
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/leakage/leakage__Hefei13143_0.jpg
+    sha256: c32c7ec116b9379b25311ecf8949629753cba408ac9ad50934c36d866c9b2ae5
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water leakage staining on a facade, UAV survey crop"
+  - id: mbdd-leakage-002
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/leakage/leakage__Hefei13139_0.jpg
+    sha256: afc413253846f2e726dd782d9053fb06299b87b788e10b4e5d6416f8852cd60a
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water leakage staining on a facade, UAV survey crop"
+  - id: mbdd-leakage-003
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/leakage/leakage__Hefei13136_1.jpg
+    sha256: 8f755fa4d3d7a4be860237b26e6f55d292e105487048c7b8308bae31daa130e3
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water leakage staining on a facade, UAV survey crop"
+  - id: mbdd-leakage-004
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/leakage/leakage__Hefei11089_0.jpg
+    sha256: 2a520a4e25912e9d5d22e4cb349413f082b88b48a4ebf8896fb9f50c0a9d863b
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water leakage staining on a facade, UAV survey crop"
+  - id: mbdd-leakage-005
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/leakage/leakage__Hefei4673_0.jpg
+    sha256: 35368e93fc8d9fb163f438d73337a0fb03b300931c55bf9d67834da2652b97b4
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water leakage staining on a facade, UAV survey crop"
+  - id: mbdd-leakage-006
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/leakage/leakage__Hefei11098_0.jpg
+    sha256: ad688bf6b0f07edcfc4946befaef51a32d87ec85196e186cad702b482a57d196
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water leakage staining on a facade, UAV survey crop"
+  - id: mbdd-corrosion-001
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/corrosion/corrosion__Hefei14215_0.jpg
+    sha256: 2791db2e801627fc66c9f5030c2d6911c672f578637eb03fb1e3af62fc36a2b8
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Corrosion on building steelwork/roofing, UAV survey crop"
+  - id: mbdd-corrosion-002
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/corrosion/corrosion__Hefei14212_1.jpg
+    sha256: 8f5ab8f89a09d2a1b39eec0c7ee5075e7f0fa7775ff8534b558bfdff11fd359f
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Corrosion on building steelwork/roofing, UAV survey crop"
+  - id: mbdd-corrosion-003
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/corrosion/corrosion__Hefei14217_1.jpg
+    sha256: 0c02a0124c56a7d5dc9a7e0a0282324d93ce262490d5ad63e427b6bf7b36414e
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Corrosion on building steelwork/roofing, UAV survey crop"
+  - id: mbdd-corrosion-004
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/corrosion/corrosion__Hefei14210_0.jpg
+    sha256: 1e5e596e16a2064a536ff2e2c8fbd362761452f0006747ce18adcec47f326aa1
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Corrosion on building steelwork/roofing, UAV survey crop"
+  - id: mbdd-corrosion-005
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/corrosion/corrosion__Hefei14166_4.jpg
+    sha256: 7bd108bde6e4f0c9a8b436a39490990c02a8dcc42909d08406ac8d7600b71e36
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Corrosion on building steelwork/roofing, UAV survey crop"
+  - id: mbdd-corrosion-006
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/corrosion/corrosion__Hefei14157_2.jpg
+    sha256: af52758d211ab78e748c4276ebceaf1990bbf6b8130696fd3ecfcacd1c5ca158
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Corrosion on building steelwork/roofing, UAV survey crop"
+  - id: mbdd-abscission-001
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei13232_4.jpg
+    sha256: 8a200a325f24bdf6d46470309f3c50046f55eec265316605f5a68954918f6868
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-002
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei12396_0.jpg
+    sha256: abc5261a55ee6d340b8352ad992fb9c8032793986cd1572af726f590692329f5
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-003
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei13196_1.jpg
+    sha256: 79fb5fe6af4ba76361ffbd9e02983d2b9f3ef2633af789ed730d8aa53a0fb8ab
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-004
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei12047_0.jpg
+    sha256: 10c58823fbfa7f611021c995b1e2799ee6725d48a670b7b3dd5d7b45e1fedcd0
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-005
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei11900_0.jpg
+    sha256: 4f50d0b76096d1555cab7b34e89979ef1b31e76cbba15c085008be6ed7d8fcd6
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-006
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei13200_1.jpg
+    sha256: 100f1ec76be68d18f6fb04467c8dbe627a350683bdf2cd983444b9fabd24871c
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-007
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei13203_0.jpg
+    sha256: 9e718a176c3fda62280aea4d19d49d62a11d6a50a9fba14f7adbd5432b1a8acf
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-abscission-008
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/abscission/abscission__Hefei13226_0.jpg
+    sha256: 24af511f9479f6d54dd737f034e4b3d229c3261ace79220544e5d7645edc8972
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [finish_detachment]
+    caption: "Render/plaster finish detaching from a facade, UAV survey crop"
+  - id: mbdd-bulge-001
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/bulge/bulge__Hefei4013_0.jpg
+    sha256: 48bb525474db54815850b403d1f43e6bba3c998921837cbc90c56cdb0aabb5f2
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [bulge_deformation]
+    caption: "Out-of-plane bulge deformation on a building surface, UAV survey crop"
+  - id: mbdd-bulge-002
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/bulge/bulge__Hefei4363_0.jpg
+    sha256: c5fdb3b2a806d9a1416cfb328dc12b42ed447678527ba85d9b110b9fe27fab32
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [bulge_deformation]
+    caption: "Out-of-plane bulge deformation on a building surface, UAV survey crop"
+  - id: mbdd-bulge-003
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/bulge/bulge__Hefei4014_0.jpg
+    sha256: 2194e5c2cfc27d61c7346e3e567e8a9fc5b56d9881c5e7b4ce62202f12f39561
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [bulge_deformation]
+    caption: "Out-of-plane bulge deformation on a building surface, UAV survey crop"
+  - id: mbdd-bulge-004
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/bulge/bulge__Hefei4261_0.jpg
+    sha256: d5c65c06037f3d3350dc9e0b8863f528927f426546717e116984df9956fd7971
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [bulge_deformation]
+    caption: "Out-of-plane bulge deformation on a building surface, UAV survey crop"
+  - id: mbdd-bulge-005
+    source_url: https://zenodo.org/records/15622584
+    local_path: data/raw/mbdd2025/bulge/bulge__Hefei4451_0.jpg
+    sha256: 1f60196c5fae4f311b41f289f723debac957f55a6af196b98bf222e67751dc91
+    license: cc_by
+    credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the Zenodo record (read 2026-07-21)"
+    card_ids: []
+    class_tags: [bulge_deformation]
+    caption: "Out-of-plane bulge deformation on a building surface, UAV survey crop"
+  - id: vt-fair-001
+    source_url: https://data.lib.vt.edu/articles/dataset/Corrosion_Condition_State_Semantic_Segmentation_Dataset/16624663
+    local_path: data/raw/vt_corrosion/fair/fair__train_227.jpeg
+    sha256: a9cdec12feab8c683c283810cb547041559a82723238f1b5b134668d72e4d00b
+    license: cc0
+    credit: "VT Corrosion Condition State dataset (Virginia Tech / VDOT), CC0"
+    license_check: "CC0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Bridge steel corrosion, AASHTO condition state Fair"
+  - id: vt-fair-002
+    source_url: https://data.lib.vt.edu/articles/dataset/Corrosion_Condition_State_Semantic_Segmentation_Dataset/16624663
+    local_path: data/raw/vt_corrosion/fair/fair__test_20.jpeg
+    sha256: 7d37b61d8ed45b88a3d17c9c4b4fbe1a96111bb527e3c10ca03d5ad92e54ac55
+    license: cc0
+    credit: "VT Corrosion Condition State dataset (Virginia Tech / VDOT), CC0"
+    license_check: "CC0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Bridge steel corrosion, AASHTO condition state Fair"
+  - id: vt-poor-001
+    source_url: https://data.lib.vt.edu/articles/dataset/Corrosion_Condition_State_Semantic_Segmentation_Dataset/16624663
+    local_path: data/raw/vt_corrosion/poor/poor__train_229.jpeg
+    sha256: e2a52acc6e6873f2485145f7c9981bb9a0d96111e2407f46669f490edf799921
+    license: cc0
+    credit: "VT Corrosion Condition State dataset (Virginia Tech / VDOT), CC0"
+    license_check: "CC0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Bridge steel corrosion, AASHTO condition state Poor"
+  - id: vt-poor-002
+    source_url: https://data.lib.vt.edu/articles/dataset/Corrosion_Condition_State_Semantic_Segmentation_Dataset/16624663
+    local_path: data/raw/vt_corrosion/poor/poor__test_27.jpeg
+    sha256: 21cdbaa6796857954931ec7c8663f5486dc533d61a3f3723714e8890f3d38e57
+    license: cc0
+    credit: "VT Corrosion Condition State dataset (Virginia Tech / VDOT), CC0"
+    license_check: "CC0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Bridge steel corrosion, AASHTO condition state Poor"
+  - id: vt-severe-001
+    source_url: https://data.lib.vt.edu/articles/dataset/Corrosion_Condition_State_Semantic_Segmentation_Dataset/16624663
+    local_path: data/raw/vt_corrosion/severe/severe__train_258.jpeg
+    sha256: 5f55cfc5e6b528ea5ec7e416ae4b274afa743f9624f05f185116a7e381da4168
+    license: cc0
+    credit: "VT Corrosion Condition State dataset (Virginia Tech / VDOT), CC0"
+    license_check: "CC0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Bridge steel corrosion with section loss, AASHTO condition state Severe"
+  - id: vt-severe-002
+    source_url: https://data.lib.vt.edu/articles/dataset/Corrosion_Condition_State_Semantic_Segmentation_Dataset/16624663
+    local_path: data/raw/vt_corrosion/severe/severe__test_2.jpeg
+    sha256: 87163fabbd5a5ac0bf3cb6e82ec7c13d1b73658f7a1a0583d1975499abc088bf
+    license: cc0
+    credit: "VT Corrosion Condition State dataset (Virginia Tech / VDOT), CC0"
+    license_check: "CC0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-011, eng-013]
+    class_tags: [corrosion_stain]
+    caption: "Bridge steel corrosion with section loss, AASHTO condition state Severe"
+  - id: insu-pollution-flashover-001
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/pollution_flashover/pollution_flashover__train_170030_1.jpg
+    sha256: 71220c49038dcb4ff8f435a80bb9be82120ceee9fc9ac78f3070088e81d7a2cb
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Pollution-flashover damage on a grid transmission insulator"
+  - id: insu-pollution-flashover-002
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/pollution_flashover/pollution_flashover__train_160771_1.jpg
+    sha256: 4b49174ad79abf71fc825a0a80543c8676be5d298d7983b3479f6cd4fbe76cb5
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Pollution-flashover damage on a grid transmission insulator"
+  - id: insu-pollution-flashover-003
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/pollution_flashover/pollution_flashover__train_160771d_1.jpg
+    sha256: 3bc05fcc2fcfc4ee5fc5e3bd7e8e83782d3b48a4bf329c213eb3f448edd1fcd1
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Pollution-flashover damage on a grid transmission insulator"
+  - id: insu-broken-001
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/broken/broken__train_000001268_1.jpg
+    sha256: 30ee41584eb17285023604e55fb07e41f25c80c1d85658b550a3274a68239372
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Mechanically broken shell on a grid transmission insulator"
+  - id: insu-broken-002
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/broken/broken__train_150438_1.jpg
+    sha256: 37f2b94685b95092ba121f04c2cc8eded86e122efdbc9c87955566490802b344
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Mechanically broken shell on a grid transmission insulator"
+  - id: insu-broken-003
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/broken/broken__train_160935_1.jpg
+    sha256: 37d120aaa7e0fd2fc68f9cb813c0daf06be271b3d1b334a862f1f439d17c0fe9
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Mechanically broken shell on a grid transmission insulator"
+  - id: insu-broken-004
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/broken/broken__val_150465h_2.jpg
+    sha256: 942582747e9b74f81be2ee77e51c0b1b6f49a4b6f4fc15c0ce76e0a8dfc451c6
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: []
+    class_tags: [insulator_damage]
+    caption: "Mechanically broken shell on a grid transmission insulator"
+  - id: insu-normal-001
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/normal/normal__train_150867v_1.jpg
+    sha256: ceb1e9d875bbf0370c9d43a7506af619bb8398cf402d865592fc987eb783fb5e
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-072, eng-073]
+    class_tags: [no_defect]
+    caption: "Intact grid transmission insulator string (no defect)"
+  - id: insu-normal-002
+    source_url: https://figshare.com/articles/dataset/VOC_zip/21200986
+    local_path: data/raw/insulator/normal/normal__train_130019v_0.jpg
+    sha256: e3daf5d470aadb3a3f4b8bb06d5e979bb06d3185f4103afc7e3d5c25c6be7f17
+    license: cc_by
+    credit: "Insulator-Defect Detection dataset (figshare 21200986), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the figshare record (API-verified 2026-07-21)"
+    card_ids: [eng-072, eng-073]
+    class_tags: [no_defect]
+    caption: "Intact grid transmission insulator string (no defect)"
+  - id: sdnet-cracked-001
+    source_url: https://digitalcommons.usu.edu/all_datasets/48/
+    local_path: data/raw/sdnet2018/cracked/P__CP__008-134.jpg
+    sha256: fdeaf25e91b9a588cc0606a3865c41c92d89fd924925c6cc783f9b16811cbd9c
+    license: cc_by
+    credit: "SDNET2018 concrete crack dataset (Utah State University), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the USU Digital Commons record (docs/datasets.md)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Cracked concrete surface patch"
+  - id: sdnet-cracked-002
+    source_url: https://digitalcommons.usu.edu/all_datasets/48/
+    local_path: data/raw/sdnet2018/cracked/P__CP__042-117.jpg
+    sha256: 44724d60168b34ad9b9665a3373b6611a07195017b9c92a5172c5965dd4f7b28
+    license: cc_by
+    credit: "SDNET2018 concrete crack dataset (Utah State University), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the USU Digital Commons record (docs/datasets.md)"
+    card_ids: [eng-001, eng-002]
+    class_tags: [crack]
+    caption: "Cracked concrete surface patch"
+  - id: sdnet-non-cracked-001
+    source_url: https://digitalcommons.usu.edu/all_datasets/48/
+    local_path: data/raw/sdnet2018/non_cracked/P__UP__008-117.jpg
+    sha256: b3d78c39dd1dffb40bfad73c7d9a57d8b9c3951eb76901991826d716439beba5
+    license: cc_by
+    credit: "SDNET2018 concrete crack dataset (Utah State University), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the USU Digital Commons record (docs/datasets.md)"
+    card_ids: [eng-072, eng-073]
+    class_tags: [no_defect]
+    caption: "Sound concrete surface patch (no defect)"
+  - id: sdnet-non-cracked-002
+    source_url: https://digitalcommons.usu.edu/all_datasets/48/
+    local_path: data/raw/sdnet2018/non_cracked/P__UP__011-117.jpg
+    sha256: e21e0ddb88008bebaa6d064044c9dc656b0326fe175734862afbdcb4127ecce5
+    license: cc_by
+    credit: "SDNET2018 concrete crack dataset (Utah State University), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the USU Digital Commons record (docs/datasets.md)"
+    card_ids: [eng-072, eng-073]
+    class_tags: [no_defect]
+    caption: "Sound concrete surface patch (no defect)"
+  - id: sdnet-non-cracked-003
+    source_url: https://digitalcommons.usu.edu/all_datasets/48/
+    local_path: data/raw/sdnet2018/non_cracked/P__UP__045-132.jpg
+    sha256: d594a9743a9639bb1627b5d11293005397bebbe2c9d23c3a435313034fd41e67
+    license: cc_by
+    credit: "SDNET2018 concrete crack dataset (Utah State University), CC BY 4.0"
+    license_check: "CC BY 4.0 stated on the USU Digital Commons record (docs/datasets.md)"
+    card_ids: [eng-072, eng-073]
+    class_tags: [no_defect]
+    caption: "Sound concrete surface patch (no defect)"
+  - id: wm-water-001
+    source_url: https://commons.wikimedia.org/wiki/File:FEMA_-_17647_-_Photograph_by_Patsy_Lynch_taken_on_10-18-2005_in_Louisiana.jpg
+    local_path: data/raw/realistic/fema_louisiana_interior.jpg
+    sha256: 9efb49b7becc7d027cd73e7745c45681dca8cf0909b3104eb15db2dfd35eba77
+    license: public_domain
+    credit: "Patsy Lynch / FEMA (Wikimedia Commons), public domain (US federal)"
+    license_check: "US-federal FEMA photograph; PD tag on the Commons file page (recorded in walkthrough_realistic_attribution.md)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Hurricane flood water damage inside a Louisiana home (FEMA, 2005)"
+  - id: wm-paint-001
+    source_url: https://commons.wikimedia.org/wiki/File:Close-up_of_peeling_paint_on_the_wall_in_an_old_abandoned_building_(48652561603).jpg
+    local_path: data/raw/realistic/peeling_paint_closeup.jpg
+    sha256: d330744eedd3f674d474ebfd03f255168b3e69dc2e3cce24ea8116e7c4feb260
+    license: cc_by
+    credit: "Ivan Radic (Wikimedia Commons), CC BY 2.0"
+    license_check: "CC BY 2.0 tag on the Commons file page (recorded in walkthrough_realistic_attribution.md)"
+    card_ids: [eng-034, eng-062]
+    class_tags: [peeling_paint]
+    caption: "Peeling paint close-up, abandoned building interior wall"
+  - id: wm-efflorescence-001
+    source_url: https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_01.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/2/2f/2ndary_efflorescence_01.jpg
+    sha256: 05754a465d63866aa26e7f4ae4056d0c52d57ca81459961a612799d8e8066164
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence and lime deposits on a basement ceiling near corroded pipework"
+  - id: wm-efflorescence-002
+    source_url: https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_08.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/5/54/2ndary_efflorescence_08.jpg
+    sha256: 159222fd1909f64489a9fdfdd44fe459daeed6dbf5770b460bfb5a90eb04ebe1
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Calthemite/efflorescence run down a concrete face"
+  - id: wm-efflorescence-003
+    source_url: https://commons.wikimedia.org/wiki/File:2ndary_efflorescence_10.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/9/90/2ndary_efflorescence_10.jpg
+    sha256: 5ad876f13cf4f9de9835265f82ebdd054aaf453d570ebdddab112221bc98dbb5
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence along a cracked concrete soffit"
+  - id: wm-efflorescence-004
+    source_url: https://commons.wikimedia.org/wiki/File:Primary_efflorescence_decades_later_001.png
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/5/52/Primary_efflorescence_decades_later_001.png
+    sha256: 8761565b908e1087e32f32df82c3a292db5e4ff225886d0cf586ae0b88bbceb8
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence crust on a concrete slab"
+  - id: wm-efflorescence-005
+    source_url: https://commons.wikimedia.org/wiki/File:Robert_moses_secondary_efflorescence_2.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/8/8a/Robert_moses_secondary_efflorescence_2.jpg
+    sha256: 81c82cc63112b20ee08872e5a694ff091f7c39a993ec7ad93cb2406ca260bcaa
+    license: cc_by
+    credit: "Achim Hering (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence streaking on precast panels"
+  - id: wm-efflorescence-006
+    source_url: https://commons.wikimedia.org/wiki/File:Secondary_efflorescence_2_of_2.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/9/96/Secondary_efflorescence_2_of_2.jpg
+    sha256: 87e29da49718750768825811b191a23c4a0efafb1da1a423b4783009b81ae88c
+    license: public_domain
+    credit: "Achim Hering (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-020, eng-023]
+    class_tags: [efflorescence]
+    caption: "Efflorescence and runoff staining on a concrete beam"
+  - id: wm-spalling-001
+    source_url: https://commons.wikimedia.org/wiki/File:Lewis_River_Bridge_-_Spalling_concrete_(42223630094).jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/a/a0/Lewis_River_Bridge_-_Spalling_concrete_%2842223630094%29.jpg
+    sha256: 826db297ef12357a9c05208f08b3eccc9ce495fd79428d87c18fdf20f857db5d
+    license: public_domain
+    credit: "Yellowstone National Park (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-013, eng-014]
+    class_tags: [spalling]
+    caption: "Concrete spalling on a bridge soffit"
+  - id: wm-spalling-002
+    source_url: https://commons.wikimedia.org/wiki/File:Northeast_Entrance_Road_bridge_with_spalling_concrete_(52910290724).jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/16/Northeast_Entrance_Road_bridge_with_spalling_concrete_%2852910290724%29.jpg
+    sha256: 7f030e878d474376ec012b44d1fdc07883b3e006b80ee7d46aac2696554377d1
+    license: public_domain
+    credit: "YellowstoneNPS (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-013, eng-014]
+    class_tags: [spalling]
+    caption: "Severe edge spalling on an abandoned bridge deck"
+  - id: wm-spalling-003
+    source_url: https://commons.wikimedia.org/wiki/File:Spalling_concrete_on_the_pier_columns.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/6/6c/Spalling_concrete_on_the_pier_columns.jpg
+    sha256: 73b4d8d7c6ed63b2783a86ac733c815d75e6881023e30556aa15f1d3fcf10c61
+    license: cc_by
+    credit: "OregonDOT (Wikimedia Commons), CC BY 2.0"
+    license_check: "LicenseShortName 'CC BY 2.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-010, eng-013]
+    class_tags: [spalling, exposed_rebar]
+    caption: "Corner spall with exposed corroding rebar on a concrete pier"
+  - id: wm-rebar-001
+    source_url: https://commons.wikimedia.org/wiki/File:Wil-Cox_Bridge_Improvements_-_5470913239.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/5/50/Wil-Cox_Bridge_Improvements_-_5470913239.jpg
+    sha256: f5979428986402fc3fc7b6e5677e8ee25142f4c505418bfec32ed65e83ae3d21
+    license: cc_by
+    credit: "NCDOTcommunications (Wikimedia Commons), CC BY 2.0"
+    license_check: "LicenseShortName 'CC BY 2.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-010, eng-011]
+    class_tags: [exposed_rebar]
+    caption: "Deteriorated parapet with exposed reinforcement, road bridge"
+  - id: wm-water-002
+    source_url: https://commons.wikimedia.org/wiki/File:7_Mammoth_Cave_Hotel_Water_Damage_(07718eef-10d9-4b15-b3d0-573126bcbb8b).JPG
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/12/7_Mammoth_Cave_Hotel_Water_Damage_%2807718eef-10d9-4b15-b3d0-573126bcbb8b%29.JPG
+    sha256: 37d0a14502e1c5045238d7c8610027305894390251b2f8c3768326e59ae462c6
+    license: public_domain
+    credit: "NPS Photo (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Ceiling water staining above a closet after a roof leak"
+  - id: wm-water-003
+    source_url: https://commons.wikimedia.org/wiki/File:Ceiling_sheetrock_damaged_by_water_so_paint_was_peeling.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/1a/Ceiling_sheetrock_damaged_by_water_so_paint_was_peeling.jpg
+    sha256: dabfd2227a33efa7b085d6f8519bec47f43b1542c7eaafed81047abb3d52eb8d
+    license: cc0
+    credit: "Tomwsulcer (Wikimedia Commons), CC0"
+    license_check: "LicenseShortName 'CC0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water stains spreading across a plasterboard ceiling"
+  - id: wm-water-004
+    source_url: https://commons.wikimedia.org/wiki/File:Ceiling_water_damage.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/b/b9/Ceiling_water_damage.jpg
+    sha256: 4f1ad9a780a1cb2a28ef1230e8f4c094d544615ef8e8da97edb0739af2f7d6dd
+    license: cc_by
+    credit: "Atomicdragon136 (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Water-damaged suspended ceiling tile"
+  - id: wm-water-005
+    source_url: https://commons.wikimedia.org/wiki/File:EFTA00001763_-_Room_with_blue_ceiling_beams_wooden_cabinet_and_water-damaged_floor_featuring_a_drying_machine_in_foreground_and_artwork_on_wall.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/1/1e/EFTA00001763_-_Room_with_blue_ceiling_beams_wooden_cabinet_and_water-damaged_floor_featuring_a_drying_machine_in_foreground_and_artwork_on_wall.jpg
+    sha256: f7784b57226cff7c56f25e3e0b4f77a94ed6d232d891f2bb601240cd752121c8
+    license: public_domain
+    credit: "Federal Bureau of Investigation (Wikimedia Commons), Public domain"
+    license_check: "LicenseShortName 'Public domain' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-024, eng-027]
+    class_tags: [water_damage]
+    caption: "Interior flood aftermath in a utility room"
+  - id: wm-water-006
+    source_url: https://commons.wikimedia.org/wiki/File:Mold_on_Ceiling_on_House_on_Dublin_Street_New_Orleans_after_Katrina.jpg
+    fetch_url: https://upload.wikimedia.org/wikipedia/commons/0/02/Mold_on_Ceiling_on_House_on_Dublin_Street_New_Orleans_after_Katrina.jpg
+    sha256: 63b2b0d7c458858d5cf159cffdb14424a043f187bdee0e3fd1b58e6f325deb3f
+    license: cc_by
+    credit: "Infrogmation (Wikimedia Commons), CC BY 3.0"
+    license_check: "LicenseShortName 'CC BY 3.0' from the Commons API extmetadata (verified 2026-07-21)"
+    card_ids: [eng-028, eng-024]
+    class_tags: [mold_algae, water_damage]
+    caption: "Mold growth across a water-damaged ceiling (post-Katrina, New Orleans)"

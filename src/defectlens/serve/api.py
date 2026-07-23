@@ -199,6 +199,51 @@ def _card_to_dict(card: Any) -> dict:
     }
 
 
+def _exemplar_to_dict(meta: dict) -> dict:
+    """Public exemplar payload (KB track, plan C2): served-image URLs are
+    frontend-relative (the derivatives ship with the site build)."""
+    return {
+        "id": meta["id"],
+        "thumb_url": meta["thumb_url"],
+        "image_url": meta["image_url"],
+        "credit": meta["credit"],
+        "source_url": meta["source_url"],
+        "caption": meta.get("caption", ""),
+    }
+
+
+def _exemplar_store(app: FastAPI):
+    """The ArrayVectorStore when one is wired (cloud path); None on the local
+    pgvector path, where card payloads simply omit exemplars."""
+    recognizer = getattr(app.state, "recognizer", None)
+    store = getattr(recognizer, "vector_store", None)
+    return store if hasattr(store, "exemplars_for_card") else None
+
+
+def _cards_with_exemplars(hits, store) -> list[dict]:
+    """Card payloads with an exemplar thumb strip joined by card_id (max 3)."""
+    cards = []
+    for hit in hits:
+        card = _card_to_dict(hit.card)
+        if store is not None:
+            exemplars = store.exemplars_for_card(hit.card.id)
+            if exemplars:
+                card["exemplars"] = [_exemplar_to_dict(m) for m in exemplars]
+        cards.append(card)
+    return cards
+
+
+def _similar_cases(store, query_embedding, k: int = 3) -> list[dict]:
+    """Top-k exemplars by CLIP image similarity + their linked card ids."""
+    if store is None or query_embedding is None:
+        return []
+    rows = store.exemplar_top_k(query_embedding, k)
+    return [
+        {**_exemplar_to_dict(meta), "card_ids": meta.get("card_ids", [])}
+        for _eid, meta, _dist in rows
+    ]
+
+
 def _lazy_mode() -> bool:
     """True on the async cloud path: model loading is deferred out of the
     lifespan to the routes/worker that actually need it."""
@@ -349,6 +394,7 @@ def run_analysis(
             describer, img, top_labels, audio_band, budget_override=describe_budget
         )
 
+    store = _exemplar_store(app)
     return {
         "classes": [{"label": label, "score": score} for label, score in classes],
         "severity": severity,
@@ -356,7 +402,8 @@ def run_analysis(
         "classifier": classifier,
         "note": note_text,
         "description": description,
-        "cards": [_card_to_dict(hit.card) for hit in result.hits],
+        "cards": _cards_with_exemplars(result.hits, store),
+        "similar_cases": _similar_cases(store, result.query_embedding),
         "audio": audio_payload,
     }
 
@@ -458,7 +505,7 @@ def create_app(
             ensure_loaded(request.app)  # cloud lazy path loads on demand
         text_searcher = request.app.state.text_searcher
         hits = text_searcher.search(payload.query, k=5)
-        return {"cards": [_card_to_dict(hit.card) for hit in hits]}
+        return {"cards": _cards_with_exemplars(hits, _exemplar_store(request.app))}
 
     # -----------------------------------------------------------------------
     # CPU async path (async /analyze design, Phase 1): removes the 29s gateway

@@ -22,9 +22,9 @@ def _unit(i: int, dim: int) -> np.ndarray:
     return v
 
 
-def _write_npz(tmp_path, *, visual, audio, search, version=2):
-    """visual/audio/search are lists of tuples; version omits keys when < 2 to
-    simulate a stale (v1) artifact."""
+def _write_npz(tmp_path, *, visual, audio, search, exemplar=(), version=3):
+    """visual/audio/search/exemplar are lists of tuples; version omits keys
+    below the corresponding format to simulate stale (v1/v2) artifacts."""
     path = tmp_path / "card_vectors.npz"
     arrays = dict(
         visual_ids=np.array([v[0] for v in visual]),
@@ -39,6 +39,14 @@ def _write_npz(tmp_path, *, visual, audio, search, version=2):
         arrays["search_ids"] = np.array([s[0] for s in search])
         arrays["search_embeddings_text"] = np.stack([s[1] for s in search]).astype(np.float32)
         arrays["format_version"] = np.array(version)
+    if version >= 3:
+        # (id, meta_dict, vec) tuples; empty exemplar index is a valid v3 state.
+        arrays["exemplar_ids"] = np.array([e[0] for e in exemplar])
+        arrays["exemplar_meta_json"] = np.array([json.dumps(e[1]) for e in exemplar])
+        arrays["exemplar_embeddings"] = (
+            np.stack([e[2] for e in exemplar]).astype(np.float32)
+            if exemplar else np.zeros((0, 4), np.float32)
+        )
     np.savez(path, **arrays)
     return path
 
@@ -61,7 +69,14 @@ def _sample_store(tmp_path):
         ("v_c", _unit(2, 4)),
         ("hvac-1", _unit(3, 4)),
     ]
-    path = _write_npz(tmp_path, visual=visual, audio=audio, search=search)
+    exemplar = [
+        ("ex_1", {"id": "ex_1", "card_ids": ["v_a"], "class_tags": ["crack"], "caption": "one"}, _unit(0, 4)),
+        ("ex_2", {"id": "ex_2", "card_ids": ["v_a", "v_b"], "class_tags": ["crack"], "caption": "two"}, _unit(1, 4)),
+        ("ex_3", {"id": "ex_3", "card_ids": ["v_a"], "class_tags": ["crack"], "caption": "three"}, _unit(2, 4)),
+        ("ex_4", {"id": "ex_4", "card_ids": ["v_a"], "class_tags": ["crack"], "caption": "four"}, _unit(3, 4)),
+        ("ex_5", {"id": "ex_5", "card_ids": [], "class_tags": ["mold_algae"], "caption": "five"}, _unit(0, 4)),
+    ]
+    path = _write_npz(tmp_path, visual=visual, audio=audio, search=search, exemplar=exemplar)
     return ArrayVectorStore.load(path)
 
 
@@ -374,6 +389,60 @@ def test_load_rejects_stale_v1_npz_loudly(tmp_path):
     path = _write_npz(tmp_path, visual=visual, audio=audio, search=[], version=1)
     with pytest.raises(ValueError, match="format v1|export_vector_artifacts"):
         ArrayVectorStore.load(path)
+
+
+def test_load_rejects_stale_v2_npz_loudly(tmp_path):
+    """A pre-exemplar (v2) artifact must fail loudly: serving would silently
+    drop the exemplar thumb strips and similar-cases section."""
+    visual = [("v_a", ["crack"], _unit(0, 4), _unit(1, 4))]
+    audio = [("h_a", ["bearing_wear"], _unit(0, 3))]
+    search = [("v_a", _unit(0, 4))]
+    path = _write_npz(tmp_path, visual=visual, audio=audio, search=search, version=2)
+    with pytest.raises(ValueError, match="format v2|export_vector_artifacts"):
+        ArrayVectorStore.load(path)
+
+
+# ---------------------------------------------------------------------------
+# exemplar index (format v3)
+# ---------------------------------------------------------------------------
+
+
+def test_exemplar_top_k_orders_by_cosine_and_returns_meta(tmp_path):
+    store = _sample_store(tmp_path)
+    rows = store.exemplar_top_k(_unit(1, 4), 2)
+    assert [r[0] for r in rows] == ["ex_2", "ex_1"] or [r[0] for r in rows][0] == "ex_2"
+    top_id, meta, dist = rows[0]
+    assert top_id == "ex_2"
+    assert meta["caption"] == "two"
+    assert dist == pytest.approx(0.0, abs=1e-6)
+    assert store.exemplar_count() == 5
+
+
+def test_exemplar_top_k_empty_when_no_exemplars(tmp_path):
+    visual = [("v_a", ["crack"], _unit(0, 4), _unit(1, 4))]
+    audio = [("h_a", ["bearing_wear"], _unit(0, 3))]
+    search = [("v_a", _unit(0, 4))]
+    path = _write_npz(tmp_path, visual=visual, audio=audio, search=search)
+    store = ArrayVectorStore.load(path)
+    assert store.exemplar_top_k(_unit(0, 4), 3) == []
+    assert store.exemplar_count() == 0
+
+
+def test_exemplars_for_card_joins_and_caps_at_three(tmp_path):
+    store = _sample_store(tmp_path)
+    # v_a is linked from four exemplars; the join caps at 3 (manifest order).
+    metas = store.exemplars_for_card("v_a")
+    assert [m["id"] for m in metas] == ["ex_1", "ex_2", "ex_3"]
+    assert [m["id"] for m in store.exemplars_for_card("v_b")] == ["ex_2"]
+
+
+def test_exemplars_for_card_falls_back_to_class_tags(tmp_path):
+    """Cards without a curated join get class-tag-matched exemplars; unknown
+    ids (e.g. audio cards absent from the visual index) get none."""
+    store = _sample_store(tmp_path)
+    # v_c (mold_algae) has no curated join; ex_5 shares its class tag.
+    assert [m["id"] for m in store.exemplars_for_card("v_c")] == ["ex_5"]
+    assert store.exemplars_for_card("hvac-999") == []
 
 
 def test_fusion_never_returns_hvac_even_with_search_index(tmp_path):

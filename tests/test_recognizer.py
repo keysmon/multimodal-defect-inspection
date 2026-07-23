@@ -91,7 +91,7 @@ def test_class_ranking_from_cards_first_card_rank_scoring():
 
     ranking = class_ranking_from_cards(fused_ids, cards_by_id)
 
-    assert len(ranking) == 9
+    assert len(ranking) == 12
     assert {c for c, _ in ranking} == set(UNIFIED_CLASSES)
 
     # crack: first fused card carrying it is c1 at rank 0 -> 1/(0+1) = 1.0

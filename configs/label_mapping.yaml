@@ -1,5 +1,6 @@
 # DefectLens unified label-mapping table (versioned; every change gets a rationale).
-# unified_label must be one of the 9 UNIFIED_CLASSES, or EXCLUDE to drop samples.
+# unified_label must be one of the 12 UNIFIED_CLASSES (v2, 2026-07-21), or
+# EXCLUDE to drop samples.
 mappings:
   # ---- CODEBRIM (concrete bridge defects, single-label crops) ----
   - source_dataset: codebrim
@@ -92,3 +93,60 @@ mappings:
     source_label: non_cracked
     unified_label: no_defect
     rationale: abundant clean-concrete negatives; capped at ingest (configs/sampling.yaml)
+
+  # ---- MBDD2025 (multi-material building defects, bbox-derived crops) ----
+  - source_dataset: mbdd2025
+    source_label: crack
+    unified_label: crack
+    rationale: direct match; extends crack beyond concrete to masonry/brick/timber/steel
+  - source_dataset: mbdd2025
+    source_label: leakage
+    unified_label: water_damage
+    rationale: facade water leakage/staining is the existing water_damage phenomenon
+  - source_dataset: mbdd2025
+    source_label: corrosion
+    unified_label: corrosion_stain
+    rationale: direct match on steel/RC members
+  - source_dataset: mbdd2025
+    source_label: abscission
+    unified_label: finish_detachment
+    rationale: render/plaster/tile shedding; distinct from concrete spalling and coating-level peeling_paint
+  - source_dataset: mbdd2025
+    source_label: bulge
+    unified_label: bulge_deformation
+    rationale: out-of-plane facade deformation; no v1 class fits
+
+  # ---- VT corrosion condition states (CC0; severity kept as source_label) ----
+  # NOTE: the "good" state never occurs per-image in the shipped data (good
+  # regions are unannotated background, so every whole image is fair or worse);
+  # the entry is retained for completeness should region crops be added later.
+  - source_dataset: vt_corrosion
+    source_label: good
+    unified_label: no_defect
+    rationale: state good = clean steel per AASHTO/BIRM grading
+  - source_dataset: vt_corrosion
+    source_label: fair
+    unified_label: corrosion_stain
+    rationale: early corrosion; severity state preserved in source_label
+  - source_dataset: vt_corrosion
+    source_label: poor
+    unified_label: corrosion_stain
+    rationale: advanced corrosion
+  - source_dataset: vt_corrosion
+    source_label: severe
+    unified_label: corrosion_stain
+    rationale: section-loss-level corrosion
+
+  # ---- Insulator defect detection (electrical branch; grid insulators, NOT panels) ----
+  - source_dataset: insulator
+    source_label: normal
+    unified_label: no_defect
+    rationale: intact insulator crops broaden no_defect across materials
+  - source_dataset: insulator
+    source_label: pollution_flashover
+    unified_label: insulator_damage
+    rationale: flashover contamination damage (merged class per spec)
+  - source_dataset: insulator
+    source_label: broken
+    unified_label: insulator_damage
+    rationale: mechanical insulator damage (merged class per spec)

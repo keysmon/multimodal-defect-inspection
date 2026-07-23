@@ -26,6 +26,14 @@ DATASET_LABELS: dict[str, set[str]] = {
         "crack", "mold", "peeling_paint", "stairstep_crack", "water_seepage",
     },
     "sdnet2018": {"cracked", "non_cracked"},
+    # AASHTO/BIRM condition states staged by scripts/prepare_vt_corrosion.py.
+    # "good" is registered for completeness but never occurs per-image: VT's
+    # good regions are unannotated background, so every whole image is fair+.
+    "vt_corrosion": {"good", "fair", "poor", "severe"},
+    # Classification crops staged by scripts/prepare_mbdd.py (VOC boxes).
+    "mbdd2025": {"crack", "leakage", "corrosion", "abscission", "bulge"},
+    # Classification crops staged by scripts/prepare_insulator.py (YOLO boxes).
+    "insulator": {"normal", "pollution_flashover", "broken"},
 }
 
 

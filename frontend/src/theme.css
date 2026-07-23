@@ -258,6 +258,22 @@ a:hover { color: var(--gold-bright); }
 .sc-search-row { display: flex; gap: 10px; margin-bottom: 10px; }
 .sc-search-input { flex: 1; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); color: var(--text); font-family: var(--font-sans); font-size: 15px; padding: 13px 16px; }
 
+/* ---- exemplars (KB track): documented-case thumbs + similar-cases ---- */
+.sc-exemplar-strip { display: flex; gap: 8px; margin: 10px 0 2px; flex-wrap: wrap; }
+.sc-exemplar-thumb {
+  width: 44px; height: 44px; padding: 0; overflow: hidden; cursor: zoom-in;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--ink-2);
+  transition: border-color 0.14s;
+}
+.sc-exemplar-thumb:hover { border-color: var(--line-strong); }
+.sc-exemplar-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sc-exemplar-thumb--lg { width: 72px; height: 72px; flex: none; }
+.sc-exemplar-cases { display: flex; flex-direction: column; gap: 12px; }
+.sc-exemplar-case { display: flex; gap: 12px; align-items: flex-start; }
+.sc-exemplar-case-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sc-exemplar-caption { font-size: 13.5px; color: var(--text); }
+.sc-exemplar-credit { font-size: 11.5px; color: var(--faint); }
+
 /* ---- lightbox ---- */
 .sc-lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(10, 14, 21, 0.86); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 40px; }
 .sc-lightbox-card { position: relative; max-width: 880px; width: 100%; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); }

@@ -14,9 +14,15 @@ def write_mapping(tmp_path, text):
     return p
 
 
-def test_unified_classes_are_nine():
-    assert len(UNIFIED_CLASSES) == 9
+def test_unified_classes_are_twelve():
+    # v2 (2026-07-21): 9 v1 classes + finish_detachment, bulge_deformation,
+    # insulator_damage appended AFTER no_defect so v1 indices are unchanged.
+    assert len(UNIFIED_CLASSES) == 12
     assert "no_defect" in UNIFIED_CLASSES
+    assert UNIFIED_CLASSES.index("no_defect") == 8
+    assert UNIFIED_CLASSES[9:] == [
+        "finish_detachment", "bulge_deformation", "insulator_damage",
+    ]
 
 
 def test_load_and_map(tmp_path):

@@ -42,12 +42,17 @@ AUDIO_EMB = "audio_embeddings"
 # and load() rejects it loudly.
 SEARCH_IDS = "search_ids"
 SEARCH_TEXT = "search_embeddings_text"
+# Exemplar-image index (format v3, plan 2026-07-21): CLIP IMAGE embeddings of
+# the served exemplar derivatives (frontend/public/exemplars/<id>.jpg) plus a
+# JSON metadata row per exemplar ({id, card_ids, class_tags, license, credit,
+# source_url, caption, image_url, thumb_url}). Serves both the per-card thumb
+# strips (joined by card_ids) and /analyze's "similar documented cases"
+# (query-image cosine over these vectors).
+EXEMPLAR_IDS = "exemplar_ids"
+EXEMPLAR_META = "exemplar_meta_json"
+EXEMPLAR_EMB = "exemplar_embeddings"
 FORMAT = "format_version"
-FORMAT_VERSION = 2
-
-# Visual ``kinds`` map to the two per-card embedding matrices. Mirrors the
-# ``kind`` CHECK constraint in rag/db.py's card_vectors table.
-_VISUAL_KIND_KEY = {"text": VISUAL_TEXT, "image_centroid": VISUAL_CENTROID}
+FORMAT_VERSION = 3
 
 Row = tuple[str, list[str], float]
 
@@ -106,6 +111,9 @@ class ArrayVectorStore:
         audio_emb: np.ndarray,
         search_ids: list[str],
         search_text: np.ndarray,
+        exemplar_ids: list[str] | None = None,
+        exemplar_meta: list[dict] | None = None,
+        exemplar_emb: np.ndarray | None = None,
     ) -> None:
         self.visual_ids = list(visual_ids)
         self.visual_tags = list(visual_tags)
@@ -120,15 +128,25 @@ class ArrayVectorStore:
         # Search-scoped index over ALL cards (visual + hvac audio).
         self.search_ids = list(search_ids)
         self._search = _normalize_rows(search_text)
+        # Exemplar-image index (format v3) + card_id -> exemplar-meta join.
+        self.exemplar_ids = list(exemplar_ids or [])
+        self.exemplar_meta = list(exemplar_meta or [])
+        self._exemplar = _normalize_rows(
+            exemplar_emb if exemplar_emb is not None else np.zeros((0, 768), np.float32)
+        )
+        self._exemplars_by_card: dict[str, list[dict]] = {}
+        for meta in self.exemplar_meta:
+            for card_id in meta.get("card_ids", []):
+                self._exemplars_by_card.setdefault(card_id, []).append(meta)
 
     @classmethod
     def load(cls, path: str | Path) -> "ArrayVectorStore":
         data = np.load(path, allow_pickle=False)
         version = int(data[FORMAT]) if FORMAT in data.files else 1
-        if version < FORMAT_VERSION or SEARCH_IDS not in data.files:
+        if version < FORMAT_VERSION or EXEMPLAR_IDS not in data.files:
             raise ValueError(
                 f"{path}: card_vectors.npz is format v{version} but v{FORMAT_VERSION} "
-                "is required (search-scoped vectors covering hvac audio cards). "
+                "is required (exemplar-image vectors + metadata). "
                 "Re-run scripts/export_vector_artifacts.py."
             )
         return cls(
@@ -141,6 +159,9 @@ class ArrayVectorStore:
             audio_emb=data[AUDIO_EMB],
             search_ids=[str(x) for x in data[SEARCH_IDS]],
             search_text=data[SEARCH_TEXT],
+            exemplar_ids=[str(x) for x in data[EXEMPLAR_IDS]],
+            exemplar_meta=[json.loads(s) for s in data[EXEMPLAR_META]],
+            exemplar_emb=data[EXEMPLAR_EMB],
         )
 
     def visual_count(self) -> int:
@@ -181,6 +202,48 @@ class ArrayVectorStore:
     def search_count(self) -> int:
         """Number of cards in the search-scoped index (visual + hvac audio)."""
         return len(self.search_ids)
+
+    def exemplar_count(self) -> int:
+        """Number of indexed exemplar images."""
+        return len(self.exemplar_ids)
+
+    def exemplar_top_k(self, embedding, k: int) -> list[tuple[str, dict, float]]:
+        """Nearest exemplar images to a CLIP image embedding, nearest-first.
+
+        Returns ``[(exemplar_id, meta, cosine_distance)]`` — meta is the full
+        manifest-derived dict (card_ids, credit, caption, image/thumb urls) so
+        callers can render "similar documented cases" without another lookup.
+        """
+        if not self.exemplar_ids:
+            return []
+        q = _normalize_rows(np.asarray(embedding, dtype=np.float32))
+        dists = 1.0 - self._exemplar @ q
+        rows = [
+            (eid, self.exemplar_meta[i], float(dists[i]))
+            for i, eid in enumerate(self.exemplar_ids)
+        ]
+        rows.sort(key=lambda r: r[2])
+        return rows[:k]
+
+    def exemplars_for_card(self, card_id: str, limit: int = 3) -> list[dict]:
+        """Exemplar metadata for a card, capped (manifest order).
+
+        Curated ``card_ids`` joins take precedence; cards without one fall
+        back to exemplars sharing a class tag, so every class-tagged card
+        gets documented-case thumbs (only ~10 of 205 cards carry curated
+        joins — without the fallback, search results almost never show a
+        strip). Audio (hvac-*) cards have no visual tags and get none.
+        """
+        explicit = self._exemplars_by_card.get(card_id, [])
+        if explicit:
+            return explicit[:limit]
+        card_tags = set(self._visual_tag_by_id.get(card_id, ()))
+        if not card_tags:
+            return []
+        return [
+            meta for meta in self.exemplar_meta
+            if card_tags.intersection(meta.get("class_tags", ()))
+        ][:limit]
 
     def search_top_k(self, embedding, k: int) -> list[Row]:
         """Nearest cards for a free-text /search query, over ALL cards.

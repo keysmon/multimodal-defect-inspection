@@ -62,7 +62,7 @@ OpsStack(
     http_api=api.http_api,
     api_stage_name=api.stage_name,
     serve_fn=api.serve_fn,
-    daily_limit_usd="5",
+    daily_limit_usd="20",
     monthly_budget_usd=15,
 )
 

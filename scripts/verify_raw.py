@@ -10,7 +10,11 @@ import argparse
 import sys
 from pathlib import Path
 
-REQUIRED = ["codebrim", "bd3", "sdnet2018"]
+REQUIRED = [
+    "codebrim", "bd3", "sdnet2018",
+    # Taxonomy v2 (2026-07-21):
+    "mbdd2025", "vt_corrosion", "insulator",
+]
 OPTIONAL = ["roboflow_walls"]
 
 

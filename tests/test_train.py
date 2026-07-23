@@ -12,17 +12,9 @@ from defectlens.train.qlora import (
     subset_rows,
 )
 
-ALL_CLASSES = [
-    "crack",
-    "spalling",
-    "efflorescence",
-    "exposed_rebar",
-    "corrosion_stain",
-    "mold_algae",
-    "water_damage",
-    "peeling_paint",
-    "no_defect",
-]
+from defectlens.taxonomy import UNIFIED_CLASSES
+
+ALL_CLASSES = list(UNIFIED_CLASSES)  # 12 (v2, 2026-07-21)
 
 
 def _rows(label_counts: dict[str, int]) -> list[ManifestRow]:
@@ -143,10 +135,10 @@ def test_humanized_covers_all_unified_classes():
 
 def test_subset_rows_balances_across_classes():
     rows = _rows({label: 5 for label in ALL_CLASSES})
-    subset = subset_rows(rows, 18, seed=42)
-    assert len(subset) == 18
+    subset = subset_rows(rows, 24, seed=42)
+    assert len(subset) == 24
     counts = Counter(r.unified_label for r in subset)
-    assert len(counts) == 9
+    assert len(counts) == 12
     assert all(c == 2 for c in counts.values())
 
 

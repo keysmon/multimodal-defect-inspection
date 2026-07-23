@@ -15,7 +15,11 @@ import copy
 
 from defectlens.report.schema import WalkthroughReport
 
-CONFIDENCE_THRESHOLD = 0.5  # mirrors the agent's MEASURED_THRESHOLD
+# Evidence-derived v2 floor (results/gate_floor_v2.json, frozen v2 split,
+# 4,824 per-image confidences): max kept-correct (0.871) subject to <=5%
+# merged-incorrect (0.048). Replaces the v1-era 0.5, which dropped CORRECT
+# labels at 0.436 in the live 2026-07-21 walkthrough enrichment.
+CONFIDENCE_THRESHOLD = 0.375
 
 # Words/phrases whose presence in Haiku's observation makes the fine-tuned
 # class plausible for that photo. Deliberately generous per class (Haiku
@@ -32,6 +36,10 @@ CLASS_KEYWORDS: dict[str, tuple[str, ...]] = {
     # no_defect has NO keywords on purpose: it can never merge onto a grounded
     # finding (is_consistent short-circuits it) - see the docstring below.
     "no_defect": (),
+    # Taxonomy v2 (2026-07-21) additions:
+    "finish_detachment": ("detach", "render", "plaster", "tile", "shedding", "falling", "abscission", "delaminat"),
+    "bulge_deformation": ("bulge", "bulging", "deform", "bow", "out-of-plane", "displacement"),
+    "insulator_damage": ("insulator", "flashover", "porcelain", "bushing"),
 }
 
 

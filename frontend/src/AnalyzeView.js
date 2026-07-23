@@ -3,7 +3,56 @@
 import React, { useRef, useState } from "react";
 import axios from "axios";
 import { isColdStartError, sleep } from "./apiHelpers";
-import { Button, Pill, severityTone, severityLabel, CardList, ErrorBanner, StatusLine } from "./ui";
+import { Button, Pill, severityTone, severityLabel, CardList, ErrorBanner, StatusLine, Lightbox } from "./ui";
+
+// "Similar documented cases" (KB track): top-3 exemplars by CLIP image
+// similarity to the analyzed photo, with credit + linked guidance card chips.
+function SimilarCases({ cases }) {
+  const [open, setOpen] = useState(null); // case index or null
+  if (!cases || cases.length === 0) return null;
+  return (
+    <section>
+      <h3 className="sc-section-h">Similar documented cases</h3>
+      <div className="sc-exemplar-cases" data-testid="similar-cases">
+        {cases.map((ex, i) => (
+          <div key={ex.id} className="sc-exemplar-case">
+            <button
+              type="button"
+              className="sc-exemplar-thumb sc-exemplar-thumb--lg"
+              title={ex.credit}
+              onClick={() => setOpen(i)}
+            >
+              <img src={ex.thumb_url} alt={ex.caption || ex.id} loading="lazy" />
+            </button>
+            <div className="sc-exemplar-case-meta">
+              <span className="sc-exemplar-caption">{ex.caption}</span>
+              <span className="sc-exemplar-credit">{ex.credit}</span>
+              {ex.card_ids?.length > 0 && (
+                <span className="sc-chip-row">
+                  {ex.card_ids.map((cid) => (
+                    <Pill key={cid} tone="default" title="Linked guidance card">
+                      {cid}
+                    </Pill>
+                  ))}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {open != null && cases[open] && (
+        <Lightbox
+          src={cases[open].image_url}
+          alt={cases[open].caption || cases[open].id}
+          label={cases[open].credit}
+          caption={cases[open].caption}
+          onClose={() => setOpen(null)}
+          testId="similar-cases-lightbox"
+        />
+      )}
+    </section>
+  );
+}
 
 // Cold-start retry: the live demo scales to zero, so the first analyze after an
 // idle period commonly fails while the model warms. We retry once after a short
@@ -563,6 +612,7 @@ function AnalyzeView({ API }) {
                   </p>
                 </section>
               )}
+              <SimilarCases cases={analyzeResult.similar_cases} />
               {analyzeResult.cards?.length > 0 && !guidanceOpen && (
                 <div>
                   <Button variant="ghost" size="sm" onClick={() => setGuidanceOpen(true)}>

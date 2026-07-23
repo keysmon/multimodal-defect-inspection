@@ -15,3 +15,6 @@ class_phrases:
   water_damage: "water damage stains or moisture seepage on a wall"
   peeling_paint: "peeling or flaking paint on a wall"
   no_defect: "a clean undamaged building surface"
+  finish_detachment: "render plaster or tiles detaching and shedding from a building facade"
+  bulge_deformation: "a bulging or deformed building wall surface bowing out of plane"
+  insulator_damage: "a damaged or contaminated electrical insulator on a power line"

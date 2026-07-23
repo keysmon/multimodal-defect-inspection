@@ -13,7 +13,7 @@ explicit "not observed - verify on-site".
 
 | Fine-tuned classifier | Guidance retrieval | Audio anomaly (pump) | Walkthrough groundedness |
 | :---: | :---: | :---: | :---: |
-| **0.851** macro top-1 | **0.863** recall@5 | **0.801** AUC (0.726 baseline) | **1.0** measured pre-gate |
+| **0.903** macro top-1 (12 classes) | **0.863** recall@5 | **0.801** AUC (0.726 baseline) | **1.0** measured pre-gate |
 
 ## Walkthrough diagnostic report
 
@@ -36,11 +36,53 @@ judge - and the split it found is the honest headline:
 
 Full methodology, mechanism, and results: **[docs/case-study.md](docs/case-study.md)**
 
+## Taxonomy v2 - multi-material coverage (second fine-tune cycle)
+
+The classifier grew from a 9-class concrete-centric taxonomy to 12 classes
+spanning masonry, brick, timber, steel, and grid electrical insulators
+(`finish_detachment`, `bulge_deformation`, `insulator_damage`), trained on
+three added licensed datasets (MBDD2025 CC BY, VT Corrosion Condition State
+CC0, insulator defect detection CC BY). The v1 frozen test split is archived
+byte-identical and an invariant test proves every v1 test row survives in
+the v2 split, so backward compatibility is a measured number, not a hope:
+
+| Metric | Result |
+|---|---|
+| v2 frozen split (4,824 imgs, 12 classes) | **0.903** macro top-1 / 0.992 top-3 |
+| v1 frozen split backward-compat (2,648 imgs) | **0.841** vs the 0.831 floor (v1 adapter: 0.851) |
+| New classes | insulator 0.978 / bulge 0.974 / finish_detachment 0.941 top-1 |
+| VT corrosion severity states | corrosion recognized on fair 0.93 / poor 1.00 / severe 1.00 |
+
+The walkthrough enrichment gate's confidence floor is now evidence-derived
+(0.375, max kept-correct at <= 5% merged-incorrect over 4,824 per-image
+confidences; the full curve ships in `results/gate_floor_v2.json`) - it
+previously dropped correct labels observed live at 0.436 under the old 0.5
+floor.
+
+**Verified negative findings, stated plainly:** no license-clean
+HVAC-equipment or residential electrical-panel visual-defect dataset exists
+(corrosion severity states stand in as the equipment-corrosion proxy), and
+`insulator_damage` covers grid transmission insulators, not panels.
+
+## Documented-case exemplars (image-grounded retrieval)
+
+Guidance cards and analyze results now show licensed exemplar photographs:
+70 images (public domain / CC0 / CC BY only - ShareAlike and NC excluded by
+contract, enforced by tests) curated from the training datasets, FEMA/NPS
+photography, and Wikimedia Commons with a recorded per-image license check.
+`/analyze` returns "similar documented cases" by CLIP image similarity;
+retrieval class-consistency is reported honestly as a pool-limited proxy
+(0.436 top-1 overall - strong where the pool is deep, near-zero for
+one-exemplar classes; `results/exemplar_retrieval.json`). Attribution:
+[docs/exemplar-attribution.md](docs/exemplar-attribution.md).
+
 ## Stack
 
 - **ML** - PyTorch + Hugging Face: QLoRA fine-tune of Qwen2.5-VL-3B (trained
-  on EC2 spot, 0.472 -> 0.851 macro top-1; 0.877 maintained on a
-  cross-dataset OOD split); CLIP/CLAP embeddings for cross-modal RAG and
+  on EC2 spot; two cycles: 0.472 -> 0.851 on 9 classes, then 0.903 on the
+  12-class multi-material taxonomy with backward-compat measured on the
+  archived v1 split; 0.877 maintained on a cross-dataset OOD split, v1
+  adapter); CLIP/CLAP embeddings for cross-modal + exemplar-image RAG and
   unsupervised audio anomaly scoring; a controlled thermal-fusion study
   reported as an honest negative (init-confound resolved to parity).
 - **Serving** - FastAPI on a Lambda container behind CloudFront + API
@@ -68,7 +110,9 @@ worker) and `DEFECTLENS_DESCRIBER=bedrock` on the API process. Tests:
 
 ## Data and licenses
 
-Trained/evaluated on CODEBRIM, BD3, SDNET2018, DCASE2020, METU/Ozgenel, and
-BFDD (see `docs/datasets.md`); guidance corpus cites EPA/HUD/InterNACHI/
-FHWA/NPS sources; UI gallery and realistic eval photos are CC-licensed with
-attribution files alongside. Code is MIT.
+Trained/evaluated on CODEBRIM, BD3, SDNET2018, MBDD2025, VT Corrosion
+Condition State, the figshare insulator-defect set, DCASE2020,
+METU/Ozgenel, and BFDD (see `docs/datasets.md`); guidance corpus cites
+EPA/HUD/InterNACHI/FHWA/NPS sources; UI gallery, realistic eval photos,
+and the served exemplar images are licensed (PD/CC0/CC BY) with
+attribution files alongside (`docs/exemplar-attribution.md`). Code is MIT.

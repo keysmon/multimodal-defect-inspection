@@ -485,3 +485,56 @@ test("GPU button submits to the fine-tuned model and renders its result", async 
   // ...and renders the fine-tuned model's top class.
   expect(screen.getByTestId("vlm-chips")).toHaveTextContent("1. exposed rebar 88%");
 });
+
+test("renders the similar documented cases section from the analyze payload", async () => {
+  const withSimilar = {
+    data: {
+      ...mockAnalyzeResponse.data,
+      similar_cases: [
+        {
+          id: "mbdd-crack-001",
+          thumb_url: "/exemplars/thumbs/mbdd-crack-001.jpg",
+          image_url: "/exemplars/mbdd-crack-001.jpg",
+          credit: "MBDD2025 building-defect dataset (Zenodo), CC BY 4.0",
+          source_url: "https://zenodo.org/records/15622584",
+          caption: "Facade crack, UAV survey crop",
+          card_ids: ["c1"],
+        },
+      ],
+    },
+  };
+  mockAnalyzeJob(withSimilar);
+  render(<AnalyzeView API={API} />);
+
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [new File(["b"], "wall.png", { type: "image/png" })] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
+
+  await waitFor(() =>
+    expect(screen.getByText("Similar documented cases")).toBeInTheDocument()
+  );
+  const section = screen.getByTestId("similar-cases");
+  expect(section).toHaveTextContent("Facade crack, UAV survey crop");
+  expect(section).toHaveTextContent("MBDD2025 building-defect dataset (Zenodo), CC BY 4.0");
+  expect(section).toHaveTextContent("c1"); // linked card chip
+
+  // Clicking the thumb opens the shared lightbox with the full image.
+  fireEvent.click(screen.getByTitle(/MBDD2025 building-defect dataset/));
+  expect(screen.getByTestId("similar-cases-lightbox")).toBeInTheDocument();
+});
+
+test("analyze without similar_cases renders no similar-cases section", async () => {
+  mockAnalyzeJob(mockAnalyzeResponse);
+  render(<AnalyzeView API={API} />);
+
+  fireEvent.change(screen.getByTestId("file-input"), {
+    target: { files: [new File(["b"], "wall.png", { type: "image/png" })] },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /^analyze photo$/i }));
+
+  await waitFor(() =>
+    expect(screen.getByTestId("severity-headline")).toBeInTheDocument()
+  );
+  expect(screen.queryByText("Similar documented cases")).not.toBeInTheDocument();
+});

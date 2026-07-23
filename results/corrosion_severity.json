@@ -1,0 +1,24 @@
+{
+  "metric": "per-AASHTO-state recognition of corrosion_stain on vt_corrosion test rows; severity band is RULE-mapped from the recorded state when the class is recognized (recognition metric, not model severity grading)",
+  "states": {
+    "fair": {
+      "n": 14,
+      "top1_corrosion_rate": 0.9286,
+      "top3_corrosion_rate": 1.0,
+      "band_when_recognized": "monitor"
+    },
+    "poor": {
+      "n": 39,
+      "top1_corrosion_rate": 1.0,
+      "top3_corrosion_rate": 1.0,
+      "band_when_recognized": "urgent"
+    },
+    "severe": {
+      "n": 13,
+      "top1_corrosion_rate": 1.0,
+      "top3_corrosion_rate": 1.0,
+      "band_when_recognized": "structural"
+    }
+  },
+  "source_dump": "results/vlm_v2_per_image.jsonl"
+}
