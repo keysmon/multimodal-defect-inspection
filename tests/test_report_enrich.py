@@ -76,7 +76,18 @@ def test_low_confidence_dropped():
     report, gate = merge_enrichment(_report_dict(), {"photo_1": ("spalling", 0.31)})
     assert report["per_photo"][0]["enrichment"] is None
     assert gate["dropped"][0]["reason"] == "low_confidence"
-    assert CONFIDENCE_THRESHOLD == 0.5
+    # Evidence-derived v2 floor (results/gate_floor_v2.json); the live
+    # 0.436-confidence drop scenario must now MERGE, not drop.
+    assert CONFIDENCE_THRESHOLD == 0.375
+
+
+def test_observed_live_drop_scenario_now_merges():
+    """Regression lock on the incident that motivated the v2 floor: correct
+    labels at 0.436 confidence were dropped by the old 0.5 threshold."""
+    report, _gate = merge_enrichment(_report_dict(), {"photo_1": ("spalling", 0.436)})
+    enrichment = report["per_photo"][0]["enrichment"]
+    assert enrichment is not None
+    assert enrichment["label"] == "spalling"
 
 
 def test_no_evidence_photo_never_enriched():
