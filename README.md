@@ -133,14 +133,39 @@ verified, full agent-session round-trip on the roadmap below.
 
 ## Roadmap
 
+Near-term (in flight when development paused):
+
 - Agent-session end-to-end harness for the MCP server (scripted MCP client
   driving all three tools against the live API).
 - Defect localization overlays (bounding boxes on findings): a controlled
-  grounding experiment on the base VLM has run; the feature ships only if
-  the hand-rated verdict clears the pre-registered bar, otherwise it gets
-  reported as an honest negative alongside the thermal study.
+  grounding experiment on the base VLM has run at the production pixel
+  budget; the feature ships only if the hand-rated verdict clears the
+  pre-registered bar (>=70% useful boxes), otherwise it gets reported as
+  an honest negative alongside the thermal study. Early signal: the model
+  boxes full scenes far more readily than close-up crops.
+
+Designed, not built:
+
 - Video walkthrough input: client-side frame extraction (sharpness-ranked,
-  budget-capped) feeding the existing photo pipeline; designed, not built.
+  capped to the vision API's 20-image budget, deselectable thumbnails)
+  feeding the existing photo pipeline unchanged.
+
+Future directions:
+
+- Cloud audio analysis: the CLAP anomaly path runs locally today and is
+  pre-staged for the cloud deployment, pending a platform memory-limit
+  increase.
+- Taxonomy v3 candidates: roofing damage (shingle/hail) and pipe-corrosion
+  datasets have been license-verified (CC BY / CC0) and are ready to
+  ingest in a future fine-tune cycle.
+- Exemplar-pool growth: several classes retrieve from thin exemplar pools
+  (mold has a single documented case); a curated pass over public-domain
+  agency photo libraries would deepen them.
+- Faster CPU cold starts: an ONNX CLIP spike verified accuracy-perfect
+  fp32 export with a much lighter import footprint; wiring it in is
+  deferred until the audio question settles the Lambda image contents.
+- Repeat-visit comparison (exploration): a second walkthrough of the same
+  site producing a cited delta report against the first visit.
 
 ## Data and licenses
 
