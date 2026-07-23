@@ -17,7 +17,6 @@ explicit "not observed - verify on-site".
 
 ## Walkthrough diagnostic report
 
-![Walkthrough report](docs/images/walkthrough-report.png)
 
 One multimodal call sees every photo at once, so the report reasons across
 them ("the staining at the crack in photo 4 means the photo-1 crack is an
