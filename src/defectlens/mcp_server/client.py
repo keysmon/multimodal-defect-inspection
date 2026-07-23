@@ -45,13 +45,25 @@ class SiteCheckClient:
             if resp.status_code == 200:
                 return resp.json()
             if resp.status_code != 202:
-                detail = resp.json().get("detail", resp.text) if resp.content else ""
+                detail = ""
+                if resp.content:
+                    try:
+                        detail = resp.json().get("detail", resp.text)
+                    except ValueError:
+                        detail = resp.text
                 raise RuntimeError(f"job failed ({resp.status_code}): {detail}")
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"job at {url} still pending after {self.timeout_s}s")
             time.sleep(self.poll_interval_s)
 
     def analyze_photo(self, path: str, note: str = "") -> dict:
+        """Submit one photo for defect analysis and block until the job resolves.
+
+        Raises:
+            httpx.HTTPStatusError: the submit request failed.
+            RuntimeError: the job failed server-side.
+            TimeoutError: the job did not resolve within timeout_s.
+        """
         resp = self._http.post(
             "/analyze-jobs",
             files={"file": self._file_tuple(path)},
@@ -61,6 +73,11 @@ class SiteCheckClient:
         return self._poll(f"/analyze-jobs/{resp.json()['job_id']}")
 
     def search_standards(self, query: str) -> dict:
+        """Search the standards knowledge base for the given query. Synchronous - no poll.
+
+        Raises:
+            httpx.HTTPStatusError: the search request failed.
+        """
         resp = self._http.post("/search", json={"query": query})
         resp.raise_for_status()
         return resp.json()
@@ -71,6 +88,14 @@ class SiteCheckClient:
         visit_note: str = "",
         photo_notes: list[str] | None = None,
     ) -> dict:
+        """Submit a full walkthrough (multiple photos + notes) and block until the
+        job resolves.
+
+        Raises:
+            httpx.HTTPStatusError: the submit request failed.
+            RuntimeError: the job failed server-side.
+            TimeoutError: the job did not resolve within timeout_s.
+        """
         notes = photo_notes or [""] * len(photo_paths)
         files = [("files", self._file_tuple(p)) for p in photo_paths]
         # httpx encodes repeated form fields from a dict-of-list value, not a

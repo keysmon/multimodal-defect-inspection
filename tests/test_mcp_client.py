@@ -50,6 +50,19 @@ def test_poll_failure_raises_with_api_detail(tmp_path):
         _client(handler).analyze_photo(str(img))
 
 
+def test_poll_failure_with_html_body_raises_without_json_decode_error(tmp_path):
+    img = tmp_path / "wall.jpg"
+    img.write_bytes(b"x")
+
+    def handler(request):
+        if request.method == "POST":
+            return httpx.Response(202, json={"job_id": "j1"})
+        return httpx.Response(502, text="<html>Bad Gateway</html>")
+
+    with pytest.raises(RuntimeError, match="Bad Gateway"):
+        _client(handler).analyze_photo(str(img))
+
+
 def test_poll_deadline_raises_timeout(tmp_path):
     img = tmp_path / "wall.jpg"
     img.write_bytes(b"x")
@@ -82,6 +95,7 @@ def test_run_walkthrough_sends_all_photos_and_notes(tmp_path):
         if request.url.path == "/walkthrough-jobs" and request.method == "POST":
             body = request.read()
             assert b"img0" in body and b"img1" in body and b"damp smell" in body
+            assert b"stain here" in body
             return httpx.Response(202, json={"job_id": "w1"})
         return httpx.Response(200, json={"report": {"per_photo": []}})
 
