@@ -27,3 +27,4 @@ results/walkthrough_runs_realistic/
 # Claude Code scaffolding stays local (never push)
 CLAUDE.md
 .claude/
+results/*_per_image.jsonl
