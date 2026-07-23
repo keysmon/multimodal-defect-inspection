@@ -9,7 +9,10 @@ free-text concern note become a grounded, cited draft diagnostic in which
 every claim either cites a retrieved standards card or is replaced by an
 explicit "not observed - verify on-site".
 
-**Live demo:** https://d2wxjiu5re5mow.cloudfront.net
+**Demo:** the hosted demo has been retired (project archived; see the
+roadmap below for where development stopped). Everything runs locally -
+see "Run locally" - and the MCP server points wherever `SITECHECK_API_URL`
+says.
 
 | Fine-tuned classifier | Guidance retrieval | Audio anomaly (pump) | Walkthrough groundedness |
 | :---: | :---: | :---: | :---: |
@@ -124,11 +127,12 @@ Claude Desktop config:
 Tools: `analyze_photo(path, note)` - ranked defect classes, severity, and
 cited guidance; `search_standards(query)` - the cited corpus;
 `run_walkthrough(photo_paths, visit_note, photo_notes)` - a grounded, cited
-initial-diagnostic report. Set `SITECHECK_API_URL` to target a self-hosted
-API (defaults to the public demo, which may cold-start on the first call).
-The server is a thin client of the public HTTP API - it holds no models or
-credentials. Status: new; unit-tested end to end with the live search path
-verified, full agent-session round-trip on the roadmap below.
+initial-diagnostic report. Set `SITECHECK_API_URL` to your API instance
+(defaults to a local server at `http://localhost:8000`; see "Run locally").
+The server is a thin client of the HTTP API - it holds no models or
+credentials. Status: unit-tested end to end (the search path was verified
+against the hosted API before it was retired); full agent-session
+round-trip on the roadmap below.
 
 ## Roadmap
 

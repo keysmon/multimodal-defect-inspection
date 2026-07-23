@@ -105,5 +105,6 @@ def test_run_walkthrough_sends_all_photos_and_notes(tmp_path):
     assert "report" in result
 
 
-def test_default_api_url_is_cloudfront_api():
-    assert DEFAULT_API_URL == "https://d2wxjiu5re5mow.cloudfront.net/api"
+def test_default_api_url_is_local():
+    # The hosted demo was retired 2026-07-23; the default targets a local API.
+    assert DEFAULT_API_URL == "http://localhost:8000"

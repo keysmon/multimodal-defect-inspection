@@ -1,8 +1,11 @@
-"""Thin HTTP client for the deployed SiteCheck API (MCP server backend).
+"""Thin HTTP client for the SiteCheck API (MCP server backend).
 
 Holds NO models and NO AWS credentials - it is an honest client of the same
-public API the browser uses. Async jobs (202 + poll) are resolved INSIDE each
+HTTP API the browser uses. Async jobs (202 + poll) are resolved INSIDE each
 call so MCP clients get one blocking tool call with the final result.
+
+Default target is a local API (see README "Run locally"); point
+SITECHECK_API_URL at any deployed instance instead.
 """
 from __future__ import annotations
 
@@ -13,7 +16,7 @@ from pathlib import Path
 
 import httpx
 
-DEFAULT_API_URL = "https://d2wxjiu5re5mow.cloudfront.net/api"
+DEFAULT_API_URL = "http://localhost:8000"
 
 
 class SiteCheckClient:
