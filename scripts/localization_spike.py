@@ -63,11 +63,13 @@ def sample_manifest_rows(rows, n_per_class: int, seed: int):
     return picked
 
 
-def ground_image(describer, image, class_name: str):
+def ground_image(describer, processor, image, class_name: str):
     """One grounding generation on the BASE model. Returns (boxes, input_size).
 
-    Mirrors Describer.chat() but keeps the processor inputs so image_grid_thw
-    (the smart-resized extent) is available for coordinate mapping.
+    Mirrors Describer.chat() but uses a max_pixels-bounded processor (see main)
+    and keeps the processor inputs so image_grid_thw (the smart-resized extent)
+    is available for coordinate mapping. Generation still runs on the shared
+    describer.model / describer.device.
     """
     import torch
 
@@ -81,10 +83,10 @@ def ground_image(describer, image, class_name: str):
             ],
         }
     ]
-    text = describer.processor.apply_chat_template(
+    text = processor.apply_chat_template(
         messages, add_generation_prompt=True, tokenize=False
     )
-    inputs = describer.processor(
+    inputs = processor(
         text=[text], images=[image], return_tensors="pt"
     ).to(describer.device)
     input_size = input_size_from_grid(inputs["image_grid_thw"][0])
@@ -92,7 +94,7 @@ def ground_image(describer, image, class_name: str):
         output_ids = describer.model.generate(
             **inputs, max_new_tokens=256, do_sample=False
         )
-    raw = describer.processor.batch_decode(
+    raw = processor.batch_decode(
         [row[inputs.input_ids.shape[1]:] for row in output_ids],
         skip_special_tokens=True,
     )[0]
@@ -166,8 +168,9 @@ def main() -> None:
     args = parser.parse_args()
 
     import torch
+    from transformers import AutoProcessor
 
-    from defectlens.serve.describer import Describer
+    from defectlens.serve.describer import QWEN_MODEL, Describer
 
     targets = [
         (Path(r.image_path), r.unified_label)
@@ -180,13 +183,21 @@ def main() -> None:
         "Spike must run the BASE model - set DEFECTLENS_ADAPTER=/nonexistent"
     )
 
+    # Bound grounding to the production pixel budget. Describer builds its own
+    # processor bare (no max_pixels), so full-resolution field photos explode
+    # the vision-token count and OOM MPS attention. The future product path
+    # (deploy/sagemaker/inference.py) pins max_pixels=589824 (=768^2, the
+    # train/eval budget MAX_PIXELS); measuring grounding at any other resolution
+    # would score the model at a scale the product never runs. Match it here.
+    grounding_processor = AutoProcessor.from_pretrained(QWEN_MODEL, max_pixels=589824)
+
     args.out.mkdir(parents=True, exist_ok=True)
     from PIL import Image
 
     entries, raw_log = [], {}
     for path, cls in targets:
         image = Image.open(path).convert("RGB")
-        boxes, input_size, raw = ground_image(describer, image, cls)
+        boxes, input_size, raw = ground_image(describer, grounding_processor, image, cls)
         overlay_name = f"{path.stem}__{cls}.png"
         render_overlay(image, boxes, args.out / overlay_name)
         entries.append(
