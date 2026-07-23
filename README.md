@@ -52,6 +52,7 @@ the v2 split, so backward compatibility is a measured number, not a hope:
 | v1 frozen split backward-compat (2,648 imgs) | **0.841** vs the 0.831 floor (v1 adapter: 0.851) |
 | New classes | insulator 0.978 / bulge 0.974 / finish_detachment 0.941 top-1 |
 | VT corrosion severity states | corrosion recognized on fair 0.93 / poor 1.00 / severe 1.00 |
+| Cross-dataset OOD (METU crack, 400 imgs) | **0.900** macro top-1 (v1 adapter: 0.877) |
 
 The walkthrough enrichment gate's confidence floor is now evidence-derived
 (0.375, max kept-correct at <= 5% merged-incorrect over 4,824 per-image
@@ -81,8 +82,7 @@ one-exemplar classes; `results/exemplar_retrieval.json`). Attribution:
 - **ML** - PyTorch + Hugging Face: QLoRA fine-tune of Qwen2.5-VL-3B (trained
   on EC2 spot; two cycles: 0.472 -> 0.851 on 9 classes, then 0.903 on the
   12-class multi-material taxonomy with backward-compat measured on the
-  archived v1 split; 0.877 maintained on a cross-dataset OOD split, v1
-  adapter); CLIP/CLAP embeddings for cross-modal + exemplar-image RAG and
+  archived v1 split and 0.900 on a cross-dataset OOD split); CLIP/CLAP embeddings for cross-modal + exemplar-image RAG and
   unsupervised audio anomaly scoring; a controlled thermal-fusion study
   reported as an honest negative (init-confound resolved to parity).
 - **Serving** - FastAPI on a Lambda container behind CloudFront + API
