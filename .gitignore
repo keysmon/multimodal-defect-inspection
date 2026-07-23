@@ -23,6 +23,8 @@ results/walkthrough_eval.rejected.json
 results/walkthrough_runs/
 results/walkthrough_eval_realistic.rejected.json
 results/walkthrough_runs_realistic/
+# localization spike overlays + rating sheet - transient, never committed
+results/localization_spike/
 
 # Claude Code scaffolding stays local (never push)
 CLAUDE.md
