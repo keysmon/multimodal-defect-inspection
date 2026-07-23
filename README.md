@@ -108,6 +108,40 @@ worker) and `DEFECTLENS_DESCRIBER=bedrock` on the API process. Tests:
 `bash scripts/fetch_realistic_walkthrough.sh` (licensed; see
 `data/manifests/walkthrough_realistic_attribution.md`).
 
+## Use it from an agent (MCP)
+
+The system's three capabilities - photo analysis, standards search, and
+walkthrough reports - are exposed as [Model Context Protocol](https://modelcontextprotocol.io)
+tools, so any MCP client (Claude Desktop, Claude Code, custom agents) can
+drive the live API:
+
+    pip install -e ".[mcp]"
+    claude mcp add sitecheck -- sitecheck-mcp      # Claude Code
+
+Claude Desktop config:
+
+    { "mcpServers": { "sitecheck": { "command": "sitecheck-mcp" } } }
+
+Tools: `analyze_photo(path, note)` - ranked defect classes, severity, and
+cited guidance; `search_standards(query)` - the cited corpus;
+`run_walkthrough(photo_paths, visit_note, photo_notes)` - a grounded, cited
+initial-diagnostic report. Set `SITECHECK_API_URL` to target a self-hosted
+API (defaults to the public demo, which may cold-start on the first call).
+The server is a thin client of the public HTTP API - it holds no models or
+credentials. Status: new; unit-tested end to end with the live search path
+verified, full agent-session round-trip on the roadmap below.
+
+## Roadmap
+
+- Agent-session end-to-end harness for the MCP server (scripted MCP client
+  driving all three tools against the live API).
+- Defect localization overlays (bounding boxes on findings): a controlled
+  grounding experiment on the base VLM has run; the feature ships only if
+  the hand-rated verdict clears the pre-registered bar, otherwise it gets
+  reported as an honest negative alongside the thermal study.
+- Video walkthrough input: client-side frame extraction (sharpness-ranked,
+  budget-capped) feeding the existing photo pipeline; designed, not built.
+
 ## Data and licenses
 
 Trained/evaluated on CODEBRIM, BD3, SDNET2018, MBDD2025, VT Corrosion
