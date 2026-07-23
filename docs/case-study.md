@@ -118,3 +118,40 @@ Not a final inspection verdict, not a general home-inspection classifier,
 and not a system that claims its narrative is "verified" - the disclaimer,
 the flagged-claims log, and the stated limits of each metric are as much a
 part of the product as the report itself.
+
+## Addendum - taxonomy v2 + documented-case exemplars (2026-07)
+
+A second fine-tune cycle widened the classifier from 9 concrete-centric
+classes to 12 across masonry, brick, timber, steel, and grid electrical
+insulators, using three added licensed datasets (MBDD2025, VT Corrosion
+Condition State, insulator defect detection).
+The engineering story repeats the project's discipline rather than its
+numbers:
+
+- **Backward compatibility as a measured contract.** The v1 frozen test
+  split was archived byte-identical before regeneration, an invariant test
+  proves every v1 test row survives in the v2 split (a property of the
+  per-(dataset,label) split RNG), and the v2 adapter had to clear a
+  pre-registered floor on the untouched v1 split (0.841 vs floor 0.831;
+  v1 adapter 0.851). The de-scope path for a miss was written down before
+  training started.
+- **An evidence-derived gate.** The walkthrough enrichment floor was
+  observed live dropping CORRECT labels at 0.436 confidence under the
+  hand-picked 0.5 threshold - a symptom of softmax mass spreading over a
+  wider taxonomy. The v2 floor (0.375) is derived from 4,824 per-image
+  confidences with a published curve (max kept-correct subject to <= 5%
+  merged-incorrect), and the live drop scenario is regression-locked to
+  merge.
+- **License posture as code.** The exemplar layer serves only public
+  domain / CC0 / CC BY images; the contract (including per-image recorded
+  license checks and required credits) is enforced by tests against the
+  committed manifest, and CC BY-SA material the project already possessed
+  was deliberately excluded from serving.
+- **Honest metric wording.** Exemplar retrieval is reported as pool-limited
+  class-consistency (0.436 top-1 overall, strong only where the pool is
+  deep), not as relevance; corrosion severity is reported as
+  recognition-of-the-class per AASHTO state (the band is rule-mapped),
+  not as model severity grading.
+- **Verified negatives, kept.** No license-clean HVAC-equipment or
+  electrical-panel visual datasets exist; the insulator classes cover grid
+  transmission hardware, not panels. Both caveats ship in the README.
