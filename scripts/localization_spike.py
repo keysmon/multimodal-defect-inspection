@@ -97,7 +97,7 @@ def ground_image(describer, processor, image, class_name: str):
     raw = processor.batch_decode(
         [row[inputs.input_ids.shape[1]:] for row in output_ids],
         skip_special_tokens=True,
-    )[0]
+    )[0].strip()
     orig_size = (image.height, image.width)
     boxes = [
         {**b, "bbox_2d": rescale_box(b["bbox_2d"], input_size, orig_size)}
@@ -195,10 +195,16 @@ def main() -> None:
     from PIL import Image
 
     entries, raw_log = [], {}
+    seen_overlay_names: set[str] = set()
     for path, cls in targets:
         image = Image.open(path).convert("RGB")
         boxes, input_size, raw = ground_image(describer, grounding_processor, image, cls)
         overlay_name = f"{path.stem}__{cls}.png"
+        if overlay_name in seen_overlay_names:
+            # Two sampled targets sharing a stem+class would silently
+            # overwrite each other's overlay on disk - fail loud instead.
+            raise SystemExit(f"overlay filename collision: {overlay_name}")
+        seen_overlay_names.add(overlay_name)
         render_overlay(image, boxes, args.out / overlay_name)
         entries.append(
             {"name": path.name, "class": cls, "boxes": boxes, "overlay": overlay_name}

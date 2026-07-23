@@ -25,3 +25,14 @@ def test_sample_is_deterministic_and_capped_per_class():
     assert [r.image_path for r in picked] == [
         r.image_path for r in sample_manifest_rows(rows, n_per_class=4, seed=42)
     ]
+    # A different seed must produce a different sample - otherwise the seed
+    # argument would be dead code (e.g. rng constructed but not actually
+    # varying the draw). 10 rows per class / 4 sampled leaves enough spread
+    # that seed=42 and seed=43 landing on the same picks would itself be a bug
+    # signal, not a fluke.
+    picked_other_seed = sample_manifest_rows(rows, n_per_class=4, seed=43)
+    assert [r.image_path for r in picked] != [
+        r.image_path for r in picked_other_seed
+    ]
+    # golden pin: locks the f"{seed}:{label}" RNG scheme
+    assert picked[0].image_path == "img_crack_3.png"
